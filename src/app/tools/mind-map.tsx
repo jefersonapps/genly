@@ -1,0 +1,819 @@
+import { Button } from '@/components/ui/Button';
+import { ColorPicker } from '@/components/ui/ColorPicker';
+import { exportToImage } from '@/lib/mindmap/exportUtils';
+import { computeChildDirs, computeHiddenNodes, computeLayout } from '@/lib/mindmap/layoutEngine';
+import { MindMapCanvas } from '@/lib/mindmap/MindMapCanvas';
+import { useMapGestures } from '@/lib/mindmap/useMapGestures';
+import { NODE_DEFAULT_HEIGHT, NODE_DEFAULT_WIDTH, useMindMapStore } from '@/lib/mindmap/useMindMapStore';
+import { useTheme } from '@/providers/ThemeProvider';
+import {
+  BottomSheetBackdrop, BottomSheetModal,
+  BottomSheetTextInput, BottomSheetView,
+} from '@gorhom/bottom-sheet';
+import { useFont } from '@shopify/react-native-skia';
+import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
+import {
+  ChevronLeft,
+  Download,
+  Expand,
+  FilePlus2, FileText, Image as ImageIcon,
+  Maximize,
+  Network,
+  Palette,
+  Plus,
+  Settings,
+  Share2,
+  Trash2, Type
+} from 'lucide-react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+import type { Task } from '@/db/schema';
+import { addMedia, createTask, getAllTasks, getGroupByName, getTaskById, updateTask } from '@/services/taskService';
+import * as MediaLibrary from 'expo-media-library';
+import { useLocalSearchParams } from 'expo-router';
+import * as Sharing from 'expo-sharing';
+import { GestureDetector } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+
+export default function MindMapScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
+  const primaryColor = isDark ? '#3B82F6' : '#2563EB';
+
+  const font = useFont(require('../../../assets/fonts/Montserrat-SemiBold.ttf'), 13);
+
+  const nodes          = useMindMapStore((s) => s.nodes);
+  const rootId         = useMindMapStore((s) => s.rootId);
+  const selectedId     = useMindMapStore((s) => s.selectedId);
+  const addNode        = useMindMapStore((s) => s.addNode);
+  const deleteNode     = useMindMapStore((s) => s.deleteNode);
+  const updateNodeTitle = useMindMapStore((s) => s.updateNodeTitle);
+  const pinNodePosition = useMindMapStore((s) => s.pinNodePosition);
+  const resizeNode     = useMindMapStore((s) => s.resizeNode);
+  const setNodeColor   = useMindMapStore((s) => s.setNodeColor);
+  const toggleCollapse = useMindMapStore((s) => s.toggleCollapse);
+  const toggleCollapseDir = useMindMapStore((s) => s.toggleCollapseDir);
+  const expandAll      = useMindMapStore((s) => s.expandAll);
+  const collapseAll    = useMindMapStore((s) => s.collapseAll);
+  const initRoot       = useMindMapStore((s) => s.initRoot);
+  const select         = useMindMapStore((s) => s.select);
+  const canvasBgColor  = useMindMapStore((s) => s.canvasBgColor);
+  const setCanvasBgColor = useMindMapStore((s) => s.setCanvasBgColor);
+  const bgPattern      = useMindMapStore((s) => s.bgPattern);
+  const setBgPattern   = useMindMapStore((s) => s.setBgPattern);
+
+  const layoutNodes = useMemo(() => computeLayout(nodes, rootId), [nodes, rootId]);
+  const childDirsMap = useMemo(() => computeChildDirs(layoutNodes), [layoutNodes]);
+  const hiddenNodes = useMemo(() => computeHiddenNodes(layoutNodes), [layoutNodes]);
+
+  const bottomSheetRef = useRef<BottomSheetModal>(null);
+  const colorSheetRef  = useRef<BottomSheetModal>(null);
+  const exportSheetRef = useRef<BottomSheetModal>(null);
+  const bgSheetRef     = useRef<BottomSheetModal>(null);
+  
+  const editSnapPoints = useMemo(() => ['35%'], []);
+  const colorSnapPoints = useMemo(() => ['40%'], []);
+  const exportSnapPoints = useMemo(() => ['50%'], []);
+  const bgSnapPoints   = useMemo(() => ['55%'], []);
+  
+  const [editText, setEditText] = useState('');
+  
+  const [isExporting, setIsExporting] = useState(false);
+  const [showNoteSelector, setShowNoteSelector] = useState(false);
+  const [allNotes, setAllNotes] = useState<Task[]>([]);
+
+  const loadNotes = async () => {
+    const list = await getAllTasks();
+    setAllNotes(list);
+  };
+
+  const handleAddToNote = async (taskId: number) => {
+    setShowNoteSelector(false);
+    setIsExporting(true);
+    // slight delay to let modal close gracefully
+    setTimeout(async () => {
+      try {
+        const uri = await exportToImage(layoutNodes, isDark, font, canvasBgColor, bgPattern);
+        if (uri) {
+           await addMedia(taskId, uri, 'image');
+           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+           Alert.alert('Sucesso', 'Mapa mental adicionado à nota com sucesso!');
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsExporting(false);
+      }
+    }, 150);
+  };
+
+  const handleShareImage = async () => {
+    exportSheetRef.current?.dismiss();
+    setIsExporting(true);
+    try {
+      const uri = await exportToImage(layoutNodes, isDark, font, canvasBgColor, bgPattern);
+      if (uri) await Sharing.shareAsync(uri, { mimeType: 'image/png' });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleSaveImage = async () => {
+    exportSheetRef.current?.dismiss();
+    setIsExporting(true);
+    try {
+      const uri = await exportToImage(layoutNodes, isDark, font, canvasBgColor, bgPattern);
+      if (uri) {
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        if (status === 'granted') {
+          await MediaLibrary.createAssetAsync(uri);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Alert.alert('Sucesso', 'A imagem foi salva na sua galeria!');
+        } else {
+          await Sharing.shareAsync(uri, { mimeType: 'image/png' });
+        }
+      }
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const { taskId, template } = useLocalSearchParams<{ taskId?: string, template?: string }>();
+
+  // Use a ref to prevent double initialization of templates on mount
+  const hasInitializedTemplate = useRef(false);
+  const hasCenteredOnLoad = useRef(false);
+
+  const handleSaveToDatabase = async () => {
+    exportSheetRef.current?.dismiss();
+    setIsExporting(true);
+    try {
+      const mapsGroup = await getGroupByName("Mapas Mentais");
+      if (!mapsGroup) {
+         Alert.alert("Erro", "Grupo 'Mapas Mentais' não encontrado.");
+         return;
+      }
+
+      const rootNode = nodes.find(n => n.id === rootId);
+      const minTitle = rootNode ? rootNode.title : "Novo Mapa Mental";
+
+      const mapData = {
+          nodes,
+          rootId,
+          canvasBgColor,
+          bgPattern
+      };
+
+      if (taskId) {
+          await updateTask(Number(taskId), {
+              title: minTitle,
+              content: JSON.stringify(mapData),
+              groupId: mapsGroup.id
+          });
+      } else {
+          // Create new task
+          const newTask = await createTask(minTitle, JSON.stringify(mapData), mapsGroup.id);
+          router.setParams({ taskId: newTask.id.toString() });
+      }
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('Sucesso', 'Mapa mental salvo no banco de dados!');
+
+    } catch (e) {
+      console.error("Failed to save mind map:", e);
+      Alert.alert("Erro", "Falha ao salvar o mapa mental.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+
+
+  useEffect(() => {
+    async function hydrateFromTask() {
+      if (taskId) {
+        try {
+          const task = await getTaskById(Number(taskId));
+          if (task && task.content) {
+            const mapData = JSON.parse(task.content);
+            if (mapData && mapData.nodes) {
+               useMindMapStore.getState().setWholeState({
+                  nodes: mapData.nodes,
+                  rootId: mapData.rootId,
+                  canvasBgColor: mapData.canvasBgColor,
+                  bgPattern: mapData.bgPattern || 'none'
+               });
+            }
+          }
+        } catch (e) {
+          console.error("Failed to parse map data from task", e);
+        }
+      } else if (template && !hasInitializedTemplate.current) {
+         hasInitializedTemplate.current = true;
+         // Clear current state first
+         const store = useMindMapStore.getState();
+         store.nodes.forEach(n => store.deleteNode(n.id));
+
+         if (template === 'brainstorming') {
+             store.addNode(undefined as any, 'Ideia Principal'); // Add root
+             // Need to use a slight delay or directly manipulate state because nodes update async in zustand
+             setTimeout(() => {
+                 const newRoot = useMindMapStore.getState().nodes[0];
+                 if (newRoot) {
+                     useMindMapStore.getState().addNode(newRoot.id, 'Prós');
+                     useMindMapStore.getState().addNode(newRoot.id, 'Contras');
+                     useMindMapStore.getState().addNode(newRoot.id, 'Recursos');
+                 }
+             }, 100);
+         } else if (template === 'study') {
+             store.addNode(undefined as any, 'Tópico de Estudo');
+             setTimeout(() => {
+                 const newRoot = useMindMapStore.getState().nodes[0];
+                 if (newRoot) {
+                     useMindMapStore.getState().addNode(newRoot.id, 'Conceitos Chave');
+                     useMindMapStore.getState().addNode(newRoot.id, 'Exemplos');
+                     useMindMapStore.getState().addNode(newRoot.id, 'Dúvidas');
+                 }
+             }, 100);
+         }
+         // Can add more templates here in the future
+      }
+    }
+    hydrateFromTask();
+  }, [taskId, template]);
+
+
+  const openEditSheet = useCallback((id: string) => {
+    select(id);
+    const node = nodes.find((n) => n.id === id);
+    if (node) {
+      setEditText(node.title === 'Novo tópico' ? '' : node.title);
+      bottomSheetRef.current?.present();
+    }
+  }, [nodes, select]);
+
+  useEffect(() => {
+    if (selectedId && !layoutNodes.find((n) => n.id === selectedId)) select(null);
+  }, [layoutNodes, selectedId, select]);
+
+  const handleNodeTap = useCallback((id: string) => {
+    select(id);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [select]);
+
+  const handleDoubleTap = useCallback((id: string) => {
+    openEditSheet(id);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  }, [openEditSheet]);
+
+  const handleBackgroundTap = useCallback(() => { select(null); }, [select]);
+
+  const handleDragStart = useCallback((id: string) => {
+    select(id);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  }, [select]);
+
+  const handleDragEnd = useCallback((id: string, absX: number, absY: number) => {
+    pinNodePosition(id, absX, absY);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [pinNodePosition]);
+
+  /**
+   * Resize end: persist final dimensions.
+   * resizeNodeId stays set in the shared value so the canvas keeps rendering
+   * at resizeLiveW/H until the store re-renders — same no-flicker pattern
+   * used for drag.
+   */
+  const handleResizeEnd = useCallback((id: string, width: number, height: number) => {
+    resizeNode(id, width, height);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [resizeNode]);
+
+  const handleCollapseDirTap = useCallback((nodeId: string, dir: string) => {
+    toggleCollapseDir(nodeId, dir);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [toggleCollapseDir]);
+
+  const callbacks = useMemo(() => ({
+    onNodeTap: handleNodeTap,
+    onNodeDoubleTap: handleDoubleTap,
+    onBackgroundTap: handleBackgroundTap,
+    onDragStart: handleDragStart,
+    onDragEnd: handleDragEnd,
+    onResizeEnd: handleResizeEnd,
+    onCollapseDirTap: handleCollapseDirTap,
+  }), [handleNodeTap, handleDoubleTap, handleBackgroundTap, handleDragStart, handleDragEnd, handleResizeEnd, handleCollapseDirTap]);
+
+  const { gesture, transform, dragState, resizeState, forceClearDrag } =
+    useMapGestures(layoutNodes, callbacks);
+
+  const saveEdit = useCallback(() => {
+    if (selectedId && editText.trim()) updateNodeTitle(selectedId, editText.trim());
+    bottomSheetRef.current?.dismiss();
+  }, [selectedId, editText, updateNodeTitle]);
+
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+    ),
+    [],
+  );
+
+  const handleAddChild = useCallback(() => {
+    const parentId = selectedId || rootId;
+    if (!parentId) return;
+    addNode(parentId, 'Novo tópico');
+    // Clear parent's directional collapses so new child is visible
+    const parent = nodes.find((n) => n.id === parentId);
+    if (parent?.collapsed) toggleCollapse(parentId);
+    if (parent?.collapsedDirs && parent.collapsedDirs.length > 0) {
+      for (const dir of parent.collapsedDirs) {
+        toggleCollapseDir(parentId, dir);
+      }
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [selectedId, rootId, addNode, nodes, toggleCollapse, toggleCollapseDir]);
+
+  const handleDelete = useCallback(() => {
+    if (!selectedId || selectedId === rootId) return;
+    deleteNode(selectedId);
+    forceClearDrag();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  }, [selectedId, rootId, deleteNode, forceClearDrag]);
+
+  const handleZoomToFit = useCallback(() => {
+    if (layoutNodes.length === 0) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const n of layoutNodes) {
+      minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
+      maxX = Math.max(maxX, n.x + n.width); maxY = Math.max(maxY, n.y + n.height);
+    }
+    const PAD = 60;
+    const contentW = maxX - minX + PAD * 2;
+    const contentH = maxY - minY + PAD * 2;
+    const viewW = SCREEN_W;
+    const viewH = SCREEN_H - insets.top - insets.bottom - 120;
+    const newScale = Math.min(viewW / contentW, viewH / contentH, 1.2);
+    transform.scale.value = newScale;
+    transform.translateX.value = viewW / 2 - (minX - PAD + contentW / 2) * newScale;
+    transform.translateY.value = viewH / 2 - (minY - PAD + contentH / 2) * newScale;
+  }, [layoutNodes, transform, insets, SCREEN_W, SCREEN_H]);
+
+  // Center on load for existing tasks
+  useEffect(() => {
+    if (nodes.length > 0 && taskId && !hasCenteredOnLoad.current) {
+      hasCenteredOnLoad.current = true;
+      // Give layout memo a chance to update
+      requestAnimationFrame(() => {
+        handleZoomToFit();
+      });
+    }
+  }, [nodes, taskId, handleZoomToFit]);
+
+  const selectedNode = layoutNodes.find((n) => n.id === selectedId);
+
+
+  // If loading a map from DB and nodes array is not hydrated yet or creating new
+  if (nodes.length === 0) {
+    return (
+      <View style={{ paddingTop: insets.top }} className="flex-1 bg-surface">
+        <View className="flex-row items-center border-b border-border/10 px-4 pb-4 pt-2">
+          <TouchableOpacity onPress={() => router.back()} className="mr-3 p-2 -ml-2">
+            <ChevronLeft size={28} color={isDark ? '#FFFFFF' : '#000000'} />
+          </TouchableOpacity>
+          <Text className="font-sans-semibold text-xl text-on-surface">Mapa Mental</Text>
+        </View>
+        <View className="flex-1 justify-center items-center px-8">
+          <View className={`mb-6 h-24 w-24 items-center justify-center rounded-full ${isDark ? 'bg-primary/20' : 'bg-primary/10'}`}>
+            <Network size={48} color={primaryColor} />
+          </View>
+          <Text className="font-sans-semibold text-xl text-on-surface text-center mb-2">
+            Nenhum Mapa Mental
+          </Text>
+          <Text className="font-sans text-base text-on-surface-secondary text-center mb-8">
+            Toque abaixo para criar seu primeiro mapa mental interativo.
+          </Text>
+          <TouchableOpacity
+            onPress={() => {
+              initRoot('Ideia Central');
+              // Center the root node on screen after the canvas mounts
+              requestAnimationFrame(() => {
+                transform.translateX.value = SCREEN_W / 2 - NODE_DEFAULT_WIDTH / 2;
+                transform.translateY.value = SCREEN_H / 2 - NODE_DEFAULT_HEIGHT / 2 - 60;
+              });
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            }}
+            className="rounded-full px-8 py-4 gap-3 items-center justify-center flex-row"
+            style={{ backgroundColor: primaryColor }}
+          >
+            <Plus size={20} color="#FFFFFF" />
+            <Text className="font-sans-bold text-white text-base">Criar Mapa Mental</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ paddingTop: insets.top }} className="flex-1 bg-surface">
+      {/* Header */}
+      <View className="flex-row items-center justify-between border-b border-border/10 px-4 pb-3 pt-2">
+        <View className="flex-row items-center">
+          <TouchableOpacity onPress={() => router.back()} className="mr-3 p-2 -ml-2">
+            <ChevronLeft size={28} color={isDark ? '#FFFFFF' : '#000000'} />
+          </TouchableOpacity>
+          <Text className="font-sans-semibold text-xl text-on-surface">Mapa Mental</Text>
+        </View>
+        <View className="flex-row items-center gap-1">
+          <TouchableOpacity onPress={handleZoomToFit} className="p-2">
+            <Maximize size={22} color={isDark ? '#D4D4D8' : '#52525B'} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              bgSheetRef.current?.present();
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+            className="p-2"
+          >
+            <Settings size={22} color={isDark ? '#D4D4D8' : '#52525B'} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              exportSheetRef.current?.present();
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+            className="p-2"
+          >
+            <Share2 size={22} color={isDark ? '#D4D4D8' : '#52525B'} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              const allCollapsed = nodes.every(
+                (n) => {
+                  const hasChildren = nodes.some((c) => c.parentId === n.id);
+                  if (!hasChildren) return true;
+                  return n.collapsed || (n.collapsedDirs && n.collapsedDirs.length > 0);
+                },
+              );
+              if (allCollapsed) expandAll(); else collapseAll();
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+            className="p-2"
+          >
+            <Expand size={22} color={isDark ? '#D4D4D8' : '#52525B'} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Canvas */}
+      <GestureDetector gesture={gesture}>
+        <View style={styles.canvasContainer}>
+          <MindMapCanvas
+            nodes={layoutNodes}
+            selectedId={selectedId}
+            translateX={transform.translateX}
+            translateY={transform.translateY}
+            scale={transform.scale}
+            primaryColor={primaryColor}
+            isDark={isDark}
+            dragState={dragState}
+            resizeState={resizeState}
+            childDirsMap={childDirsMap}
+            hiddenNodes={hiddenNodes}
+            canvasBgColor={canvasBgColor}
+            bgPattern={bgPattern}
+          />
+        </View>
+      </GestureDetector>
+
+      {/* FABs */}
+      <View style={[styles.fab, { bottom: Math.max(insets.bottom, 16) + 16 }]}>
+        <TouchableOpacity
+          onPress={handleAddChild}
+          style={[styles.fabButton, { backgroundColor: primaryColor }]}
+        >
+          <Plus size={22} color="#FFF" />
+        </TouchableOpacity>
+
+        {selectedNode && (
+          <>
+            <TouchableOpacity
+              onPress={() => selectedId && openEditSheet(selectedId)}
+              style={[styles.fabButton, {
+                backgroundColor: isDark ? '#27272A' : '#F4F4F5',
+                borderWidth: 1,
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+              }]}
+            >
+              <Type size={20} color={isDark ? '#E4E4E7' : '#3F3F46'} />
+            </TouchableOpacity>
+
+            {selectedId !== rootId && (
+              <TouchableOpacity
+                onPress={handleDelete}
+                style={[styles.fabButton, {
+                  backgroundColor: isDark ? '#27272A' : '#F4F4F5',
+                  borderWidth: 1,
+                  borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                }]}
+              >
+                <Trash2 size={24} color="#EF4444" />
+              </TouchableOpacity>
+            )}
+          </>
+        )}
+      </View>
+
+      {/* Info bar */}
+      {selectedNode && (
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => {
+            colorSheetRef.current?.present();
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
+          style={[
+            styles.infoBar,
+            {
+              bottom: Math.max(insets.bottom, 16) + 16,
+              backgroundColor: isDark ? '#18181B' : '#FFFFFF',
+              borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+            },
+          ]}
+        >
+          <View style={[
+            styles.infoDot,
+            { backgroundColor: selectedNode.color || (selectedNode.depth === 0 ? primaryColor : (isDark ? '#1E293B' : '#F0F4FF')) },
+            { borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)' }
+          ]} />
+          <Text className="font-sans-medium text-sm text-on-surface flex-1" numberOfLines={1}>
+            {selectedNode.title}
+          </Text>
+          <Palette size={16} color={isDark ? '#71717A' : '#A1A1AA'} style={{ marginLeft: 6 }} />
+          <Text className="font-sans text-xs text-on-surface-secondary ml-2">
+            Nível {selectedNode.depth}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Edit bottom sheet */}
+      <BottomSheetModal
+        ref={bottomSheetRef}
+        index={0}
+        snapPoints={editSnapPoints}
+        backdropComponent={renderBackdrop}
+        backgroundStyle={{ backgroundColor: isDark ? '#18181b' : '#f4f4f5' }}
+        handleIndicatorStyle={{ backgroundColor: isDark ? '#52525b' : '#d4d4d8' }}
+      >
+        <BottomSheetView className="p-6 gap-4" style={{ paddingBottom: Math.max(insets.bottom, 24) }}>
+          <Text className="font-sans-bold text-xl text-on-surface">Editar Tópico</Text>
+          <BottomSheetTextInput
+            value={editText}
+            onChangeText={setEditText}
+            placeholder="Título do tópico..."
+            placeholderTextColor={isDark ? '#71717A' : '#A1A1AA'}
+            autoFocus
+            style={[
+              styles.editInput,
+              {
+                backgroundColor: isDark ? '#27272A' : '#FFFFFF',
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                color: isDark ? '#FAFAFA' : '#18181B',
+              },
+            ]}
+            onSubmitEditing={saveEdit}
+            returnKeyType="done"
+          />
+          <TouchableOpacity
+            onPress={saveEdit}
+            className="rounded-2xl py-4 items-center justify-center"
+            style={{ backgroundColor: primaryColor }}
+          >
+            <Text className="font-sans-bold text-white text-base">Salvar</Text>
+          </TouchableOpacity>
+        </BottomSheetView>
+      </BottomSheetModal>
+
+      {/* Color picker bottom sheet */}
+      <BottomSheetModal
+        ref={colorSheetRef}
+        index={0}
+        snapPoints={colorSnapPoints}
+        backdropComponent={renderBackdrop}
+        backgroundStyle={{ backgroundColor: isDark ? '#18181b' : '#f4f4f5' }}
+        handleIndicatorStyle={{ backgroundColor: isDark ? '#52525b' : '#d4d4d8' }}
+      >
+        <BottomSheetView className="p-6 gap-4" style={{ paddingBottom: Math.max(insets.bottom, 24) }}>
+          <Text className="font-sans-bold text-xl text-on-surface">Cor do Nó</Text>
+          <Text className="font-sans text-sm text-on-surface-secondary -mt-1">
+            Escolha uma cor de fundo para este tópico.
+          </Text>
+          <ColorPicker
+            selectedColor={selectedNode?.color || ''}
+            onSelect={(color) => {
+              if (selectedId) {
+                setNodeColor(selectedId, color);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+            }}
+            isDark={isDark}
+            colors={['#3B82F6', '#6a57e3', '#22c55e', '#f97316', '#ec4899', '#ef4444', '#14b8a6', '#eab308', '#64748B', '#8B5CF6']}
+          />
+        </BottomSheetView>
+      </BottomSheetModal>
+
+      {/* Background Settings bottom sheet */}
+      <BottomSheetModal
+        ref={bgSheetRef}
+        index={0}
+        snapPoints={bgSnapPoints}
+        backdropComponent={renderBackdrop}
+        backgroundStyle={{ backgroundColor: isDark ? '#18181b' : '#f4f4f5' }}
+        handleIndicatorStyle={{ backgroundColor: isDark ? '#52525b' : '#d4d4d8' }}
+      >
+        <BottomSheetView className="p-6 gap-6" style={{ paddingBottom: Math.max(insets.bottom, 24) }}>
+          <View>
+            <Text className="font-sans-bold text-xl text-on-surface">Fundo do Mapa</Text>
+            <Text className="font-sans text-sm text-on-surface-secondary -mt-1">
+              Personalize a cor e o padrão do fundo.
+            </Text>
+          </View>
+          
+          <View>
+            <Text className="font-sans-semibold text-sm text-on-surface mb-3">Padrão</Text>
+            <View className="flex-row gap-3">
+              {(['none', 'grid', 'dots', 'lines'] as const).map(pattern => {
+                const isSelected = bgPattern === pattern;
+                return (
+                  <TouchableOpacity
+                    key={pattern}
+                    onPress={() => { setBgPattern(pattern); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                    className={`flex-1 py-3 items-center justify-center rounded-xl border ${isSelected ? 'border-primary bg-primary/10' : 'border-border bg-surface-secondary'}`}
+                  >
+                    <Text className={`font-sans-medium text-xs ${isSelected ? 'text-primary' : 'text-on-surface-secondary'}`}>
+                      {pattern === 'none' ? 'Nenhum' : pattern === 'grid' ? 'Grade' : pattern === 'dots' ? 'Pontos' : 'Linhas'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          <View>
+            <Text className="font-sans-semibold text-sm text-on-surface mb-3">Cor de Fundo</Text>
+            <ColorPicker
+              selectedColor={canvasBgColor || (isDark ? '#09090B' : '#FAFAFA')}
+              onSelect={(color) => {
+                setCanvasBgColor(color);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+              isDark={isDark}
+              colors={['#FAFAFA', '#09090B', '#1E293B', '#FFFBF0', '#F0F9FF', '#0F172A', '#FEE2E2', '#E0E7FF']}
+            />
+          </View>
+        </BottomSheetView>
+      </BottomSheetModal>
+
+      {/* Export Options bottom sheet */}
+      <BottomSheetModal
+        ref={exportSheetRef}
+        index={0}
+        snapPoints={exportSnapPoints}
+        backdropComponent={renderBackdrop}
+        backgroundStyle={{ backgroundColor: isDark ? '#18181b' : '#f4f4f5' }}
+        handleIndicatorStyle={{ backgroundColor: isDark ? '#52525b' : '#d4d4d8' }}
+      >
+        <BottomSheetView className="p-6 gap-4" style={{ paddingBottom: Math.max(insets.bottom, 24) }}>
+          <Text className="font-sans-bold text-xl text-on-surface mb-2">Opções de Exportação</Text>
+
+          <Button 
+            variant="ghost"
+            onPress={handleSaveToDatabase}
+            className="flex-row items-center p-4 bg-surface-secondary rounded-2xl border border-border"
+          >
+            <View className="h-10 w-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: 'rgba(59,130,246,0.1)' }}>
+              <Download size={20} color="#3B82F6" />
+            </View>
+            <Button.Text className="flex-1 text-left">Salvar no Banco de Dados</Button.Text>
+          </Button>
+
+          <Button 
+            variant="ghost"
+            onPress={() => {
+               exportSheetRef.current?.dismiss();
+               loadNotes();
+               setShowNoteSelector(true);
+            }}
+            className="flex-row items-center p-4 bg-surface-secondary rounded-2xl border border-border"
+          >
+            <View className="h-10 w-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: 'rgba(59,130,246,0.1)' }}>
+              <FilePlus2 size={20} color="#3B82F6" />
+            </View>
+            <Button.Text className="flex-1 text-left">Adicionar como imagem a uma nota existente</Button.Text>
+          </Button>
+
+          <View className="flex-row gap-3 mt-2">
+            <Button variant="ghost" className="flex-1 bg-surface-secondary border border-border rounded-2xl py-6 flex-col" onPress={handleShareImage}>
+              <ImageIcon size={24} color={isDark ? '#D4D4D8' : '#52525B'} className="mb-2" />
+              <Button.Text className="text-center text-xs">{`Compartilhar\nImagem`}</Button.Text>
+            </Button>
+            <Button variant="ghost" className="flex-1 bg-surface-secondary border border-border rounded-2xl py-6 flex-col" onPress={handleSaveImage}>
+              <Download size={24} color={isDark ? '#D4D4D8' : '#52525B'} className="mb-2" />
+              <Button.Text className="text-center text-xs">{`Salvar\nImagem`}</Button.Text>
+            </Button>
+          </View>
+
+        </BottomSheetView>
+      </BottomSheetModal>
+
+      {/* Note Selector Modal */}
+      <Modal visible={showNoteSelector} transparent animationType="slide">
+        <View className="flex-1 bg-black/50 justify-end">
+           <View className="bg-surface rounded-t-3xl pt-6 h-[80%]" style={{ paddingBottom: Math.max(insets.bottom, 24) }}>
+             <View className="px-6 mb-4 flex-row justify-between items-center">
+                <Text className="font-sans-bold text-xl text-on-surface">Selecionar Nota</Text>
+                <TouchableOpacity onPress={() => setShowNoteSelector(false)} className="p-2 -mr-2">
+                   <Text className="font-sans-medium text-primary">Cancelar</Text>
+                </TouchableOpacity>
+             </View>
+             <FlatList
+               data={allNotes}
+               keyExtractor={(item) => item.id.toString()}
+               contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}
+               ItemSeparatorComponent={() => <View className="h-px bg-border/50 my-2" />}
+               renderItem={({ item }) => (
+                  <TouchableOpacity onPress={() => handleAddToNote(item.id)} className="py-3 flex-row items-center">
+                     <FileText size={20} color={isDark ? '#D4D4D8' : '#52525B'} className="mr-3" />
+                     <View className="flex-1">
+                        <Text className="font-sans-medium text-base text-on-surface" numberOfLines={1}>{item.title}</Text>
+                        <Text className="font-sans text-xs text-on-surface-secondary mt-1">{new Date(item.updatedAt).toLocaleDateString()}</Text>
+                     </View>
+                  </TouchableOpacity>
+               )}
+               ListEmptyComponent={() => (
+                 <Text className="font-sans text-center text-on-surface-secondary py-8">Nenhuma nota encontrada.</Text>
+               )}
+             />
+           </View>
+        </View>
+      </Modal>
+
+      {/* Overlay Loading */}
+      {isExporting && (
+        <View className="absolute z-50 top-0 left-0 right-0 bottom-0 bg-black/60 items-center justify-center">
+          <View className="bg-surface p-6 rounded-2xl items-center shadow-lg">
+            <ActivityIndicator size="large" color={primaryColor} />
+            <Text className="font-sans-semibold mt-4 text-on-surface text-base">Processando...</Text>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  canvasContainer: { flex: 1, overflow: 'hidden' },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    flexDirection: 'column',
+    gap: 12,
+    alignItems: 'center',
+  },
+  fabButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  infoBar: {
+    position: 'absolute',
+    left: 20,
+    right: 96,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  infoDot: { width: 8, height: 8, borderRadius: 4, marginRight: 10 },
+  editInput: { borderWidth: 1, borderRadius: 14, padding: 16, fontSize: 16 },
+});

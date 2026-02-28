@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1771357889788,
+      "tag": "0000_yummy_onslaught",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1771366699337,
+      "tag": "0001_military_thunderbolts",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1771466093230,
+      "tag": "0002_sweet_speedball",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1771693319148,
+      "tag": "0003_solid_red_hulk",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1771767887797,
+      "tag": "0004_omniscient_luckman",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1772232610126,
+      "tag": "0005_tan_squadron_supreme",
+      "breakpoints": true
+    }
+  ]
+}

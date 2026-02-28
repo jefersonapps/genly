@@ -1,0 +1,80 @@
+diff --git a/node_modules/expo-share-intent/android/src/main/java/expo/modules/shareintent/ExpoShareIntentModule.kt b/node_modules/expo-share-intent/android/src/main/java/expo/modules/shareintent/ExpoShareIntentModule.kt
+index 0153c89..79f9819 100644
+--- a/node_modules/expo-share-intent/android/src/main/java/expo/modules/shareintent/ExpoShareIntentModule.kt
++++ b/node_modules/expo-share-intent/android/src/main/java/expo/modules/shareintent/ExpoShareIntentModule.kt
+@@ -125,11 +125,13 @@ class ExpoShareIntentModule : Module() {
+             if (intent.type!!.startsWith("text/plain")) {
+                 // text / urls
+                 if (intent.action == Intent.ACTION_SEND) {
++                    val component = intent.component?.className
+                     notifyShareIntent(mapOf(
+                         "text" to intent.getStringExtra(Intent.EXTRA_TEXT),
+                         "type" to "text",
+                         "meta" to mapOf(
+                             "title" to intent.getCharSequenceExtra(Intent.EXTRA_TITLE),
++                            "component" to component
+                         )
+                     ))
+                 } else if (intent.action == Intent.ACTION_VIEW) {
+@@ -141,15 +143,25 @@ class ExpoShareIntentModule : Module() {
+                 // files / medias
+                 if (intent.action == Intent.ACTION_SEND) {
+                     val uri = intent.parcelable<Uri>(Intent.EXTRA_STREAM);
++                    val component = intent.component?.className
+                     if (uri != null) {
+-                        notifyShareIntent(mapOf( "files" to arrayOf(getFileInfo(uri), "type" to "file")))
++                        notifyShareIntent(mapOf(
++                            "files" to arrayOf(getFileInfo(uri)),
++                            "type" to "file",
++                            "meta" to mapOf("component" to component)
++                        ))
+                     } else {
+                         notifyError("empty uri for file sharing: " + intent.action)
+                     }
+                 } else if (intent.action == Intent.ACTION_SEND_MULTIPLE) {
+                     val uris = intent.parcelableArrayList<Uri>(Intent.EXTRA_STREAM)
++                    val component = intent.component?.className
+                     if (uris != null) {
+-                        notifyShareIntent(mapOf( "files" to uris.map { getFileInfo(it) }, "type" to "file"))
++                        notifyShareIntent(mapOf(
++                            "files" to uris.map { getFileInfo(it) },
++                            "type" to "file",
++                            "meta" to mapOf("component" to component)
++                        ))
+                     } else {
+                         notifyError("empty uris array for file sharing: " + intent.action)
+                     }
+diff --git a/node_modules/expo-share-intent/build/utils.js b/node_modules/expo-share-intent/build/utils.js
+index 3d343c6..8df5739 100644
+--- a/node_modules/expo-share-intent/build/utils.js
++++ b/node_modules/expo-share-intent/build/utils.js
+@@ -68,6 +68,7 @@ export const parseShareIntent = (value, options) => {
+             text: shareIntent.text,
+             webUrl,
+             meta: {
++                ...shareIntent.meta,
+                 title: shareIntent.meta?.title ?? undefined,
+             },
+         };
+@@ -112,6 +113,7 @@ export const parseShareIntent = (value, options) => {
+                 }, [])
+                 : null,
+             type: isMedia ? "media" : "file",
++            meta: shareIntent.meta || null,
+         };
+     }
+     options.debug &&
+diff --git a/node_modules/expo-share-intent/plugin/build/withCompatibilityChecker.js b/node_modules/expo-share-intent/plugin/build/withCompatibilityChecker.js
+index 7c366a7..e03d324 100644
+--- a/node_modules/expo-share-intent/plugin/build/withCompatibilityChecker.js
++++ b/node_modules/expo-share-intent/plugin/build/withCompatibilityChecker.js
+@@ -13,7 +13,8 @@ const withCompatibilityChecker = (config, params) => {
+         return config;
+     alreayCheck = true;
+     // CROSS PLATFORM
+-    if (!config.sdkVersion?.includes(package_json_1.default.peerDependencies.expo.replace("^", ""))) {
++    // PATCHED: Allow Expo SDK 55
++    if (!config.sdkVersion?.includes(package_json_1.default.peerDependencies.expo.replace("^", "")) && !config.sdkVersion?.startsWith("55")) {
+         config_plugins_1.WarningAggregator.addWarningAndroid(package_json_1.default.name, `your Expo SDK version does not match requirements! v${package_json_1.default.version} needs ${package_json_1.default.peerDependencies.expo}, found ${config.sdkVersion}. Please refer to the compatibility table.`, `${package_json_1.default.homepage}#versioning`);
+     }
+     if (!params.disableIOS) {
