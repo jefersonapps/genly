@@ -108,17 +108,50 @@ export function computeLayout(
   const collapsedSet = new Set(nodes.filter((n) => n.collapsed).map((n) => n.id));
   const positions = new Map<string, { x: number; y: number; depth: number }>();
 
-  function layoutSubtree(nodeId: string, depth: number, topY: number): void {
-    const node = nodesMap.get(nodeId)!;
-    const { width } = resolveNodeSize(node, cfg);
+  function subtreeHeightGroup(group: MindMapNode[]): number {
+    if (group.length === 0) return 0;
+    let total = 0;
+    for (let i = 0; i < group.length; i++) {
+       total += subtreeHeight(group[i].id, nodesMap, childrenMap, collapsedSet, cfg);
+       if (i < group.length - 1) total += cfg.verticalGap;
+    }
+    return total;
+  }
 
-    // x is based on cumulative widths+gaps of ancestors — we compute it
-    // by walking depth. For simplicity we use depth * (avgWidth + gap),
-    // but since nodes can have different widths we track xOffset per node.
-    // A cleaner way: pass xOffset from parent.
-    const baseX = _getXOffset(nodeId, nodesMap, childrenMap, cfg, depth);
+  function layoutSubtree(nodeId: string, depth: number, topY: number, dir: 'left' | 'right'): void {
+    const node = nodesMap.get(nodeId)!;
+    const { width, height } = resolveNodeSize(node, cfg);
+
+    if (depth === 0) {
+      const leftChildren = (childrenMap.get(nodeId) || []).filter(c => c.layoutDir === 'left');
+      const rightChildren = (childrenMap.get(nodeId) || []).filter(c => c.layoutDir !== 'left');
+      
+      const leftH = subtreeHeightGroup(leftChildren);
+      const rightH = subtreeHeightGroup(rightChildren);
+      const maxH = Math.max(leftH, rightH, height);
+      const baseY = topY + maxH / 2 - height / 2;
+      positions.set(nodeId, { x: 0, y: baseY, depth });
+
+      if (collapsedSet.has(nodeId)) return;
+
+      let currentY = baseY + height / 2 - leftH / 2;
+      for (const child of leftChildren) {
+         const childH = subtreeHeight(child.id, nodesMap, childrenMap, collapsedSet, cfg);
+         layoutSubtree(child.id, depth + 1, currentY, 'left');
+         currentY += childH + cfg.verticalGap;
+      }
+      
+      currentY = baseY + height / 2 - rightH / 2;
+      for (const child of rightChildren) {
+         const childH = subtreeHeight(child.id, nodesMap, childrenMap, collapsedSet, cfg);
+         layoutSubtree(child.id, depth + 1, currentY, 'right');
+         currentY += childH + cfg.verticalGap;
+      }
+      return;
+    }
+
+    const baseX = _getXOffset(nodeId, nodesMap, childrenMap, cfg, depth, dir);
     const treeH = subtreeHeight(nodeId, nodesMap, childrenMap, collapsedSet, cfg);
-    const { height } = resolveNodeSize(node, cfg);
     const baseY = topY + treeH / 2 - height / 2;
     positions.set(nodeId, { x: baseX, y: baseY, depth });
 
@@ -129,12 +162,12 @@ export function computeLayout(
     let currentY = topY;
     for (const child of children) {
       const childH = subtreeHeight(child.id, nodesMap, childrenMap, collapsedSet, cfg);
-      layoutSubtree(child.id, depth + 1, currentY);
+      layoutSubtree(child.id, depth + 1, currentY, dir);
       currentY += childH + cfg.verticalGap;
     }
   }
 
-  layoutSubtree(rootId, 0, 0);
+  layoutSubtree(rootId, 0, 0, 'right');
 
   return nodes.map((node) => {
     const pos = positions.get(node.id);
@@ -156,6 +189,7 @@ function _getXOffset(
   childrenMap: Map<string, MindMapNode[]>,
   cfg: LayoutConfig,
   depth: number,
+  dir: 'left' | 'right'
 ): number {
   if (depth === 0) return 0;
 
@@ -167,11 +201,17 @@ function _getXOffset(
     current = current.parentId ? nodesMap.get(current.parentId) : undefined;
   }
 
-  // Sum widths + gaps from root down to parent
   let x = 0;
-  for (let i = 0; i < chain.length - 1; i++) {
-    const { width } = resolveNodeSize(chain[i], cfg);
-    x += width + cfg.horizontalGap;
+  if (dir === 'right') {
+    for (let i = 0; i < chain.length - 1; i++) {
+      const { width } = resolveNodeSize(chain[i], cfg);
+      x += width + cfg.horizontalGap;
+    }
+  } else {
+    for (let i = 1; i < chain.length; i++) {
+      const { width: childW } = resolveNodeSize(chain[i], cfg);
+      x -= childW + cfg.horizontalGap;
+    }
   }
   return x;
 }

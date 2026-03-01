@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/Button";
 import { ColorPickerModal } from "@/components/ui/ColorPickerModal";
 import { Dropdown } from "@/components/ui/Dropdown";
 import KatexDom from "@/components/ui/KatexDom";
+import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
 import { CaptureResult, LatexCaptureView } from "@/components/ui/LatexCaptureView";
 import LatexEditorDOM from "@/components/ui/LatexEditorDOM";
 import { RangeControl } from "@/components/ui/RangeControl";
@@ -16,7 +17,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ExpoSharing from "expo-sharing";
 import { ArrowLeft, Download, Share2 } from "lucide-react-native";
 import React, { useMemo, useRef, useState } from "react";
-import { Keyboard, KeyboardAvoidingView, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Keyboard, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 

@@ -1,13 +1,16 @@
 import { Button } from "@/components/ui/Button";
+import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
 import type { Task } from "@/db/schema";
+import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
+import { aiService, validateFlashcardsJSON } from "@/services/aiService";
 import { createTask, getAllTasks, getGroupByName, getTaskById, updateTask } from "@/services/taskService";
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, Download, FileEdit, FilePlus2, FileText, Library, PlayCircle, Plus, Trash2 } from "lucide-react-native";
+import { Download, FileEdit, FilePlus2, FileText, Library, PlayCircle, Plus, Sparkles, Trash2 } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, FlatList, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -22,6 +25,7 @@ export default function FlashcardsScreen() {
   const router = useRouter();
   const { resolvedTheme, primaryColor } = useTheme();
   const isDark = resolvedTheme === "dark";
+  const dialog = useDialog();
 
   const { taskId } = useLocalSearchParams<{ taskId?: string }>();
   const [cards, setCards] = useState<Flashcard[]>([]);
@@ -63,6 +67,81 @@ export default function FlashcardsScreen() {
     const list = await getAllTasks();
     setAllNotes(list);
   };
+
+  // AI Generation state
+  const [isAiModalVisible, setIsAiModalVisible] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleAIGenerate = useCallback(async () => {
+    if (!aiPrompt.trim()) return;
+    setIsGenerating(true);
+    setIsAiModalVisible(false);
+
+    try {
+      const result = await aiService.processJSON(aiPrompt.trim(), 'generate_flashcards');
+
+      if (!result.success) {
+        setIsGenerating(false);
+        dialog.show({
+          title: 'Erro na IA',
+          description: result.error || 'Erro desconhecido na geração.',
+          variant: 'error',
+          buttons: [
+            { text: 'Cancelar', variant: 'ghost' },
+            {
+              text: 'Tentar Novamente',
+              variant: 'default',
+              onPress: () => {
+                setTimeout(() => setIsAiModalVisible(true), 300);
+              },
+            },
+          ],
+        });
+        return;
+      }
+
+      if (!validateFlashcardsJSON(result.data)) {
+        setIsGenerating(false);
+        dialog.show({
+          title: 'Formato Inválido',
+          description: 'A IA retornou dados em um formato incompatível. Tente novamente com um prompt mais específico.',
+          variant: 'warning',
+          buttons: [
+            { text: 'Cancelar', variant: 'ghost' },
+            {
+              text: 'Gerar Novamente',
+              variant: 'default',
+              onPress: () => {
+                setTimeout(() => setIsAiModalVisible(true), 300);
+              },
+            },
+          ],
+        });
+        return;
+      }
+
+      const newCards: Flashcard[] = result.data.map((item: any, index: number) => ({
+        id: (Date.now() + index).toString(),
+        front: item.front.trim(),
+        back: item.back.trim(),
+      }));
+
+      setCards(prev => [...prev, ...newCards]);
+      setAiPrompt('');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error('AI Flashcard Error:', error);
+      dialog.show({
+        title: 'Erro',
+        description: 'Ocorreu um erro ao gerar os flashcards.',
+        variant: 'error',
+        buttons: [{ text: 'OK', variant: 'default' }],
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [aiPrompt, dialog]);
   
   const handleSaveToDatabase = async () => {
     optionsSheetRef.current?.dismiss();
@@ -201,32 +280,17 @@ export default function FlashcardsScreen() {
   };
 
   return (
-    <View className="flex-1 bg-surface" style={{ paddingTop: insets.top }}>
-      {/* Header */}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={{ flex: 1 }}
+    >
+      <View className="flex-1 bg-surface" style={{ paddingTop: insets.top }}>
+        {/* Header */}
       <View className="flex-row items-center justify-between px-4 py-2 border-b border-outline/10">
         <TouchableOpacity
           onPress={() => {
               if (isStudying) {
                   setIsStudying(false);
-                  setCurrentIdx(0);
-                  setShowBack(false);
-              } else if (isAdding) {
-                  setIsAdding(false);
-              } else {
-                  router.back();
-              }
-          }}
-          className="h-10 w-10 items-center justify-center rounded-full bg-surface-secondary/50"
-        >
-          <ChevronLeft size={24} color={isDark ? "#FFF" : "#000"} />
-        </TouchableOpacity>
-        <Text className="font-sans-bold text-lg text-on-surface">
-            {isStudying ? "Modo de Estudo" : isAdding ? "Novo Cartão" : "Gerador de Flashcards"}
-        </Text>
-        <TouchableOpacity
-           onPress={() => {
-              if (cards.length > 0) {
-                 optionsSheetRef.current?.present();
                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               } else {
                  Alert.alert("Aviso", "Crie pelo menos um cartão primeiro.");
@@ -279,6 +343,17 @@ export default function FlashcardsScreen() {
                             <Plus size={20} color="#FFF" className="mr-2" />
                             <Button.Text>Adicionar Primeiro Cartão</Button.Text>
                         </Button>
+                        <TouchableOpacity
+                            onPress={() => {
+                                setIsAiModalVisible(true);
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            }}
+                            className="w-full mt-3 flex-row items-center justify-center p-4 rounded-2xl"
+                            style={{ backgroundColor: isDark ? '#27272A' : '#F4F4F5', borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}
+                        >
+                            <Sparkles size={20} color={primaryColor} />
+                            <Text className="font-sans-bold ml-2" style={{ color: primaryColor }}>Gerar com IA</Text>
+                        </TouchableOpacity>
                     </View>
                 ) : (
                     <View className="gap-4">
@@ -308,6 +383,17 @@ export default function FlashcardsScreen() {
                 >
                     <Plus size={24} color={primaryColor} />
                     <Text style={{ color: primaryColor }} className="font-sans-bold text-lg ml-2">Adicionar Cartão</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                    onPress={() => {
+                        setIsAiModalVisible(true);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                    className="mt-3 flex-row items-center justify-center p-4 rounded-2xl"
+                    style={{ backgroundColor: isDark ? '#27272A' : '#F4F4F5', borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}
+                >
+                    <Sparkles size={20} color={primaryColor} />
+                    <Text style={{ color: primaryColor }} className="font-sans-bold text-lg ml-2">Gerar com IA</Text>
                 </TouchableOpacity>
             </View>
         )}
@@ -505,6 +591,74 @@ export default function FlashcardsScreen() {
            </View>
         </View>
       </Modal>
-    </View>
+
+      {/* AI Generation Overlay (Not a Modal to fix Android keyboard) */}
+      {isAiModalVisible && (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end', zIndex: 100 }]}>
+          <TouchableOpacity 
+            style={{ flex: 1 }} 
+            activeOpacity={1} 
+            onPress={() => setIsAiModalVisible(false)} 
+          />
+          <View className="p-6 gap-4 rounded-t-3xl" style={{ backgroundColor: isDark ? '#18181b' : '#f4f4f5', paddingBottom: Math.max(insets.bottom, 24) }}>
+            <View className="flex-row items-center gap-3 mb-1">
+              <View className="h-10 w-10 rounded-full items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                <Sparkles size={20} color={primaryColor} />
+              </View>
+              <View className="flex-1">
+                <Text className="font-sans-bold text-xl text-on-surface">Gerar com IA</Text>
+                <Text className="font-sans text-xs text-on-surface-secondary">Descreva o tema para criar flashcards</Text>
+              </View>
+            </View>
+            <TextInput
+              value={aiPrompt}
+              onChangeText={setAiPrompt}
+              placeholder="Ex: Capitais da Europa, Verbos em Inglês, Anatomia Humana..."
+              placeholderTextColor={isDark ? '#71717A' : '#A1A1AA'}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              autoFocus
+              style={{
+                backgroundColor: isDark ? '#27272A' : '#FFFFFF',
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                color: isDark ? '#FAFAFA' : '#18181B',
+                borderWidth: 1,
+                borderRadius: 14,
+                padding: 16,
+                fontSize: 16,
+                minHeight: 100,
+                fontFamily: 'Montserrat-Regular',
+              }}
+            />
+            <TouchableOpacity
+              onPress={handleAIGenerate}
+              disabled={!aiPrompt.trim() || isGenerating}
+              className="rounded-2xl py-4 items-center justify-center flex-row gap-2"
+              style={{ backgroundColor: primaryColor, opacity: (!aiPrompt.trim() || isGenerating) ? 0.5 : 1 }}
+            >
+              {isGenerating ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Sparkles size={18} color="#FFF" />
+              )}
+              <Text className="font-sans-bold text-white text-base">{isGenerating ? 'Gerando...' : 'Gerar Flashcards'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Overlay Loading */}
+      {isGenerating && (
+        <View className="absolute z-50 top-0 left-0 right-0 bottom-0 bg-black/60 items-center justify-center">
+          <View className="bg-surface p-6 rounded-2xl items-center shadow-lg">
+            <ActivityIndicator size="large" color={primaryColor} />
+            <Text className="font-sans-semibold mt-4 text-on-surface text-base">Gerando flashcards com IA...</Text>
+          </View>
+        </View>
+      )}
+      </View>
+    </KeyboardAvoidingView>
   );
 }
+

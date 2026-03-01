@@ -1,41 +1,41 @@
 import { Button } from "@/components/ui/Button";
+import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
 import { useTheme } from "@/providers/ThemeProvider";
 import {
-  Bold,
-  CheckSquare,
-  Code,
-  FileCode,
-  Heading1,
-  Heading2,
-  Heading3,
-  Italic,
-  List,
-  ListOrdered,
-  Quote,
-  Strikethrough,
-  Underline,
+    Bold,
+    CheckSquare,
+    Code,
+    FileCode,
+    Heading1,
+    Heading2,
+    Heading3,
+    Italic,
+    List,
+    ListOrdered,
+    Quote,
+    Strikethrough,
+    Underline,
 } from "lucide-react-native";
 import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useRef,
+    useState,
+    type ReactNode,
 } from "react";
 import {
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Platform,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 
+import { useKeyboard } from "@/hooks/useKeyboard";
 import type { EnrichedTextInputInstance } from "react-native-enriched";
 import { EnrichedTextInput } from "react-native-enriched";
 
@@ -206,7 +206,7 @@ function EditorRoot({
   );
   const [dataLoaded, setDataLoaded] = useState(true);
   const [stylesState, setStylesState] = useState<EditorStylesState | null>(null);
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const { isVisible: isKeyboardVisible } = useKeyboard();
 
   const editorRef = useRef<EnrichedTextInputInstance>(null);
 
@@ -222,18 +222,7 @@ function EditorRoot({
   };
 
   useEffect(() => {
-    const showSub = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
-      () => setIsKeyboardVisible(true)
-    );
-    const hideSub = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
-      () => setIsKeyboardVisible(false)
-    );
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
+    // Keyboard visibility is now handled by our useKeyboard hook
   }, []);
 
   // Set initial content after mount
@@ -475,7 +464,6 @@ function EditorContent({
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      enabled={Platform.OS === "ios" || isKeyboardVisible}
       style={{ flex: 1 }}
       keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
     >

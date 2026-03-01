@@ -1,7 +1,14 @@
 import { Button } from "@/components/ui/Button";
+import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
 import { useTheme } from "@/providers/ThemeProvider";
 import React, { useEffect, useState } from "react";
-import { KeyboardAvoidingView, Modal, Platform, Text, TextInput, View } from "react-native";
+import {
+    Modal,
+    Platform,
+    Text,
+    TextInput,
+    View,
+} from "react-native";
 
 interface PromptModalProps {
   visible: boolean;
@@ -26,7 +33,7 @@ export function PromptModal({
   onCancel,
   onConfirm,
 }: PromptModalProps) {
-  const { primaryColor, resolvedTheme } = useTheme();
+  const { resolvedTheme } = useTheme();
   const [value, setValue] = useState(defaultValue);
   const isDark = resolvedTheme === "dark";
 
@@ -48,7 +55,7 @@ export function PromptModal({
       animationType="fade"
       onRequestClose={onCancel}
     >
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1 justify-center bg-black/60 px-6"
       >

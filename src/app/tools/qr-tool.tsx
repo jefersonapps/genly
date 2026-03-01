@@ -1,13 +1,15 @@
 import { Button } from "@/components/ui/Button";
 import { ColorPicker } from "@/components/ui/ColorPicker";
+import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
 import { ToolActions } from "@/components/ui/ToolActions";
+import { useKeyboard } from "@/hooks/useKeyboard";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { withOpacity } from "@/utils/colors";
 import {
-  BottomSheetBackdrop,
-  BottomSheetModal,
-  BottomSheetView
+    BottomSheetBackdrop,
+    BottomSheetModal,
+    BottomSheetView
 } from "@gorhom/bottom-sheet";
 import BarcodeScanning from "@react-native-ml-kit/barcode-scanning";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -20,34 +22,33 @@ import * as MediaLibrary from "expo-media-library";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import {
-  Camera,
-  Check,
-  ChevronLeft,
-  Copy,
-  Download,
-  ExternalLink,
-  FilePlus2,
-  Image as ImageIcon,
-  QrCode,
-  ScanLine,
-  Share2,
-  Wifi,
-  X
+    Camera,
+    Check,
+    ChevronLeft,
+    Copy,
+    Download,
+    ExternalLink,
+    FilePlus2,
+    Image as ImageIcon,
+    QrCode,
+    ScanLine,
+    Share2,
+    Wifi,
+    X
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Animated,
-  Dimensions,
-  Keyboard,
-  KeyboardAvoidingView, PermissionsAndroid, Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  ToastAndroid,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Animated,
+    Dimensions, PermissionsAndroid,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    ToastAndroid,
+    TouchableOpacity,
+    View
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -101,20 +102,11 @@ export default function QrToolScreen() {
   const [containerWidth, setContainerWidth] = useState(0);
   const [flexToggle, setFlexToggle] = useState(true);
 
+  const { isVisible: isKeyboardVisible } = useKeyboard();
+
   useEffect(() => {
-    const keyboardShowListener = Keyboard.addListener("keyboardDidShow", () => {
-      setFlexToggle(false);
-    });
-
-    const keyboardHideListener = Keyboard.addListener("keyboardDidHide", () => {
-      setFlexToggle(true);
-    });
-
-    return () => {
-      keyboardShowListener.remove();
-      keyboardHideListener.remove();
-    };
-  }, []);
+    setFlexToggle(!isKeyboardVisible);
+  }, [isKeyboardVisible]);
 
   useEffect(() => {
     if (params?.imageUri) {
@@ -363,7 +355,6 @@ export default function QrToolScreen() {
         { paddingTop: insets.top },
         flexToggle ? { flexGrow: 1 } : { flex: 1 }
       ]}
-      enabled={!flexToggle || Platform.OS === 'ios'}
     >
       {/* Header */}
       <View className="flex-row items-center justify-between px-4 py-2 border-b border-outline/10">

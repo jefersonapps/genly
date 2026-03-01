@@ -1,22 +1,23 @@
 import { Button } from "@/components/ui/Button";
 import { Divider } from "@/components/ui/Divider";
+import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import {
-  getSetting,
-  setSetting,
+    getSetting,
+    setSetting,
 } from "@/services/settingsService";
 import { useRouter } from "expo-router";
 import { openBrowserAsync } from "expo-web-browser";
 import { ArrowLeft, Bot, Check, Info, KeyRound } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
-  KeyboardAvoidingView, Platform,
-  ScrollView,
-  StyleSheet, Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Platform,
+    ScrollView,
+    StyleSheet, Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 

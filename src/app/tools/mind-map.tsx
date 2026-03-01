@@ -1,33 +1,44 @@
 import { Button } from '@/components/ui/Button';
-import { ColorPicker } from '@/components/ui/ColorPicker';
+import { ColorPicker, PRESET_COLORS } from '@/components/ui/ColorPicker';
+import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
 import { exportToImage } from '@/lib/mindmap/exportUtils';
 import { computeChildDirs, computeHiddenNodes, computeLayout } from '@/lib/mindmap/layoutEngine';
 import { MindMapCanvas } from '@/lib/mindmap/MindMapCanvas';
 import { useMapGestures } from '@/lib/mindmap/useMapGestures';
-import { NODE_DEFAULT_HEIGHT, NODE_DEFAULT_WIDTH, useMindMapStore } from '@/lib/mindmap/useMindMapStore';
+import { NODE_DEFAULT_HEIGHT, NODE_DEFAULT_WIDTH, useMindMapStore, type MindMapNode } from '@/lib/mindmap/useMindMapStore';
+import { useDialog } from '@/providers/DialogProvider';
 import { useTheme } from '@/providers/ThemeProvider';
+import { aiService, validateMindMapJSON } from '@/services/aiService';
 import {
-  BottomSheetBackdrop, BottomSheetModal,
-  BottomSheetTextInput, BottomSheetView,
+    BottomSheetBackdrop, BottomSheetModal,
+    BottomSheetTextInput, BottomSheetView,
 } from '@gorhom/bottom-sheet';
 import { useFont } from '@shopify/react-native-skia';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import {
-  ChevronLeft,
-  Download,
-  Expand,
-  FilePlus2, FileText, Image as ImageIcon,
-  Maximize,
-  Network,
-  Palette,
-  Plus,
-  Settings,
-  Share2,
-  Trash2, Type
+    ChevronLeft,
+    Download,
+    Expand,
+    FilePlus2, FileText, Image as ImageIcon,
+    Maximize,
+    Network,
+    Palette,
+    Plus,
+    Settings,
+    Share2,
+    Sparkles,
+    Trash2, Type
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator, Alert, Dimensions, FlatList, Modal,
+    Platform, StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from "react-native";
 
 import type { Task } from '@/db/schema';
 import { addMedia, createTask, getAllTasks, getGroupByName, getTaskById, updateTask } from '@/services/taskService';
@@ -45,6 +56,7 @@ export default function MindMapScreen() {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const primaryColor = isDark ? '#3B82F6' : '#2563EB';
+  const dialog = useDialog();
 
   const font = useFont(require('../../../assets/fonts/Montserrat-SemiBold.ttf'), 13);
 
@@ -87,6 +99,58 @@ export default function MindMapScreen() {
   const [isExporting, setIsExporting] = useState(false);
   const [showNoteSelector, setShowNoteSelector] = useState(false);
   const [allNotes, setAllNotes] = useState<Task[]>([]);
+
+  // AI Generation state
+  const [isAiModalVisible, setIsAiModalVisible] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  /** Convert recursive AI JSON to flat MindMapNode[] */
+  const convertMindMapJSON = useCallback((data: { rootTitle: string; color?: string; children: any[] }): { nodes: MindMapNode[]; rootId: string } => {
+    const nodes: MindMapNode[] = [];
+    const generateId = () => Math.random().toString(36).substr(2, 9);
+
+    const rootId = generateId();
+    nodes.push({
+      id: rootId,
+      parentId: null,
+      title: data.rootTitle,
+      x: 0, y: 0,
+      width: NODE_DEFAULT_WIDTH,
+      height: NODE_DEFAULT_HEIGHT,
+      collapsed: false,
+      depth: 0,
+      color: data.color,
+    });
+
+    const processChildren = (children: any[], parentId: string, depth: number, parentDir?: 'left' | 'right') => {
+      let index = 0;
+      for (const child of children) {
+        const childId = generateId();
+        const dir = depth === 1 ? (index % 2 === 0 ? 'right' : 'left') : parentDir;
+        nodes.push({
+          id: childId,
+          parentId,
+          title: child.title,
+          x: 0, y: 0,
+          width: NODE_DEFAULT_WIDTH,
+          height: NODE_DEFAULT_HEIGHT,
+          collapsed: false,
+          layoutDir: dir,
+          depth,
+          color: child.color,
+        });
+        if (child.children && child.children.length > 0) {
+          processChildren(child.children, childId, depth + 1, dir);
+        }
+        index++;
+      }
+    };
+
+    processChildren(data.children, rootId, 1);
+    return { nodes, rootId };
+  }, []);
+
 
   const loadNotes = async () => {
     const list = await getAllTasks();
@@ -192,7 +256,6 @@ export default function MindMapScreen() {
       setIsExporting(false);
     }
   };
-
 
 
   useEffect(() => {
@@ -365,6 +428,81 @@ export default function MindMapScreen() {
     transform.translateY.value = viewH / 2 - (minY - PAD + contentH / 2) * newScale;
   }, [layoutNodes, transform, insets, SCREEN_W, SCREEN_H]);
 
+  const handleAIGenerate = useCallback(async () => {
+    if (!aiPrompt.trim()) return;
+    setIsGenerating(true);
+    setIsAiModalVisible(false);
+
+    try {
+      const result = await aiService.processJSON(aiPrompt.trim(), 'generate_mindmap', PRESET_COLORS);
+
+      if (!result.success) {
+        setIsGenerating(false);
+        dialog.show({
+          title: 'Erro na IA',
+          description: result.error || 'Erro desconhecido na geração.',
+          variant: 'error',
+          buttons: [
+            { text: 'Cancelar', variant: 'ghost' },
+            {
+              text: 'Tentar Novamente',
+              variant: 'default',
+              onPress: () => {
+                setTimeout(() => setIsAiModalVisible(true), 300);
+              },
+            },
+          ],
+        });
+        return;
+      }
+
+      if (!validateMindMapJSON(result.data)) {
+        setIsGenerating(false);
+        dialog.show({
+          title: 'Formato Inválido',
+          description: 'A IA retornou dados em um formato incompatível. Tente novamente com um prompt mais específico.',
+          variant: 'warning',
+          buttons: [
+            { text: 'Cancelar', variant: 'ghost' },
+            {
+              text: 'Gerar Novamente',
+              variant: 'default',
+              onPress: () => {
+                setTimeout(() => setIsAiModalVisible(true), 300);
+              },
+            },
+          ],
+        });
+        return;
+      }
+
+      const { nodes: newNodes, rootId: newRootId } = convertMindMapJSON(result.data);
+      useMindMapStore.getState().setWholeState({
+        nodes: newNodes,
+        rootId: newRootId,
+        selectedId: newRootId,
+      });
+
+      setAiPrompt('');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Center the generated map
+      requestAnimationFrame(() => {
+        handleZoomToFit();
+      });
+    } catch (error) {
+      console.error('AI Mind Map Error:', error);
+      dialog.show({
+        title: 'Erro',
+        description: 'Ocorreu um erro ao gerar o mapa mental.',
+        variant: 'error',
+        buttons: [{ text: 'OK', variant: 'default' }],
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [aiPrompt, convertMindMapJSON, dialog, handleZoomToFit]);
+
   // Center on load for existing tasks
   useEffect(() => {
     if (nodes.length > 0 && taskId && !hasCenteredOnLoad.current) {
@@ -393,29 +531,108 @@ export default function MindMapScreen() {
           <View className={`mb-6 h-24 w-24 items-center justify-center rounded-full ${isDark ? 'bg-primary/20' : 'bg-primary/10'}`}>
             <Network size={48} color={primaryColor} />
           </View>
-          <Text className="font-sans-semibold text-xl text-on-surface text-center mb-2">
-            Nenhum Mapa Mental
-          </Text>
-          <Text className="font-sans text-base text-on-surface-secondary text-center mb-8">
-            Toque abaixo para criar seu primeiro mapa mental interativo.
-          </Text>
-          <TouchableOpacity
-            onPress={() => {
-              initRoot('Ideia Central');
-              // Center the root node on screen after the canvas mounts
-              requestAnimationFrame(() => {
-                transform.translateX.value = SCREEN_W / 2 - NODE_DEFAULT_WIDTH / 2;
-                transform.translateY.value = SCREEN_H / 2 - NODE_DEFAULT_HEIGHT / 2 - 60;
-              });
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            }}
-            className="rounded-full px-8 py-4 gap-3 items-center justify-center flex-row"
-            style={{ backgroundColor: primaryColor }}
-          >
-            <Plus size={20} color="#FFFFFF" />
-            <Text className="font-sans-bold text-white text-base">Criar Mapa Mental</Text>
-          </TouchableOpacity>
+           <Text className="font-sans-semibold text-xl text-on-surface text-center mb-2">
+             Nenhum Mapa Mental
+           </Text>
+           <Text className="font-sans text-base text-on-surface-secondary text-center mb-8">
+             Toque abaixo para criar seu primeiro mapa mental interativo.
+           </Text>
+           <TouchableOpacity
+             onPress={() => {
+               initRoot('Ideia Central');
+               // Center the root node on screen after the canvas mounts
+               requestAnimationFrame(() => {
+                 transform.translateX.value = SCREEN_W / 2 - NODE_DEFAULT_WIDTH / 2;
+                 transform.translateY.value = SCREEN_H / 2 - NODE_DEFAULT_HEIGHT / 2 - 60;
+               });
+               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+             }}
+             className="rounded-full px-8 py-4 gap-3 items-center justify-center flex-row"
+             style={{ backgroundColor: primaryColor }}
+           >
+             <Plus size={20} color="#FFFFFF" />
+             <Text className="font-sans-bold text-white text-base">Criar Mapa Mental</Text>
+           </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                setIsAiModalVisible(true);
+               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+             }}
+             className="rounded-full px-8 py-4 gap-3 items-center justify-center flex-row mt-4"
+             style={{ backgroundColor: isDark ? '#27272A' : '#F4F4F5', borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}
+           >
+             <Sparkles size={20} color={primaryColor} />
+             <Text className="font-sans-bold text-base" style={{ color: primaryColor }}>Gerar com IA</Text>
+           </TouchableOpacity>
         </View>
+
+        {/* AI Generation Overlay (Not a Modal to fix Android keyboard) */}
+        {isAiModalVisible && (
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end', zIndex: 100 }]}
+          >
+            <TouchableOpacity 
+              style={{ flex: 1 }} 
+              activeOpacity={1} 
+              onPress={() => setIsAiModalVisible(false)} 
+            />
+            <View className="p-6 gap-4 rounded-t-3xl" style={{ backgroundColor: isDark ? '#18181b' : '#f4f4f5', paddingBottom: Math.max(insets.bottom, 24) }}>
+              <View className="flex-row items-center gap-3 mb-1">
+                <View className="h-10 w-10 rounded-full items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                  <Sparkles size={20} color={primaryColor} />
+                </View>
+                <View className="flex-1">
+                  <Text className="font-sans-bold text-xl text-on-surface">Gerar com IA</Text>
+                  <Text className="font-sans text-xs text-on-surface-secondary">Descreva o tema para criar um mapa mental</Text>
+                </View>
+              </View>
+              <TextInput
+                value={aiPrompt}
+                onChangeText={setAiPrompt}
+                placeholder="Ex: Fotossíntese, Sistema Solar, Marketing Digital..."
+                placeholderTextColor={isDark ? '#71717A' : '#A1A1AA'}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                autoFocus
+                style={[
+                  styles.editInput,
+                  {
+                    backgroundColor: isDark ? '#27272A' : '#FFFFFF',
+                    borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                    color: isDark ? '#FAFAFA' : '#18181B',
+                    minHeight: 100,
+                    fontFamily: 'Montserrat-Regular',
+                  },
+                ]}
+              />
+              <TouchableOpacity
+                onPress={handleAIGenerate}
+                disabled={!aiPrompt.trim() || isGenerating}
+                className="rounded-2xl py-4 items-center justify-center flex-row gap-2"
+                style={{ backgroundColor: primaryColor, opacity: (!aiPrompt.trim() || isGenerating) ? 0.5 : 1 }}
+              >
+                {isGenerating ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Sparkles size={18} color="#FFF" />
+                )}
+                <Text className="font-sans-bold text-white text-base">{isGenerating ? 'Gerando...' : 'Gerar Mapa Mental'}</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        )}
+
+        {/* Overlay Loading */}
+        {isGenerating && (
+          <View className="absolute z-50 top-0 left-0 right-0 bottom-0 bg-black/60 items-center justify-center">
+            <View className="bg-surface p-6 rounded-2xl items-center shadow-lg">
+              <ActivityIndicator size="large" color={primaryColor} />
+              <Text className="font-sans-semibold mt-4 text-on-surface text-base">Gerando mapa com IA...</Text>
+            </View>
+          </View>
+        )}
       </View>
     );
   }
@@ -431,26 +648,17 @@ export default function MindMapScreen() {
           <Text className="font-sans-semibold text-xl text-on-surface">Mapa Mental</Text>
         </View>
         <View className="flex-row items-center gap-1">
-          <TouchableOpacity onPress={handleZoomToFit} className="p-2">
+           <TouchableOpacity
+             onPress={() => {
+               setIsAiModalVisible(true);
+               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+             }}
+             className="p-2"
+           >
+             <Sparkles size={22} color={primaryColor} />
+           </TouchableOpacity>
+           <TouchableOpacity onPress={handleZoomToFit} className="p-2">
             <Maximize size={22} color={isDark ? '#D4D4D8' : '#52525B'} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              bgSheetRef.current?.present();
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            className="p-2"
-          >
-            <Settings size={22} color={isDark ? '#D4D4D8' : '#52525B'} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              exportSheetRef.current?.present();
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            className="p-2"
-          >
-            <Share2 size={22} color={isDark ? '#D4D4D8' : '#52525B'} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => {
@@ -467,6 +675,15 @@ export default function MindMapScreen() {
             className="p-2"
           >
             <Expand size={22} color={isDark ? '#D4D4D8' : '#52525B'} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              exportSheetRef.current?.present();
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+            className="p-2"
+          >
+            <Share2 size={22} color={isDark ? '#D4D4D8' : '#52525B'} />
           </TouchableOpacity>
         </View>
       </View>
@@ -495,13 +712,27 @@ export default function MindMapScreen() {
       {/* FABs */}
       <View style={[styles.fab, { bottom: Math.max(insets.bottom, 16) + 16 }]}>
         <TouchableOpacity
-          onPress={handleAddChild}
-          style={[styles.fabButton, { backgroundColor: primaryColor }]}
+          onPress={() => {
+            bgSheetRef.current?.present();
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
+          style={[styles.fabButton, {
+            backgroundColor: isDark ? '#27272A' : '#F4F4F5',
+            borderWidth: 1,
+            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+          }]}
         >
-          <Plus size={22} color="#FFF" />
+          <Settings size={22} color={isDark ? '#D4D4D8' : '#52525B'} />
         </TouchableOpacity>
 
-        {selectedNode && (
+          <TouchableOpacity
+            onPress={handleAddChild}
+            style={[styles.fabButton, { backgroundColor: primaryColor }]}
+          >
+            <Plus size={22} color="#FFF" />
+          </TouchableOpacity>
+
+        {selectedNode ? (
           <>
             <TouchableOpacity
               onPress={() => selectedId && openEditSheet(selectedId)}
@@ -523,10 +754,45 @@ export default function MindMapScreen() {
                   borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
                 }]}
               >
-                <Trash2 size={24} color="#EF4444" />
+                <Trash2 size={24} color={isDark ? '#E4E4E7' : '#3F3F46'} />
               </TouchableOpacity>
             )}
           </>
+        ) : (
+          <TouchableOpacity
+            onPress={() => {
+              dialog.show({
+                title: 'Apagar tudo?',
+                description: 'Isso removerá todos os tópicos do mapa mental. Deseja continuar?',
+                variant: 'error',
+                buttons: [
+                  { text: 'Cancelar', variant: 'ghost' },
+                  {
+                    text: 'Apagar',
+                    variant: 'default',
+                    onPress: () => {
+                      if (rootId) {
+                        const store = useMindMapStore.getState();
+                        store.nodes.forEach(n => {
+                          if (n.id !== rootId) store.deleteNode(n.id);
+                        });
+                        store.updateNodeTitle(rootId, 'Ideia Central');
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      }
+                    },
+                  },
+                ],
+              });
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            }}
+            style={[styles.fabButton, {
+              backgroundColor: isDark ? '#27272A' : '#F4F4F5',
+              borderWidth: 1,
+              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+            }]}
+          >
+            <Trash2 size={24} color={isDark ? '#E4E4E7' : '#3F3F46'} />
+          </TouchableOpacity>
         )}
       </View>
 
@@ -599,6 +865,64 @@ export default function MindMapScreen() {
           </TouchableOpacity>
         </BottomSheetView>
       </BottomSheetModal>
+
+      {/* AI Generation Overlay (Not a Modal to fix Android keyboard) */}
+      {isAiModalVisible && (
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end', zIndex: 100 }]}
+        >
+          <TouchableOpacity 
+            style={{ flex: 1 }} 
+            activeOpacity={1} 
+            onPress={() => setIsAiModalVisible(false)} 
+          />
+          <View className="p-6 gap-4 rounded-t-3xl" style={{ backgroundColor: isDark ? '#18181b' : '#f4f4f5', paddingBottom: Math.max(insets.bottom, 24) }}>
+            <View className="flex-row items-center gap-3 mb-1">
+              <View className="h-10 w-10 rounded-full items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                <Sparkles size={20} color={primaryColor} />
+              </View>
+              <View className="flex-1">
+                <Text className="font-sans-bold text-xl text-on-surface">Gerar com IA</Text>
+                <Text className="font-sans text-xs text-on-surface-secondary">Descreva o tema para criar um mapa mental</Text>
+              </View>
+            </View>
+            <TextInput
+              value={aiPrompt}
+              onChangeText={setAiPrompt}
+              placeholder="Ex: Fotossíntese, Sistema Solar, Marketing Digital..."
+              placeholderTextColor={isDark ? '#71717A' : '#A1A1AA'}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              autoFocus
+              style={[
+                styles.editInput,
+                {
+                  backgroundColor: isDark ? '#27272A' : '#FFFFFF',
+                  borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                  color: isDark ? '#FAFAFA' : '#18181B',
+                  minHeight: 100,
+                  fontFamily: 'Montserrat-Regular',
+                },
+              ]}
+            />
+            <TouchableOpacity
+              onPress={handleAIGenerate}
+              disabled={!aiPrompt.trim() || isGenerating}
+              className="rounded-2xl py-4 items-center justify-center flex-row gap-2"
+              style={{ backgroundColor: primaryColor, opacity: (!aiPrompt.trim() || isGenerating) ? 0.5 : 1 }}
+            >
+              {isGenerating ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Sparkles size={18} color="#FFF" />
+              )}
+              <Text className="font-sans-bold text-white text-base">{isGenerating ? 'Gerando...' : 'Gerar Mapa Mental'}</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      )}
 
       {/* Color picker bottom sheet */}
       <BottomSheetModal
@@ -690,12 +1014,12 @@ export default function MindMapScreen() {
         handleIndicatorStyle={{ backgroundColor: isDark ? '#52525b' : '#d4d4d8' }}
       >
         <BottomSheetView className="p-6 gap-4" style={{ paddingBottom: Math.max(insets.bottom, 24) }}>
-          <Text className="font-sans-bold text-xl text-on-surface mb-2">Opções de Exportação</Text>
+          <Text className="font-sans-bold text-xl text-on-surface mb-2">Opções</Text>
 
           <Button 
             variant="ghost"
             onPress={handleSaveToDatabase}
-            className="flex-row items-center p-4 bg-surface-secondary rounded-2xl border border-border"
+            className="flex-row items-center p-4 bg-surface-secondary rounded-2xl border border-border mt-2"
           >
             <View className="h-10 w-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: 'rgba(59,130,246,0.1)' }}>
               <Download size={20} color="#3B82F6" />
@@ -715,7 +1039,7 @@ export default function MindMapScreen() {
             <View className="h-10 w-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: 'rgba(59,130,246,0.1)' }}>
               <FilePlus2 size={20} color="#3B82F6" />
             </View>
-            <Button.Text className="flex-1 text-left">Adicionar como imagem a uma nota existente</Button.Text>
+            <Button.Text className="flex-1 text-left">Adicionar como imagem a uma nota</Button.Text>
           </Button>
 
           <View className="flex-row gap-3 mt-2">
@@ -728,7 +1052,6 @@ export default function MindMapScreen() {
               <Button.Text className="text-center text-xs">{`Salvar\nImagem`}</Button.Text>
             </Button>
           </View>
-
         </BottomSheetView>
       </BottomSheetModal>
 
@@ -770,6 +1093,16 @@ export default function MindMapScreen() {
           <View className="bg-surface p-6 rounded-2xl items-center shadow-lg">
             <ActivityIndicator size="large" color={primaryColor} />
             <Text className="font-sans-semibold mt-4 text-on-surface text-base">Processando...</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Overlay Loading for AI */}
+      {isGenerating && (
+        <View className="absolute z-50 top-0 left-0 right-0 bottom-0 bg-black/60 items-center justify-center">
+          <View className="bg-surface p-6 rounded-2xl items-center shadow-lg">
+            <ActivityIndicator size="large" color={primaryColor} />
+            <Text className="font-sans-semibold mt-4 text-on-surface text-base">Gerando mapa com IA...</Text>
           </View>
         </View>
       )}

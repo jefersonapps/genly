@@ -16,6 +16,7 @@ export interface MindMapNode {
   collapsed: boolean;
   /** Per-direction collapse: e.g. ['right','top'] */
   collapsedDirs?: string[];
+  layoutDir?: 'left' | 'right';
   depth: number;
   color?: string;
   pinnedX?: number;
@@ -88,11 +89,23 @@ export const useMindMapStore = create<MindMapState>((set) => ({
     set((state) => {
       const parentNode = state.nodes.find((n) => n.id === parentId);
       if (!parentNode) return state;
+      
+      let dir: 'left' | 'right' | undefined = undefined;
+      if (parentNode.depth === 0) {
+        const rootChildren = state.nodes.filter(n => n.parentId === parentId);
+        const leftCount = rootChildren.filter(n => n.layoutDir === 'left').length;
+        const rightCount = rootChildren.length - leftCount;
+        dir = leftCount < rightCount ? 'left' : 'right';
+      } else {
+        dir = parentNode.layoutDir;
+      }
+
       const newNode: MindMapNode = {
         id: generateId(),
         title: title || 'Novo tópico',
         parentId,
         collapsed: false,
+        layoutDir: dir,
         depth: parentNode.depth + 1,
         x: 0, y: 0,
         width: NODE_DEFAULT_WIDTH,

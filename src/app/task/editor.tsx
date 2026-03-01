@@ -1,3 +1,5 @@
+import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
+import { useKeyboard } from "@/hooks/useKeyboard";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
@@ -9,7 +11,8 @@ import {
   Bold,
   Check,
   CheckSquare,
-  Code, FileCode,
+  Code,
+  FileCode,
   FileText,
   Heading1,
   Heading2,
@@ -19,31 +22,34 @@ import {
   List,
   ListOrdered,
   Plus,
-  Quote, Sigma,
+  Quote,
+  Redo,
+  Sigma,
   Sparkles,
   Strikethrough,
   Trash2,
-  Underline, X
+  Underline,
+  Undo,
+  X,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
-  KeyboardAvoidingView,
-  Platform, StyleSheet,
+  Platform,
+  StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity, View
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import PdfThumbnail from "react-native-pdf-thumbnail";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import type {
-  EnrichedTextInputInstance,
-} from "react-native-enriched";
 import {
   EnrichedTextInput,
+  type EnrichedTextInputInstance,
 } from "react-native-enriched";
 
 import { MediaPreview } from "@/components/task/MediaPreview";
@@ -59,7 +65,7 @@ import {
   getAllGroups,
   getMediaForTask,
   getTaskById,
-  updateTask
+  updateTask,
 } from "@/services/taskService";
 import { copyToMediaDir, pickImages } from "@/utils/file";
 // ─── Helpers ─────────────────────────────────────
@@ -196,8 +202,10 @@ export default function TaskEditor() {
 
   const isEditing = !!params.id;
   const taskId = params.id ? parseInt(params.id) : null;
+  const { isVisible: isKeyboardVisible } = useKeyboard();
 
   const [title, setTitle] = useState("");
+  const [isTitleFocused, setIsTitleFocused] = useState(false);
   const [htmlContent, setHtmlContent] = useState("");
   const [initialContent, setInitialContent] = useState<string | undefined>(undefined);
   const [mediaItems, setMediaItems] = useState<Media[]>([]);
@@ -219,9 +227,9 @@ export default function TaskEditor() {
   }[]>([]);
   const [dataLoaded, setDataLoaded] = useState(!isEditing);
   const [aiLoading, setAiLoading] = useState(false);
-  const [isReviewingAI, setIsReviewingAI] = useState(false);
-  const [originalContent, setOriginalContent] = useState("");
-  const [tempAIContent, setTempAIContent] = useState("");
+  const [undoStack, setUndoStack] = useState<string[]>([]);
+  const [redoStack, setRedoStack] = useState<string[]>([]);
+  const lastSavedHtmlRef = useRef<string>("");
 
   const memoizedDate = React.useMemo(() => {
     return deliveryDate ? new Date(deliveryDate + 'T00:00:00') : new Date();
@@ -484,7 +492,69 @@ export default function TaskEditor() {
     });
   };
 
+  const addToUndo = (content: string) => {
+    if (!content) return;
+    setUndoStack(prev => {
+      // Avoid duplicate consecutive entries
+      if (prev.length > 0 && prev[prev.length - 1] === content) return prev;
+      return [...prev.slice(-49), content]; // Limit to 50 entries
+    });
+    setRedoStack([]);
+  };
+
+  // Debounced undo capture during typing
+  useEffect(() => {
+    if (!htmlContent || htmlContent === lastSavedHtmlRef.current) return;
+
+    const timer = setTimeout(() => {
+      addToUndo(lastSavedHtmlRef.current);
+      lastSavedHtmlRef.current = htmlContent;
+    }, 500); // Capture state after 2 seconds of inactivity
+
+    return () => clearTimeout(timer);
+  }, [htmlContent]);
+
+  const runToolbarAction = (action: () => void) => {
+    // Capture state immediately before any formatting action
+    if (htmlContent !== lastSavedHtmlRef.current) {
+        addToUndo(lastSavedHtmlRef.current);
+        lastSavedHtmlRef.current = htmlContent;
+    } else {
+        addToUndo(htmlContent);
+    }
+    action();
+  };
+
+  const handleUndo = () => {
+    if (undoStack.length === 0) return;
+    
+    const currentHTML = htmlContent;
+    const previousHTML = undoStack[undoStack.length - 1];
+    
+    setRedoStack(prev => [...prev, currentHTML]);
+    setUndoStack(prev => prev.slice(0, -1));
+    
+    setHtmlContent(previousHTML);
+    editorRef.current?.setValue(wrapHtml(previousHTML));
+    lastSavedHtmlRef.current = previousHTML;
+  };
+
+  const handleRedo = () => {
+    if (redoStack.length === 0) return;
+    
+    const currentHTML = htmlContent;
+    const nextHTML = redoStack[redoStack.length - 1];
+    
+    setUndoStack(prev => [...prev, currentHTML]);
+    setRedoStack(prev => prev.slice(0, -1));
+    
+    setHtmlContent(nextHTML);
+    editorRef.current?.setValue(wrapHtml(nextHTML));
+    lastSavedHtmlRef.current = nextHTML;
+  };
+
   const handleAIAction = async (mode: AIProcessMode) => {
+    Keyboard.dismiss();
     lastAIModeRef.current = mode;
 
     if (!htmlContent && !initialContent) {
@@ -505,17 +575,14 @@ export default function TaskEditor() {
     }
 
     setAiLoading(true);
-    const result = await aiService.processText(contentToProcess, mode);
+    const result = await aiService.processText(contentToProcess, mode, title);
     setAiLoading(false);
 
     if (result.success && result.text) {
         const text = result.text.trim();
 
-        // Check if the response contains any HTML tags
         const hasHtmlTags = /<[a-z][a-z0-9]*[\s>]/i.test(text);
-
         if (!hasHtmlTags) {
-          // AI returned plain text without any HTML — invalid response
           showAIErrorDialog(
             "A IA retornou um formato inválido (sem tags HTML). Isso pode ser um problema de configuração ou do servidor.",
             mode
@@ -523,33 +590,17 @@ export default function TaskEditor() {
           return;
         }
 
-        // Valid HTML — apply with wrapper
-        setOriginalContent(contentToProcess);
-        setTempAIContent(text);
+        // Apply directly with undo support
+        addToUndo(contentToProcess);
         setHtmlContent(text);
         editorRef.current?.setValue(wrapHtml(text));
-        setIsReviewingAI(true);
+        lastSavedHtmlRef.current = text;
     } else {
         showAIErrorDialog(
           result.error || "Falha ao processar texto com IA.",
           mode
         );
     }
-  };
-
-  const handleAcceptAI = () => {
-    setIsReviewingAI(false);
-    setOriginalContent("");
-    setTempAIContent("");
-  };
-
-  const handleRejectAI = () => {
-    setHtmlContent(originalContent);
-    editorRef.current?.setValue(wrapHtml(originalContent));
-    setIsReviewingAI(false);
-    setOriginalContent("");
-    setTempAIContent("");
-    dialog.show({ title: "Desfeito", description: "Alterações revertidas." });
   };
 
   // ─── Theme colors ──────────────────
@@ -568,22 +619,6 @@ export default function TaskEditor() {
     (isActive?: boolean) => (isActive ? safeAccent : colors.iconDefault),
     [safeAccent, colors.iconDefault]
   );
-
-  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
-
-  useEffect(() => {
-    const showSub = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", () => {
-      setKeyboardVisible(true);
-    });
-    const hideSub = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", () => {
-      setKeyboardVisible(false);
-    });
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   const formatReminder = () => {
     if (!deliveryDate || !deliveryTime) return "Definir lembrete";
@@ -684,6 +719,7 @@ export default function TaskEditor() {
   // Set initial content via setValue after mount (defaultValue has a rendering bug with headings)
   useEffect(() => {
     if (dataLoaded && initialContent && editorRef.current) {
+      lastSavedHtmlRef.current = initialContent;
       // Small delay to ensure native view is ready
       const timer = setTimeout(() => {
         editorRef.current?.setValue(wrapHtml(initialContent));
@@ -720,15 +756,38 @@ export default function TaskEditor() {
       {/* Static Metadata Area */}
       <View style={{ paddingHorizontal: 20, paddingTop: 10 }}>
         {/* Title */}
-        <TextInput
-          placeholder="Título da nota"
-          placeholderTextColor={colors.placeholder}
-          value={title}
-          onChangeText={setTitle}
-          multiline
-          scrollEnabled={false}
-          style={[styles.titleInput, { color: colors.text, marginBottom: 8 }]}
-        />
+        {isTitleFocused ? (
+          <TextInput
+            autoFocus
+            placeholder="Título da nota"
+            placeholderTextColor={colors.placeholder}
+            value={title}
+            onChangeText={setTitle}
+            multiline={false}
+            numberOfLines={1}
+            returnKeyType="done"
+            blurOnSubmit={true}
+            onBlur={() => setIsTitleFocused(false)}
+            style={[styles.titleInput, { color: colors.text, marginBottom: 8 }]}
+          />
+        ) : (
+          <TouchableOpacity 
+            activeOpacity={1} 
+            onPress={() => setIsTitleFocused(true)}
+            style={{ marginBottom: 8 }}
+          >
+            <Text 
+              numberOfLines={1} 
+              ellipsizeMode="tail"
+              style={[
+                styles.titleInput, 
+                { color: title ? colors.text : colors.placeholder }
+              ]}
+            >
+              {title || "Título da nota"}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={{
@@ -760,19 +819,6 @@ export default function TaskEditor() {
             </Dropdown.Trigger>
             <Dropdown.Content width={200} direction="bottom">
                 <Dropdown.Item 
-                    label="Testar Inserção (Debug)" 
-                    icon={Plus} 
-                    onPress={() => {
-                        const mockHTML = "<h1>Título de Teste</h1><ul><li>Item 1</li><li>Item 2 <b>com negrito</b></li></ul><p>Um parágrafo normal.</p><blockquote>Citação de teste</blockquote>";
-                        setOriginalContent(htmlContent);
-                        setTempAIContent(mockHTML);
-                        setHtmlContent(mockHTML);
-                        editorRef.current?.setValue(wrapHtml(mockHTML));
-                        setIsReviewingAI(true);
-                    }} 
-                />
-                <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
-                <Dropdown.Item 
                     label="Formatar texto" 
                     icon={FileCode} 
                     onPress={() => handleAIAction("format")} 
@@ -786,33 +832,48 @@ export default function TaskEditor() {
           </Dropdown>
 
           <View style={[styles.separator, { backgroundColor: colors.surfaceTertiary }]} />
+
+          <ToolbarButton
+            icon={<Undo size={18} color={undoStack.length > 0 ? colors.text : colors.placeholder} />}
+            onPress={handleUndo}
+            isBlocking={undoStack.length === 0}
+            activeBg={safeAccent + "20"}
+          />
+          <ToolbarButton
+            icon={<Redo size={18} color={redoStack.length > 0 ? colors.text : colors.placeholder} />}
+            onPress={handleRedo}
+            isBlocking={redoStack.length === 0}
+            activeBg={safeAccent + "20"}
+          />
+
+          <View style={[styles.separator, { backgroundColor: colors.surfaceTertiary }]} />
           
           <ToolbarButton
             icon={<Bold size={18} color={getIconColor(stylesState?.bold?.isActive)} />}
             isActive={stylesState?.bold?.isActive}
             isBlocking={stylesState?.bold?.isBlocking}
-            onPress={() => editorRef.current?.toggleBold()}
+            onPress={() => runToolbarAction(() => editorRef.current?.toggleBold())}
             activeBg={safeAccent + "20"}
           />
           <ToolbarButton
             icon={<Italic size={18} color={getIconColor(stylesState?.italic?.isActive)} />}
             isActive={stylesState?.italic?.isActive}
             isBlocking={stylesState?.italic?.isBlocking}
-            onPress={() => editorRef.current?.toggleItalic()}
+            onPress={() => runToolbarAction(() => editorRef.current?.toggleItalic())}
             activeBg={safeAccent + "20"}
           />
           <ToolbarButton
             icon={<Underline size={18} color={getIconColor(stylesState?.underline?.isActive)} />}
             isActive={stylesState?.underline?.isActive}
             isBlocking={stylesState?.underline?.isBlocking}
-            onPress={() => editorRef.current?.toggleUnderline()}
+            onPress={() => runToolbarAction(() => editorRef.current?.toggleUnderline())}
             activeBg={safeAccent + "20"}
           />
           <ToolbarButton
             icon={<Strikethrough size={18} color={getIconColor(stylesState?.strikeThrough?.isActive)} />}
             isActive={stylesState?.strikeThrough?.isActive}
             isBlocking={stylesState?.strikeThrough?.isBlocking}
-            onPress={() => editorRef.current?.toggleStrikeThrough()}
+            onPress={() => runToolbarAction(() => editorRef.current?.toggleStrikeThrough())}
             activeBg={safeAccent + "20"}
           />
 
@@ -822,21 +883,21 @@ export default function TaskEditor() {
             icon={<Heading1 size={18} color={getIconColor(stylesState?.h1?.isActive)} />}
             isActive={stylesState?.h1?.isActive}
             isBlocking={stylesState?.h1?.isBlocking}
-            onPress={() => editorRef.current?.toggleH1()}
+            onPress={() => runToolbarAction(() => editorRef.current?.toggleH1())}
             activeBg={safeAccent + "20"}
           />
           <ToolbarButton
             icon={<Heading2 size={18} color={getIconColor(stylesState?.h2?.isActive)} />}
             isActive={stylesState?.h2?.isActive}
             isBlocking={stylesState?.h2?.isBlocking}
-            onPress={() => editorRef.current?.toggleH2()}
+            onPress={() => runToolbarAction(() => editorRef.current?.toggleH2())}
             activeBg={safeAccent + "20"}
           />
           <ToolbarButton
             icon={<Heading3 size={18} color={getIconColor(stylesState?.h3?.isActive)} />}
             isActive={stylesState?.h3?.isActive}
             isBlocking={stylesState?.h3?.isBlocking}
-            onPress={() => editorRef.current?.toggleH3()}
+            onPress={() => runToolbarAction(() => editorRef.current?.toggleH3())}
             activeBg={safeAccent + "20"}
           />
 
@@ -846,21 +907,21 @@ export default function TaskEditor() {
             icon={<List size={18} color={getIconColor(stylesState?.unorderedList?.isActive)} />}
             isActive={stylesState?.unorderedList?.isActive}
             isBlocking={stylesState?.unorderedList?.isBlocking}
-            onPress={() => editorRef.current?.toggleUnorderedList()}
+            onPress={() => runToolbarAction(() => editorRef.current?.toggleUnorderedList())}
             activeBg={safeAccent + "20"}
           />
           <ToolbarButton
             icon={<ListOrdered size={18} color={getIconColor(stylesState?.orderedList?.isActive)} />}
             isActive={stylesState?.orderedList?.isActive}
             isBlocking={stylesState?.orderedList?.isBlocking}
-            onPress={() => editorRef.current?.toggleOrderedList()}
+            onPress={() => runToolbarAction(() => editorRef.current?.toggleOrderedList())}
             activeBg={safeAccent + "20"}
           />
           <ToolbarButton
             icon={<CheckSquare size={18} color={getIconColor(stylesState?.checkboxList?.isActive)} />}
             isActive={stylesState?.checkboxList?.isActive}
             isBlocking={stylesState?.checkboxList?.isBlocking}
-            onPress={() => editorRef.current?.toggleCheckboxList(false)}
+            onPress={() => runToolbarAction(() => editorRef.current?.toggleCheckboxList(false))}
             activeBg={safeAccent + "20"}
           />
 
@@ -870,28 +931,27 @@ export default function TaskEditor() {
             icon={<Quote size={18} color={getIconColor(stylesState?.blockQuote?.isActive)} />}
             isActive={stylesState?.blockQuote?.isActive}
             isBlocking={stylesState?.blockQuote?.isBlocking}
-            onPress={() => editorRef.current?.toggleBlockQuote()}
+            onPress={() => runToolbarAction(() => editorRef.current?.toggleBlockQuote())}
             activeBg={safeAccent + "20"}
           />
           <ToolbarButton
             icon={<Code size={18} color={getIconColor(stylesState?.inlineCode?.isActive)} />}
             isActive={stylesState?.inlineCode?.isActive}
             isBlocking={stylesState?.inlineCode?.isBlocking}
-            onPress={() => editorRef.current?.toggleInlineCode()}
+            onPress={() => runToolbarAction(() => editorRef.current?.toggleInlineCode())}
             activeBg={safeAccent + "20"}
           />
           <ToolbarButton
             icon={<FileCode size={18} color={getIconColor(stylesState?.codeBlock?.isActive)} />}
             isActive={stylesState?.codeBlock?.isActive}
             isBlocking={stylesState?.codeBlock?.isBlocking}
-            onPress={() => editorRef.current?.toggleCodeBlock()}
+            onPress={() => runToolbarAction(() => editorRef.current?.toggleCodeBlock())}
             activeBg={safeAccent + "20"}
           />
         </ScrollView>
       </View>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        enabled={Platform.OS === "ios" || isKeyboardVisible}
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
       >
@@ -906,17 +966,19 @@ export default function TaskEditor() {
               placeholderTextColor={colors.placeholder}
               cursorColor={safeAccent}
               selectionColor={safeAccent + "40"}
-              onFocus={() => setKeyboardVisible(true)}
-              onBlur={() => {
-                // We rely on keyboardDidHide for unsetting true
-                // But setting false here might be safe too if blur always means keyboard down?
-                // Actually, if user switches inputs, blur -> focus happens.
-                // It's safer to let keyboardDidHide handle the 'false' state to avoid flickering.
-                // But to be consistent, let's try leaving onBlur empty or rely on listeners?
-                // The issue was showing. Hiding is less critical for glitch (it's sliding down).
-                // Let's rely on keyboardDidHide for false.
+              onFocus={() => {
+                // Focus empty callback or removed state update
               }}
-              onChangeHtml={(e) => setHtmlContent(e.nativeEvent.value)}
+              onBlur={() => {
+                // Blur still useful as final check but debouncing is primary
+                if (htmlContent !== lastSavedHtmlRef.current) {
+                  addToUndo(lastSavedHtmlRef.current);
+                  lastSavedHtmlRef.current = htmlContent;
+                }
+              }}
+              onChangeHtml={(e) => {
+                setHtmlContent(e.nativeEvent.value);
+              }}
               onChangeState={(e) => setStylesState(e.nativeEvent as unknown as EditorStylesState)}
               androidExperimentalSynchronousEvents
               htmlStyle={{
@@ -966,30 +1028,6 @@ export default function TaskEditor() {
             />
           )}
 
-          {/* Floating AI review buttons */}
-          {isReviewingAI && (
-            <View style={styles.aiReviewFloating}>
-              <Text style={[styles.aiReviewLabel, { color: colors.textSecondary }]}>
-                Aceitar sugestão da IA?
-              </Text>
-              <View style={styles.aiReviewRow}>
-                <TouchableOpacity
-                  onPress={handleRejectAI}
-                  activeOpacity={0.8}
-                  style={[styles.aiReviewBtn, { backgroundColor: colors.surfaceTertiary }]}
-                >
-                  <Text style={[styles.aiReviewText, { color: colors.text }]}>Rejeitar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleAcceptAI}
-                  activeOpacity={0.8}
-                  style={[styles.aiReviewBtn, { backgroundColor: safeAccent }]}
-                >
-                  <Text style={[styles.aiReviewText, { color: "#FFF" }]}>Aceitar</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
         </View>
         </View>
 
@@ -1339,9 +1377,14 @@ const styles = StyleSheet.create({
   aiReviewFloating: {
     position: "absolute",
     bottom: 12,
-    right: 0,
-    alignItems: "flex-end",
-    gap: 6,
+    right: 12,
+    padding: 8,
+    borderRadius: 12,
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
   },
   aiReviewLabel: {
     fontSize: 12,
