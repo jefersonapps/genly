@@ -3,11 +3,11 @@ import { clsx } from "clsx";
 import type { LucideIcon } from "lucide-react-native";
 import React, { createContext, useContext } from "react";
 import {
-    ActivityIndicator,
-    Text as RNText,
-    TouchableOpacity, type TextProps,
-    type TouchableOpacityProps,
-    type ViewStyle
+  ActivityIndicator,
+  Text as RNText,
+  TouchableOpacity, type TextProps,
+  type TouchableOpacityProps,
+  type ViewStyle
 } from "react-native";
 
 // ─── Types ───────────────────────────────────────
@@ -56,8 +56,8 @@ const Ctx = createContext<ButtonContext>({
 
 // ─── Size Maps ───────────────────────────────────
 const PADDING: Record<ButtonSize, string> = {
-  sm: "px-4 py-2",
-  md: "px-6 py-3",
+  sm: "px-2 py-1",
+  md: "px-4 py-2",
   lg: "px-8 py-4",
 };
 

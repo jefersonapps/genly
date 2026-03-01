@@ -3,6 +3,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { CardGradient } from "@/components/ui/CardGradient";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { TabHeader } from "@/components/ui/TabHeader";
 import { BLUR_CONFIG } from "@/config/blurConfig";
 import type { Group, Media, Task } from "@/db/schema";
 import { useDialog } from "@/providers/DialogProvider";
@@ -19,8 +20,6 @@ import { Bell, Clock, Edit3, FolderPlus, Plus, Search, Trash2 } from "lucide-rea
 import React, { useCallback, useContext, useEffect, useLayoutEffect, useState } from "react";
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
-  Extrapolation,
-  interpolate,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
@@ -67,51 +66,6 @@ export default function HomeScreen() {
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
     },
-  });
-
-  const headerTitleStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      scrollY.value,
-      [20, 80],
-      [0, 1],
-      Extrapolation.CLAMP
-    );
-    // Fade out when sections title starts approaching the header (~380px)
-    const fadeOut = interpolate(
-      scrollY.value,
-      [360, 420],
-      [1, 0],
-      Extrapolation.CLAMP
-    );
-    return { opacity: opacity * fadeOut };
-  });
-
-  const sectionHeaderTitleStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      scrollY.value,
-      [420, 480],
-      [0, 1],
-      Extrapolation.CLAMP
-    );
-    return { opacity };
-  });
-
-  const headerBarStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      scrollY.value,
-      [20, 80],
-      [0, 1],
-      Extrapolation.CLAMP
-    );
-    return { 
-      backgroundColor: isDark 
-        ? `rgba(18, 18, 18, ${opacity})` 
-        : `rgba(255, 255, 255, ${opacity})`,
-      borderBottomColor: isDark 
-        ? `rgba(255, 255, 255, ${opacity * 0.1})` 
-        : `rgba(0, 0, 0, ${opacity * 0.05})`,
-      shadowOpacity: opacity * 0.1,
-    };
   });
 
   useEffect(() => {
@@ -702,72 +656,33 @@ export default function HomeScreen() {
         </BottomSheetView>
       </BottomSheetModal>
 
-      <View 
-        style={{ 
-          position: "absolute", 
-          top: 0, 
-          left: 0, 
-          right: 0, 
-          zIndex: 50,
-        }}
-      >
-        {isReady && (
-        <Animated.View
-          style={[
-            {
-                paddingTop: insets.top + 4,
-                paddingBottom: 8,
-                paddingHorizontal: 24,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                borderBottomWidth: 1,
-                shadowColor: "#000",
-                shadowOffset: {
-                  width: 0,
-                  height: 2,
-                },
-                shadowRadius: 3.84,
-                elevation: 5,
-            },
-            headerBarStyle
-          ]}
-        >
-          <View className="flex-row items-center gap-3">
-             <Avatar 
+      {isReady && (
+        <TabHeader
+          scrollY={scrollY}
+          title="Sua Biblioteca"
+          titleThreshold={[50, 70]}
+          secondaryTitle={selectedGroupId ? groups.find(g => g.id === selectedGroupId)?.name : "Recentes"}
+          secondaryTitleThreshold={[420, 480]}
+          leftComponent={
+            <Avatar 
                 uri={profileImage}
                 name={profileName}
-                size="md"
+                size="sm"
                 onPress={() => router.push("/settings")}
-             />
-             <View className="relative h-7 justify-center">
-                <Animated.Text 
-                    className="absolute font-sans-bold text-lg text-on-surface"
-                    style={headerTitleStyle}
-                    numberOfLines={1}
-                >
-                    Sua Biblioteca
-                </Animated.Text>
-                <Animated.Text 
-                    className="absolute font-sans-bold text-lg text-on-surface"
-                    style={sectionHeaderTitleStyle}
-                    numberOfLines={1}
-                >
-                    {selectedGroupId ? groups.find(g => g.id === selectedGroupId)?.name : "Recentes"}
-                </Animated.Text>
-             </View>
-          </View>
-          <View className="flex-row gap-3 ml-auto">
-             <Button variant="icon" className="rounded-full w-12 h-12" onPress={() => router.push("/search")}>
-               <Button.Icon icon={<Search size={22} color={resolvedTheme === 'dark' ? '#FFF' : '#333'} />} />
-             </Button>
-             <Button variant="icon" className="rounded-full w-12 h-12">
-               <Button.Icon icon={<Bell size={22} color={resolvedTheme === 'dark' ? '#FFF' : '#333'} />} />
-             </Button>
-          </View>
-        </Animated.View>
-        )}
-      </View>
+            />
+          }
+          rightComponent={
+            <>
+              <Button variant="icon" className="rounded-full w-12 h-12" onPress={() => router.push("/search")}>
+                <Button.Icon icon={<Search size={22} color={resolvedTheme === 'dark' ? '#FFF' : '#333'} />} />
+              </Button>
+              <Button variant="icon" className="rounded-full w-12 h-12" onPress={() => router.push("/search?mode=reminders")}>
+                <Button.Icon icon={<Bell size={22} color={resolvedTheme === 'dark' ? '#FFF' : '#333'} />} />
+              </Button>
+            </>
+          }
+        />
+      )}
     </View>
   );
 }

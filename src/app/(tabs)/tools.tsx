@@ -1,15 +1,12 @@
 import { SettingsRow } from "@/components/settings/SettingsRow";
+import { TabHeader } from "@/components/ui/TabHeader";
 import { useTheme } from "@/providers/ThemeProvider";
 import { useRouter } from "expo-router";
 import { ArrowRightLeft, Camera, FilePen, FileStack, ImageDown, Library, Network, QrCode, ScanText, Sigma, Timer } from "lucide-react-native";
 import React from "react";
 import { Text, View } from "react-native";
 import Animated, {
-    Extrapolation,
-    interpolate,
-    useAnimatedScrollHandler,
-    useAnimatedStyle,
-    useSharedValue,
+    useAnimatedScrollHandler, useSharedValue
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -27,35 +24,6 @@ export default function ToolsScreen() {
     },
   });
 
-  const headerTitleStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      scrollY.value,
-      [20, 80],
-      [0, 1],
-      Extrapolation.CLAMP
-    );
-    return { opacity };
-  });
-
-  const headerBarStyle = useAnimatedStyle(() => {
-    const translateY = interpolate(
-      scrollY.value,
-      [20, 80],
-      [-100, 0],
-      Extrapolation.CLAMP
-    );
-    const opacity = interpolate(
-      scrollY.value,
-      [20, 80],
-      [0, 1],
-      Extrapolation.CLAMP
-    );
-    return { 
-      transform: [{ translateY }],
-      opacity 
-    };
-  });
-
   const iconColor = primaryColor === "#000000" || primaryColor === "#000" 
     ? (isDark ? "#FFF" : "#000") 
     : primaryColor;
@@ -63,43 +31,12 @@ export default function ToolsScreen() {
   return (
     <View className="flex-1 bg-surface">
       {/* Floating Header */}
-      <Animated.View 
-        style={[
-          { 
-            position: "absolute", 
-            top: 0, 
-            left: 0, 
-            right: 0, 
-            zIndex: 50,
-          },
-          headerBarStyle
-        ]}
-      >
-        <View
-          style={{
-            paddingTop: insets.top + 4,
-            paddingBottom: 8,
-            paddingHorizontal: 24,
-            flexDirection: 'row',
-            alignItems: 'center',
-            borderBottomWidth: 1,
-            borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-            backgroundColor: isDark ? '#121212' : '#FFFFFF',
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 3.84,
-            elevation: 5,
-          }}
-        >
-          <Animated.Text 
-            className="font-sans-bold text-lg text-on-surface"
-            style={headerTitleStyle}
-          >
-            Ferramentas
-          </Animated.Text>
-        </View>
-      </Animated.View>
+      <TabHeader
+        scrollY={scrollY}
+        title="Ferramentas"
+        titleThreshold={[15, 30]}
+        hasSlideIn
+      />
 
       <Animated.ScrollView 
         onScroll={scrollHandler}

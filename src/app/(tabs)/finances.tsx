@@ -1,51 +1,42 @@
 import { getContrastSafeColor } from "@/components/editor/Editor";
 import { BalanceChart } from "@/components/finance/BalanceChart";
-import { PromptModal } from "@/components/ui/PromptModal";
+import { Button } from "@/components/ui/Button";
+import { TabHeader } from "@/components/ui/TabHeader";
 import type { Transaction } from "@/db/schema";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import {
-    deleteTransaction,
-    getAllTransactions,
-    getMonthlyBalances,
-    getTransactionsGroupedByMonth,
-    type MonthSection,
-    type MonthlyBalance,
+  deleteTransaction,
+  getAllTransactions,
+  getMonthlyBalances,
+  getTransactionsGroupedByMonth,
+  type MonthSection,
+  type MonthlyBalance,
 } from "@/services/financeService";
 import { getSetting, setSetting } from "@/services/settingsService";
-import { extractCentsFromInput, formatBRL, formatBRLInput } from "@/utils/currency";
+import { extractCentsFromInput, formatBRL } from "@/utils/currency";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
-    ArrowDownLeft,
-    ArrowUpRight,
-    CircleHelp,
-    Edit3,
-    Plus,
-    Trash2,
-    TrendingDown,
-    TrendingUp,
-    Wallet,
+  BanknoteArrowDown,
+  BanknoteArrowUp,
+  CircleHelp,
+  Edit3, Trash2,
+  Wallet
 } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import {
-    SectionList,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  SectionList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
-import Animated, {
-    Extrapolation,
-    FadeInDown,
-    FadeInUp,
-    interpolate,
-    useAnimatedScrollHandler,
-    useAnimatedStyle,
-    useSharedValue,
+import {
+  useAnimatedScrollHandler, useSharedValue
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const AnimatedSectionList = Animated.createAnimatedComponent(SectionList) as any;
+const AnimatedSectionList = SectionList as any;
 
 export default function FinancesScreen() {
   const insets = useSafeAreaInsets();
@@ -63,39 +54,9 @@ export default function FinancesScreen() {
     },
   });
 
-  const headerTitleStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      scrollY.value,
-      [20, 80],
-      [0, 1],
-      Extrapolation.CLAMP
-    );
-    return { opacity };
-  });
-
-  const headerBarStyle = useAnimatedStyle(() => {
-    const translateY = interpolate(
-      scrollY.value,
-      [20, 80],
-      [-100, 0],
-      Extrapolation.CLAMP
-    );
-    const opacity = interpolate(
-      scrollY.value,
-      [20, 80],
-      [0, 1],
-      Extrapolation.CLAMP
-    );
-    return { 
-      transform: [{ translateY }],
-      opacity 
-    };
-  });
-
   const [balance, setBalance] = useState(0);
   const [sections, setSections] = useState<MonthSection[]>([]);
   const [chartData, setChartData] = useState<MonthlyBalance[]>([]);
-  const [isBalanceModalVisible, setIsBalanceModalVisible] = useState(false);
 
   const colors = {
     text: isDark ? "#FAFAFA" : "#18181B",
@@ -152,32 +113,30 @@ export default function FinancesScreen() {
   const handleUpdateBalance = async (text: string) => {
     const cents = extractCentsFromInput(text);
     await setSetting("finance_balance", cents.toString());
-    setIsBalanceModalVisible(false);
     await loadData(); // Recompute effective balance with transactions
   };
 
   const renderSectionHeader = ({ section }: { section: MonthSection }) => (
-    <Animated.View
-      entering={FadeInDown.duration(300)}
+    <View
       style={[styles.sectionHeader, { backgroundColor: colors.surface }]}
     >
       <Text style={[styles.sectionTitle, { color: safeAccent }]}>
         {section.title}
       </Text>
-    </Animated.View>
+    </View>
   );
 
   const renderItem = ({ item, index }: { item: Transaction; index: number }) => {
     const isIncome = item.type === "income";
     const iconColor = isIncome ? "#22C55E" : "#EF4444";
-    const Icon = isIncome ? ArrowDownLeft : ArrowUpRight;
+    const Icon = isIncome ? BanknoteArrowUp : BanknoteArrowDown;
     const sign = isIncome ? "+" : "-";
     const amountText = item.isAmountUndefined
       ? "A definir"
       : `${sign} ${formatBRL(item.amount)}`;
 
     return (
-      <Animated.View entering={FadeInUp.duration(300).delay(index * 50)}>
+      <View>
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={() =>
@@ -245,7 +204,7 @@ export default function FinancesScreen() {
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
-      </Animated.View>
+      </View>
     );
   };
 
@@ -259,8 +218,7 @@ export default function FinancesScreen() {
       </View>
 
       {/* Balance Card */}
-      <Animated.View
-        entering={FadeInDown.duration(400)}
+      <View
         style={[
           styles.balanceCard,
           {
@@ -279,7 +237,21 @@ export default function FinancesScreen() {
             Saldo Total
           </Text>
           <TouchableOpacity
-            onPress={() => setIsBalanceModalVisible(true)}
+            onPress={() => {
+                dialog.show({
+                    title: "Definir saldo",
+                    description: "Informe seu saldo total atual:",
+                    prompt: {
+                        defaultValue: formatBRL(balance),
+                        placeholder: "R$ 0,00",
+                        onConfirm: handleUpdateBalance
+                    },
+                    buttons: [
+                        { text: "Cancelar", variant: "ghost" },
+                        { text: "Confirmar", variant: "default" }
+                    ]
+                });
+            }}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Edit3 size={16} color={colors.textSecondary} />
@@ -288,61 +260,61 @@ export default function FinancesScreen() {
         <Text style={[styles.balanceAmount, { color: colors.text }]}>
           {formatBRL(balance)}
         </Text>
-      </Animated.View>
+      </View>
 
-      {/* Quick Actions */}
-      <Animated.View
-        entering={FadeInDown.duration(400).delay(100)}
+      <View
         style={styles.actionsRow}
       >
-        <TouchableOpacity
-          activeOpacity={0.8}
+        <Button
+          variant="ghost"
           onPress={() =>
             router.push({
               pathname: "/finance/editor",
               params: { type: "income" },
             })
           }
-          style={[styles.actionBtn, { backgroundColor: "#22C55E15", borderColor: "#22C55E30" }]}
+          className="flex-1 flex-row items-center justify-center gap-4 px-4 py-[14px] rounded-2xl border"
+          style={{ 
+            backgroundColor: "#22C55E15",
+            borderColor: "#22C55E30",
+          }}
         >
-          <Plus size={16} color="#22C55E" />
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <TrendingUp size={20} color="#22C55E" />
-            <Text style={[styles.actionLabel, { color: "#22C55E" }]}>
-              Receita
-            </Text>
-          </View>
-        </TouchableOpacity>
+        <BanknoteArrowUp size={20} color="#22C55E" />
+        <Text className="font-sans-bold text-[15px]" style={{ color: "#22C55E" }}>
+          Receita
+        </Text>
+        </Button>
 
-        <TouchableOpacity
-          activeOpacity={0.8}
+        <Button
+          variant="ghost"
           onPress={() =>
             router.push({
               pathname: "/finance/editor",
               params: { type: "expense" },
             })
           }
-          style={[styles.actionBtn, { backgroundColor: "#EF444415", borderColor: "#EF444430" }]}
+          className="flex-1 flex-row items-center justify-center gap-4 px-4 py-[14px] rounded-2xl border"
+          style={{ 
+            backgroundColor: "#EF444415",
+            borderColor: "#EF444430",
+          }}
         >
-          <Plus size={16} color="#EF4444" />
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <TrendingDown size={20} color="#EF4444" />
-            <Text style={[styles.actionLabel, { color: "#EF4444" }]}>
-              Despesa
-            </Text>
-          </View>
-        </TouchableOpacity>
-      </Animated.View>
+        <BanknoteArrowDown size={20} color="#EF4444" />
+        <Text className="font-sans-bold text-[15px]" style={{ color: "#EF4444" }}>
+          Despesa
+        </Text>
+        </Button>
+      </View>
 
       {/* Chart */}
-      <Animated.View entering={FadeInDown.duration(400).delay(200)}>
+      <View>
         <View style={styles.sectionLabelRow}>
           <Text style={[styles.sectionLabel, { color: colors.text }]}>
             Balanço Mensal
           </Text>
         </View>
         <BalanceChart data={chartData} />
-      </Animated.View>
+      </View>
 
       {/* Transactions Section Label */}
       <View style={[styles.sectionLabelRow, { marginTop: 24 }]}>
@@ -368,43 +340,13 @@ export default function FinancesScreen() {
   return (
     <View className="flex-1 bg-surface">
       {/* Floating Header */}
-      <Animated.View 
-        style={[
-          { 
-            position: "absolute", 
-            top: 0, 
-            left: 0, 
-            right: 0, 
-            zIndex: 50,
-          },
-          headerBarStyle
-        ]}
-      >
-        <View
-          style={{
-            paddingTop: insets.top + 4,
-            paddingBottom: 8,
-            paddingHorizontal: 24,
-            flexDirection: 'row',
-            alignItems: 'center',
-            borderBottomWidth: 1,
-            borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-            backgroundColor: isDark ? '#121212' : '#FFFFFF',
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 3.84,
-            elevation: 5,
-          }}
-        >
-          <Animated.Text 
-            className="font-sans-bold text-lg text-on-surface"
-            style={headerTitleStyle}
-          >
-            Finanças
-          </Animated.Text>
-        </View>
-      </Animated.View>
+      <TabHeader
+        scrollY={scrollY}
+        title="Finanças"
+        backgroundThreshold={[15, 30]}
+        titleThreshold={[30, 50]}
+        hasSlideIn
+      />
 
       <AnimatedSectionList
         onScroll={scrollHandler}
@@ -423,17 +365,7 @@ export default function FinancesScreen() {
         showsVerticalScrollIndicator={false}
       />
 
-      <PromptModal
-        visible={isBalanceModalVisible}
-        title="Definir saldo"
-        message="Informe seu saldo total atual:"
-        defaultValue={formatBRL(balance)}
-        placeholder="R$ 0,00"
-        keyboardType="numeric"
-        formatInput={formatBRLInput}
-        onCancel={() => setIsBalanceModalVisible(false)}
-        onConfirm={handleUpdateBalance}
-      />
+
     </View>
   );
 }
@@ -486,21 +418,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     gap: 12,
     marginTop: 16,
-  },
-  actionBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  actionLabel: {
-    fontSize: 15,
-    fontWeight: "700",
   },
   sectionLabelRow: {
     paddingHorizontal: 20,

@@ -3,7 +3,7 @@ import { MathJaxRenderer } from "@/components/ui/MathJaxRenderer";
 import type { Media, Task } from "@/db/schema";
 import { useTheme } from "@/providers/ThemeProvider";
 import { stripMarkdown, truncateText } from "@/utils/markdown";
-import { Clock, Paperclip, Trash2 } from "lucide-react-native";
+import { Bell, Clock, Paperclip, Trash2 } from "lucide-react-native";
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 
@@ -156,6 +156,20 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
         <View className="flex-row items-center">
             <Clock size={12} color="rgb(163,163,163)" />
             <Text className="ml-1 font-sans text-xs text-muted">{formattedDate}</Text>
+            
+            {task.deliveryDate && task.deliveryTime && (
+              <View className="ml-3 flex-row items-center bg-primary/10 px-2 py-0.5 rounded-full">
+                <Bell size={10} color={primaryColor} />
+                <Text className="ml-1 font-sans-semibold text-[10px]" style={{ color: primaryColor }}>
+                  {new Date(`${task.deliveryDate}T${task.deliveryTime}`).toLocaleString("pt-BR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </Text>
+              </View>
+            )}
             {hasMedia && (
             <View className="ml-3 flex-row items-center">
                 <Paperclip size={12} color="rgb(163,163,163)" />

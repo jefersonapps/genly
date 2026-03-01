@@ -2,7 +2,7 @@ import { SettingsRow } from "@/components/settings/SettingsRow";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Divider } from "@/components/ui/Divider";
-import { PromptModal } from "@/components/ui/PromptModal";
+import { TabHeader } from "@/components/ui/TabHeader";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { exportBackup, importBackup } from "@/services/backupService";
@@ -33,11 +33,7 @@ import {
 import React, { useCallback, useRef, useState } from "react";
 import { Text, View } from "react-native";
 import Animated, {
-    Extrapolation,
-    interpolate,
-    useAnimatedScrollHandler,
-    useAnimatedStyle,
-    useSharedValue,
+    useAnimatedScrollHandler, useSharedValue
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -55,7 +51,6 @@ export default function SettingsScreen() {
   const [profileName, setProfileName] = useState("");
   const [profileImage, setProfileImage] = useState("");
   const [securityEnabled, setSecurityEnabled] = useState(false);
-  const [isNameModalVisible, setIsNameModalVisible] = useState(false);
   const [exportPath, setExportPath] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -65,35 +60,6 @@ export default function SettingsScreen() {
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
     },
-  });
-
-  const headerTitleStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      scrollY.value,
-      [20, 80],
-      [0, 1],
-      Extrapolation.CLAMP
-    );
-    return { opacity };
-  });
-
-  const headerBarStyle = useAnimatedStyle(() => {
-    const translateY = interpolate(
-      scrollY.value,
-      [20, 80],
-      [-100, 0],
-      Extrapolation.CLAMP
-    );
-    const opacity = interpolate(
-      scrollY.value,
-      [20, 80],
-      [0, 1],
-      Extrapolation.CLAMP
-    );
-    return { 
-      transform: [{ translateY }],
-      opacity 
-    };
   });
 
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
@@ -259,43 +225,12 @@ export default function SettingsScreen() {
   return (
     <View className="flex-1 bg-surface">
       {/* Floating Header */}
-      <Animated.View 
-        style={[
-          { 
-            position: "absolute", 
-            top: 0, 
-            left: 0, 
-            right: 0, 
-            zIndex: 50,
-          },
-          headerBarStyle
-        ]}
-      >
-        <View
-          style={{
-            paddingTop: insets.top + 4,
-            paddingBottom: 8,
-            paddingHorizontal: 24,
-            flexDirection: 'row',
-            alignItems: 'center',
-            borderBottomWidth: 1,
-            borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-            backgroundColor: isDark ? '#121212' : '#FFFFFF',
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 3.84,
-            elevation: 5,
-          }}
-        >
-          <Animated.Text 
-            className="font-sans-bold text-lg text-on-surface"
-            style={headerTitleStyle}
-          >
-            Ajustes
-          </Animated.Text>
-        </View>
-      </Animated.View>
+      <TabHeader
+        scrollY={scrollY}
+        title="Ajustes"
+        titleThreshold={[40, 60]}
+        hasSlideIn
+      />
 
       <Animated.ScrollView 
         onScroll={scrollHandler}
@@ -324,28 +259,31 @@ export default function SettingsScreen() {
           <Button 
             variant="ghost" 
             size="sm" 
-            onPress={() => setIsNameModalVisible(true)} 
+            onPress={() => {
+                dialog.show({
+                    title: "Nome de perfil",
+                    description: "Como você gostaria de ser chamado?",
+                    prompt: {
+                        defaultValue: profileName,
+                        placeholder: "Seu nome",
+                        onConfirm: async (newName) => {
+                            if (newName.trim()) {
+                                await setSetting("profile_name", newName.trim());
+                                setProfileName(newName.trim());
+                            }
+                        }
+                    },
+                    buttons: [
+                        { text: "Cancelar", variant: "ghost" },
+                        { text: "Confirmar", variant: "default" }
+                    ]
+                });
+            }} 
             className="mt-1"
           >
             <Button.Text>Editar Perfil</Button.Text>
           </Button>
         </View>
-
-        <PromptModal
-           visible={isNameModalVisible}
-           title="Nome de perfil"
-           message="Digite seu nome:"
-           defaultValue={profileName}
-           placeholder="Seu nome"
-           onCancel={() => setIsNameModalVisible(false)}
-           onConfirm={async (newName) => {
-               if (newName) {
-                   await setSetting("profile_name", newName);
-                   setProfileName(newName);
-               }
-               setIsNameModalVisible(false);
-           }}
-        />
 
         <View className="px-5 pb-2">
             <Text className="font-sans-bold text-lg text-on-surface mb-2">Geral</Text>

@@ -3,6 +3,7 @@ import React, { createContext, useContext } from "react";
 import {
     Animated,
     Modal,
+    Platform,
     Pressable,
     Text,
     TouchableOpacity,
@@ -10,6 +11,7 @@ import {
     type TextProps,
     type ViewProps,
 } from "react-native";
+import { KeyboardAvoidingView } from "./KeyboardAvoidingView";
 
 // ─── Types ───────────────────────────────────────
 type DialogButtonVariant = "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
@@ -226,29 +228,34 @@ function DialogRoot({ visible, onClose, children }: DialogRootProps) {
       statusBarTranslucent
     >
       <DialogCtx.Provider value={{ onClose }}>
-        <Animated.View
-          style={[
-            {
-              flex: 1,
-              justifyContent: "center",
-              paddingHorizontal: 24,
-              backgroundColor: "rgba(0,0,0,0.6)",
-              opacity: fadeAnim,
-            },
-          ]}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
         >
-          <Pressable
-            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-            onPress={onClose}
-          />
           <Animated.View
-            style={{ transform: [{ scale: scaleAnim }] }}
+            style={[
+              {
+                flex: 1,
+                justifyContent: "center",
+                paddingHorizontal: 24,
+                backgroundColor: "rgba(0,0,0,0.6)",
+                opacity: fadeAnim,
+              },
+            ]}
           >
-            <View className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
-              {children}
-            </View>
+            <Pressable
+              style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+              onPress={onClose}
+            />
+            <Animated.View
+              style={{ transform: [{ scale: scaleAnim }] }}
+            >
+              <View className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
+                {children}
+              </View>
+            </Animated.View>
           </Animated.View>
-        </Animated.View>
+        </KeyboardAvoidingView>
       </DialogCtx.Provider>
     </Modal>
   );

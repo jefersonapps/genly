@@ -1,7 +1,9 @@
 import { Dialog, type DialogButtonVariant } from "@/components/ui/Dialog";
+import { Input } from "@/components/ui/Input";
 import { useTheme } from "@/providers/ThemeProvider";
 import { AlertTriangle, CheckCircle2, Info, XCircle } from "lucide-react-native";
 import React, { createContext, useCallback, useContext, useState, type PropsWithChildren } from "react";
+import { View } from "react-native";
 
 // ─── Types ───────────────────────────────────────
 interface DialogButtonOption {
@@ -19,6 +21,12 @@ interface DialogOptions {
   buttons?: DialogButtonOption[];
   icon?: React.ReactNode;
   variant?: DialogVariant;
+  prompt?: {
+    defaultValue?: string;
+    placeholder?: string;
+    onConfirm: (text: string) => void | Promise<void>;
+    autoFocus?: boolean;
+  };
 }
 
 interface DialogContextValue {
@@ -33,16 +41,22 @@ const DialogContext = createContext<DialogContextValue | null>(null);
 export function DialogProvider({ children }: PropsWithChildren) {
   const [visible, setVisible] = useState(false);
   const [options, setOptions] = useState<DialogOptions | null>(null);
-  const { primaryColor } = useTheme();
+  const [promptValue, setPromptValue] = useState("");
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
 
   const show = useCallback((opts: DialogOptions) => {
     setOptions(opts);
+    if (opts.prompt) {
+        setPromptValue(opts.prompt.defaultValue || "");
+    }
     setVisible(true);
   }, []);
 
   const hide = useCallback(() => {
     setVisible(false);
     setOptions(null);
+    setPromptValue("");
   }, []);
 
   const resolvedButtons = options?.buttons?.length
@@ -79,12 +93,31 @@ export function DialogProvider({ children }: PropsWithChildren) {
                 <Dialog.Description>{options.description}</Dialog.Description>
               ) : null}
             </Dialog.Header>
+
+            {options.prompt && (
+              <View className="mb-6">
+                <Input
+                   value={promptValue}
+                   onChangeText={setPromptValue}
+                   placeholder={options.prompt.placeholder}
+                   autoFocus={options.prompt.autoFocus !== false}
+                />
+              </View>
+            )}
+
             <Dialog.Footer>
               {resolvedButtons.map((btn, i) => (
                 <Dialog.Button
                   key={i}
                   variant={btn.variant}
-                  onPress={btn.onPress}
+                  onPress={async () => {
+                    if (options.prompt && btn.variant !== 'ghost' && btn.variant !== 'outline') {
+                       await options.prompt.onConfirm(promptValue);
+                    }
+                    if (btn.onPress) {
+                      await btn.onPress();
+                    }
+                  }}
                   icon={btn.icon}
                 >
                   {btn.text}

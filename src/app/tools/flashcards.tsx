@@ -10,7 +10,7 @@ import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Download, FileEdit, FilePlus2, FileText, Library, PlayCircle, Plus, Sparkles, Trash2 } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -149,7 +149,7 @@ export default function FlashcardsScreen() {
     try {
       const group = await getGroupByName("Flashcards");
       if (!group) {
-         Alert.alert("Erro", "Grupo 'Flashcards' não encontrado.");
+         dialog.show({ title: 'Erro', description: "Grupo 'Flashcards' não encontrado.", variant: 'error' });
          return;
       }
       
@@ -168,11 +168,11 @@ export default function FlashcardsScreen() {
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Sucesso', 'Flashcards salvos no banco de dados!');
+      dialog.show({ title: 'Sucesso', description: 'Flashcards salvos no banco de dados!', variant: 'success' });
 
     } catch (e) {
       console.error(e);
-      Alert.alert("Erro", "Falha ao salvar flashcards.");
+      dialog.show({ title: 'Erro', description: 'Falha ao salvar flashcards.', variant: 'error' });
     } finally {
       setIsExporting(false);
     }
@@ -187,11 +187,11 @@ export default function FlashcardsScreen() {
         const textToAppend = `\n\n## Flashcards\n\n` + cards.map(c => `**Q:** ${c.front}\n**A:** ${c.back}`).join('\n\n');
         await updateTask(selectedTaskId, { content: (task.content || '') + textToAppend });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert('Sucesso', 'Flashcards adicionados à nota!');
+        dialog.show({ title: 'Sucesso', description: 'Flashcards adicionados à nota!', variant: 'success' });
       }
     } catch (e) {
         console.error(e);
-        Alert.alert("Erro", "Falha ao adicionar à nota.");
+        dialog.show({ title: 'Erro', description: 'Falha ao adicionar à nota.', variant: 'error' });
     } finally {
         setIsExporting(false);
     }
@@ -293,7 +293,7 @@ export default function FlashcardsScreen() {
                   setIsStudying(false);
                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               } else {
-                 Alert.alert("Aviso", "Crie pelo menos um cartão primeiro.");
+                 dialog.show({ title: 'Aviso', description: 'Crie pelo menos um cartão primeiro.', variant: 'warning' });
               }
            }}
            className="h-10 w-10 items-center justify-center rounded-full bg-surface-secondary/50"

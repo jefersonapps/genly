@@ -71,7 +71,7 @@ export default function AIConfigScreen() {
       await setSetting("gemini_model", geminiModel.trim());
       await setSetting("openai_model", openaiModel.trim());
       await setSetting("active_model", activeModel);
-      dialog.show({ title: "Sucesso", description: "Configurações salvas!" });
+      // dialog.show({ title: "Sucesso", description: "Configurações salvas!" });
       router.back();
     } catch {
       dialog.show({ title: "Erro", description: "Falha ao salvar." });
@@ -122,12 +122,13 @@ export default function AIConfigScreen() {
           Inteligência Artificial
         </Text>
         <Button
-          variant="ghost"
+          rounded="full"
           loading={saving}
           onPress={handleSave}
           disabled={loading}
         >
-          <Button.Icon icon={<Check size={20} color={colors.primary} />} />
+          <Button.Icon icon={<Check size={18} color="#FFF" />} />
+          <Button.Text className="ml-2">Salvar</Button.Text>
         </Button>
       </View>
 

@@ -32,7 +32,7 @@ import {
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator, Alert, Dimensions, FlatList, Modal,
+    ActivityIndicator, Dimensions, FlatList, Modal,
     Platform, StyleSheet,
     Text,
     TextInput,
@@ -167,7 +167,7 @@ export default function MindMapScreen() {
         if (uri) {
            await addMedia(taskId, uri, 'image');
            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-           Alert.alert('Sucesso', 'Mapa mental adicionado à nota com sucesso!');
+           dialog.show({ title: 'Sucesso', description: 'Mapa mental adicionado à nota com sucesso!', variant: 'success' });
         }
       } catch (e) {
         console.error(e);
@@ -198,7 +198,7 @@ export default function MindMapScreen() {
         if (status === 'granted') {
           await MediaLibrary.createAssetAsync(uri);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          Alert.alert('Sucesso', 'A imagem foi salva na sua galeria!');
+          dialog.show({ title: 'Sucesso', description: 'A imagem foi salva na sua galeria!', variant: 'success' });
         } else {
           await Sharing.shareAsync(uri, { mimeType: 'image/png' });
         }
@@ -220,7 +220,7 @@ export default function MindMapScreen() {
     try {
       const mapsGroup = await getGroupByName("Mapas Mentais");
       if (!mapsGroup) {
-         Alert.alert("Erro", "Grupo 'Mapas Mentais' não encontrado.");
+         dialog.show({ title: 'Erro', description: "Grupo 'Mapas Mentais' não encontrado.", variant: 'error' });
          return;
       }
 
@@ -247,11 +247,11 @@ export default function MindMapScreen() {
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Sucesso', 'Mapa mental salvo no banco de dados!');
+      dialog.show({ title: 'Sucesso', description: 'Mapa mental salvo no banco de dados!', variant: 'success' });
 
     } catch (e) {
       console.error("Failed to save mind map:", e);
-      Alert.alert("Erro", "Falha ao salvar o mapa mental.");
+      dialog.show({ title: 'Erro', description: 'Falha ao salvar o mapa mental.', variant: 'error' });
     } finally {
       setIsExporting(false);
     }

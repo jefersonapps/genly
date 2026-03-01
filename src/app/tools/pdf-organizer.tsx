@@ -27,7 +27,6 @@ import { PDFDocument, PDFName, degrees, rgb } from "pdf-lib";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     Dimensions,
     Platform,
     StyleSheet,
@@ -110,7 +109,7 @@ export default function PDFOrganizerScreen() {
 
       if (result.didCancel) return;
       if (result.error) {
-        Alert.alert("Erro", result.errorMessage || "Ocorreu um erro ao escanear.");
+        dialog.show({ title: 'Erro', description: result.errorMessage || "Ocorreu um erro ao escanear.", variant: 'error' });
         return;
       }
 
@@ -139,7 +138,7 @@ export default function PDFOrganizerScreen() {
       }
     } catch (e) {
       console.error("Scanner Error:", e);
-      Alert.alert("Erro", "Não foi possível abrir o scanner.");
+      dialog.show({ title: 'Erro', description: 'Não foi possível abrir o scanner.', variant: 'error' });
     }
   };
 
@@ -203,7 +202,7 @@ export default function PDFOrganizerScreen() {
       }
     } catch (error) {
       console.error("Import error:", error);
-      Alert.alert("Erro", "Não foi possível importar os arquivos.");
+      dialog.show({ title: 'Erro', description: 'Não foi possível importar os arquivos.', variant: 'error' });
     } finally {
       setIsProcessing(false);
     }
