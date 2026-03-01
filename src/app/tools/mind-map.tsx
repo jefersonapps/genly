@@ -281,11 +281,10 @@ export default function MindMapScreen() {
          hasInitializedTemplate.current = true;
          // Clear current state first
          const store = useMindMapStore.getState();
-         store.nodes.forEach(n => store.deleteNode(n.id));
+         store.reset();
 
          if (template === 'brainstorming') {
-             store.addNode(undefined as any, 'Ideia Principal'); // Add root
-             // Need to use a slight delay or directly manipulate state because nodes update async in zustand
+             store.initRoot('Ideia Principal');
              setTimeout(() => {
                  const newRoot = useMindMapStore.getState().nodes[0];
                  if (newRoot) {
@@ -295,7 +294,7 @@ export default function MindMapScreen() {
                  }
              }, 100);
          } else if (template === 'study') {
-             store.addNode(undefined as any, 'Tópico de Estudo');
+             store.initRoot('Tópico de Estudo');
              setTimeout(() => {
                  const newRoot = useMindMapStore.getState().nodes[0];
                  if (newRoot) {
@@ -305,7 +304,9 @@ export default function MindMapScreen() {
                  }
              }, 100);
          }
-         // Can add more templates here in the future
+      } else if (!taskId && !template && !hasInitializedTemplate.current) {
+          hasInitializedTemplate.current = true;
+          useMindMapStore.getState().reset();
       }
     }
     hydrateFromTask();

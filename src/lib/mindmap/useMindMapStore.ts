@@ -52,6 +52,7 @@ interface MindMapState {
   setCanvasBgColor: (color: string | null) => void;
   setBgPattern: (pattern: BackgroundPattern) => void;
   setWholeState: (state: Partial<MindMapState>) => void;
+  reset: () => void;
 }
 
 function generateId(): string {
@@ -205,4 +206,5 @@ export const useMindMapStore = create<MindMapState>((set) => ({
   setCanvasBgColor: (color) => set({ canvasBgColor: color }),
   setBgPattern: (pattern) => set({ bgPattern: pattern }),
   setWholeState: (newState) => set(newState),
+  reset: () => set({ nodes: [], rootId: null, selectedId: null, canvasBgColor: null, bgPattern: 'none' }),
 }));

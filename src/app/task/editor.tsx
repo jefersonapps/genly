@@ -6,50 +6,50 @@ import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/d
 import * as DocumentPicker from "expo-document-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
-  ArrowLeft,
-  Bell,
-  Bold,
-  Check,
-  CheckSquare,
-  Code,
-  FileCode,
-  FileText,
-  Heading1,
-  Heading2,
-  Heading3,
-  Image as ImageIcon,
-  Italic,
-  List,
-  ListOrdered,
-  Plus,
-  Quote,
-  Redo,
-  Sigma,
-  Sparkles,
-  Strikethrough,
-  Trash2,
-  Underline,
-  Undo,
-  X,
+    ArrowLeft,
+    Bell,
+    Bold,
+    Check,
+    CheckSquare,
+    Code,
+    FileCode,
+    FileText,
+    Heading1,
+    Heading2,
+    Heading3,
+    Image as ImageIcon,
+    Italic,
+    List,
+    ListOrdered,
+    Plus,
+    Quote,
+    Redo,
+    Sigma,
+    Sparkles,
+    Strikethrough,
+    Trash2,
+    Underline,
+    Undo,
+    X,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Keyboard,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Keyboard,
+    Platform,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import PdfThumbnail from "react-native-pdf-thumbnail";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
-  EnrichedTextInput,
-  type EnrichedTextInputInstance,
+    EnrichedTextInput,
+    type EnrichedTextInputInstance,
 } from "react-native-enriched";
 
 import { MediaPreview } from "@/components/task/MediaPreview";
@@ -59,13 +59,13 @@ import type { Group, Media } from "@/db/schema";
 import { AIProcessMode, aiService } from "@/services/aiService";
 import { latexStateService } from "@/services/latexStateService";
 import {
-  addMedia,
-  createTask,
-  deleteMedia,
-  getAllGroups,
-  getMediaForTask,
-  getTaskById,
-  updateTask,
+    addMedia,
+    createTask,
+    deleteMedia,
+    getAllGroups,
+    getMediaForTask,
+    getTaskById,
+    updateTask,
 } from "@/services/taskService";
 import { copyToMediaDir, pickImages } from "@/utils/file";
 // ─── Helpers ─────────────────────────────────────
@@ -193,6 +193,9 @@ export default function TaskEditor() {
     sharedText?: string;
     sharedImages?: string;
     groupId?: string;
+    reminderDate?: string;
+    deliveryDate?: string;
+    deliveryTime?: string;
   }>();
   const insets = useSafeAreaInsets();
   const { primaryColor, resolvedTheme } = useTheme();
@@ -278,7 +281,33 @@ export default function TaskEditor() {
         setSaving(false);
       }
     }
-  }, [params.sharedText, params.sharedImages]);
+    
+    // Handle reminder parameters
+    if (params.deliveryDate) {
+      setDeliveryDate(params.deliveryDate);
+    }
+    if (params.deliveryTime) {
+      setDeliveryTime(params.deliveryTime);
+    }
+    
+    if (params.reminderDate && !params.deliveryDate) {
+      try {
+        const date = new Date(params.reminderDate);
+        if (!isNaN(date.getTime())) {
+          const year = date.getFullYear();
+          const month = (date.getMonth() + 1).toString().padStart(2, '0');
+          const day = date.getDate().toString().padStart(2, '0');
+          setDeliveryDate(`${year}-${month}-${day}`);
+          
+          const hours = date.getHours().toString().padStart(2, '0');
+          const minutes = date.getMinutes().toString().padStart(2, '0');
+          setDeliveryTime(`${hours}:${minutes}`);
+        }
+      } catch (e) {
+        console.error("Failed to parse reminderDate param", e);
+      }
+    }
+  }, [params.sharedText, params.sharedImages, params.reminderDate, params.deliveryDate, params.deliveryTime]);
 
   const loadInitialData = async () => {
     const allGroups = await getAllGroups();

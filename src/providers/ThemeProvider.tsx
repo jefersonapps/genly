@@ -65,11 +65,17 @@ export function ThemeProvider({ children }: PropsWithChildren) {
   const setThemeMode = useCallback(async (mode: ThemeMode) => {
     setThemeModeState(mode);
     await setSetting("theme_mode", mode);
+    // Explicitly update widgets to reflect the new theme
+    const { triggerAllWidgetsUpdate } = require("../widgets/widget-task-handler");
+    triggerAllWidgetsUpdate();
   }, []);
 
   const setPrimaryColor = useCallback(async (color: string) => {
     setPrimaryColorState(color);
     await setSetting("primary_color", color);
+    // Explicitly update widgets to reflect the new primary color
+    const { triggerAllWidgetsUpdate } = require("../widgets/widget-task-handler");
+    triggerAllWidgetsUpdate();
   }, []);
 
   const isDark = resolvedTheme === "dark";

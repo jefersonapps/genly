@@ -1,8 +1,8 @@
-import React, { createContext, useContext, type PropsWithChildren } from "react";
-import { View, Text } from "react-native";
 import { useMigrations } from "drizzle-orm/expo-sqlite/migrator";
-import { db } from "../db/client";
+import React, { createContext, useContext, type PropsWithChildren } from "react";
+import { Text, View } from "react-native";
 import migrations from "../../drizzle/migrations";
+import { db } from "../db/client";
 
 interface DatabaseContextValue {
   isReady: boolean;
@@ -24,11 +24,7 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
   }
 
   if (!success) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <Text style={{ color: "#888", fontSize: 16 }}>Carregando...</Text>
-      </View>
-    );
+    return null
   }
 
   return (

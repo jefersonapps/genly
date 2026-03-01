@@ -14,7 +14,7 @@ import React, { useEffect } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import 'react-native-gesture-handler';
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import "../global.css";
+
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -31,11 +31,13 @@ function RootLayoutNav() {
     if (!router) return;
     if (
       lastNotificationResponse &&
-      lastNotificationResponse.notification.request.content.data.taskId &&
+      lastNotificationResponse.notification.request.content.data?.taskId &&
       lastNotificationResponse.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER
     ) {
-      const taskId = lastNotificationResponse.notification.request.content.data.taskId;
-      router.push({ pathname: "/task/[id]", params: { id: String(taskId) } });
+      const taskId = lastNotificationResponse.notification.request.content.data?.taskId;
+      if (taskId) {
+        router.push({ pathname: "/task/[id]", params: { id: String(taskId) } });
+      }
     }
   }, [lastNotificationResponse]);
   

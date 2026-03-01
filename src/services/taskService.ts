@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db/client";
 import { groups, media, tasks, type Group, type Media, type Task } from "../db/schema";
 import { NotificationService } from "./notificationService";
+import { refreshAllWidgets } from "./widgetRefreshService";
 
 // ─── Group Operations ─────────────────────────────────
 
@@ -96,6 +97,9 @@ export async function createTask(
     await NotificationService.scheduleReminder(newTask.id, newTask.title, "Lembrete de nota", reminderDate);
   }
 
+  // Refresh widgets with new data
+  refreshAllWidgets();
+
   return newTask;
 }
 
@@ -121,6 +125,9 @@ export async function updateTask(
       }
     }
   }
+
+  // Refresh widgets with updated data
+  refreshAllWidgets();
 }
 
 export async function bulkUpdateTasksGroup(taskIds: number[], groupId: number | null): Promise<void> {
@@ -138,6 +145,9 @@ export async function deleteTask(id: number): Promise<void> {
   // Media entries cascade-deleted via foreign key
   await NotificationService.cancelReminder(id);
   await db.delete(tasks).where(eq(tasks.id, id));
+
+  // Refresh widgets after deletion
+  refreshAllWidgets();
 }
 
 // ─── Media Operations ─────────────────────────────────

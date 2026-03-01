@@ -8,9 +8,9 @@ import { createTask, getAllTasks, getGroupByName, getTaskById, updateTask } from
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Download, FileEdit, FilePlus2, FileText, Library, PlayCircle, Plus, Sparkles, Trash2 } from "lucide-react-native";
+import { ArrowLeft, Check, Download, FileEdit, FilePlus2, FileText, Library, MoreVertical, PlayCircle, Plus, Sparkles, Trash2, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, Keyboard, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -75,6 +75,7 @@ export default function FlashcardsScreen() {
 
   const handleAIGenerate = useCallback(async () => {
     if (!aiPrompt.trim()) return;
+    Keyboard.dismiss();
     setIsGenerating(true);
     setIsAiModalVisible(false);
 
@@ -128,6 +129,9 @@ export default function FlashcardsScreen() {
       }));
 
       setCards(prev => [...prev, ...newCards]);
+      if (!deckTitle.trim()) {
+        setDeckTitle(aiPrompt.trim());
+      }
       setAiPrompt('');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
@@ -287,19 +291,51 @@ export default function FlashcardsScreen() {
       <View className="flex-1 bg-surface" style={{ paddingTop: insets.top }}>
         {/* Header */}
       <View className="flex-row items-center justify-between px-4 py-2 border-b border-outline/10">
-        <TouchableOpacity
-          onPress={() => {
-              if (isStudying) {
-                  setIsStudying(false);
-                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              } else {
-                 dialog.show({ title: 'Aviso', description: 'Crie pelo menos um cartão primeiro.', variant: 'warning' });
-              }
-           }}
-           className="h-10 w-10 items-center justify-center rounded-full bg-surface-secondary/50"
-        >
-           <Download size={20} color={isDark ? "#FFF" : "#000"} />
-        </TouchableOpacity>
+        <View className="flex-row items-center">
+          <Button 
+            variant="icon" 
+            onPress={() => router.back()} 
+            className="mr-2"
+          >
+            <Button.Icon icon={<ArrowLeft size={24} color={isDark ? "#FFF" : "#000"} />} />
+          </Button>
+          <Text className="font-sans-bold text-xl text-on-surface">
+            Flashcards
+          </Text>
+        </View>
+
+        {isStudying ? (
+          <Button 
+            variant="ghost" 
+            onPress={() => {
+              setIsStudying(false);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            <Button.Icon icon={X} />
+            <Button.Text>Sair</Button.Text>
+          </Button>
+        ) : (
+          <View className="flex-row items-center gap-1">
+            {cards.length > 0 && (
+              <Button 
+                variant="icon" 
+                onPress={() => optionsSheetRef.current?.present()}
+              >
+                <Button.Icon icon={MoreVertical} />
+              </Button>
+            )}
+            <Button 
+              rounded="full" 
+              onPress={handleSaveToDatabase}
+              loading={isExporting}
+              disabled={cards.length === 0}
+            >
+              <Button.Icon icon={Check} />
+              <Button.Text className="ml-2">Salvar</Button.Text>
+            </Button>
+          </View>
+        )}
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}>
@@ -307,7 +343,7 @@ export default function FlashcardsScreen() {
         {!isStudying && !isAdding && (
             <View className="px-4 mt-6">
                 <View className="mb-6">
-                    <Text className="font-sans-bold text-on-surface mb-2">Título do Baralho:</Text>
+                    <Text className="font-sans-bold text-xl text-on-surface mb-2">Título do Baralho:</Text>
                     <TextInput 
                         value={deckTitle}
                         onChangeText={setDeckTitle}
@@ -319,15 +355,14 @@ export default function FlashcardsScreen() {
 
                 <View className="flex-row items-center justify-between mb-4">
                     <Text className="font-sans-bold text-xl text-on-surface">Seus Cartões ({cards.length})</Text>
-                    <TouchableOpacity 
+                    <Button 
+                        size="sm"
                         onPress={() => setIsStudying(true)}
                         disabled={cards.length === 0}
-                        className="flex-row items-center px-4 py-2 rounded-full"
-                        style={{ backgroundColor: cards.length > 0 ? primaryColor : (isDark ? "#333" : "#E5E5E5") }}
                     >
-                        <PlayCircle size={18} color={cards.length > 0 ? "#FFF" : "#999"} />
-                        <Text style={{ color: cards.length > 0 ? "#FFF" : "#999" }} className="font-sans-bold ml-2">Estudar</Text>
-                    </TouchableOpacity>
+                        <Button.Icon icon={PlayCircle} />
+                        <Button.Text className="ml-2">Estudar</Button.Text>
+                    </Button>
                 </View>
 
                 {cards.length === 0 ? (
@@ -336,24 +371,9 @@ export default function FlashcardsScreen() {
                             <Library size={40} color={primaryColor} />
                         </View>
                         <Text className="font-sans-bold text-xl text-on-surface text-center mb-2">Comece a Estudar</Text>
-                        <Text className="font-sans text-on-surface-secondary text-center mb-8 px-4 leading-relaxed">
+                        <Text className="font-sans text-on-surface-secondary text-center px-4 leading-relaxed mb-4">
                             Crie cartões com perguntas na frente e respostas no verso para testar seu conhecimento de forma ativa via repetição.
                         </Text>
-                        <Button onPress={() => setIsAdding(true)} className="w-full flex-row items-center justify-center">
-                            <Plus size={20} color="#FFF" className="mr-2" />
-                            <Button.Text>Adicionar Primeiro Cartão</Button.Text>
-                        </Button>
-                        <TouchableOpacity
-                            onPress={() => {
-                                setIsAiModalVisible(true);
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            }}
-                            className="w-full mt-3 flex-row items-center justify-center p-4 rounded-2xl"
-                            style={{ backgroundColor: isDark ? '#27272A' : '#F4F4F5', borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}
-                        >
-                            <Sparkles size={20} color={primaryColor} />
-                            <Text className="font-sans-bold ml-2" style={{ color: primaryColor }}>Gerar com IA</Text>
-                        </TouchableOpacity>
                     </View>
                 ) : (
                     <View className="gap-4">
@@ -376,25 +396,29 @@ export default function FlashcardsScreen() {
                     </View>
                 )}
 
-                <TouchableOpacity 
+                <Button 
                     onPress={() => setIsAdding(true)}
-                    className="mt-6 flex-row items-center justify-center p-4 rounded-2xl border-2 border-dashed"
+                    variant="ghost"
+                    className="mt-6 border-2 border-dashed h-16"
                     style={{ borderColor: primaryColor, backgroundColor: isDark ? `${primaryColor}15` : `${primaryColor}10` }}
                 >
-                    <Plus size={24} color={primaryColor} />
-                    <Text style={{ color: primaryColor }} className="font-sans-bold text-lg ml-2">Adicionar Cartão</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
+                    <Button.Icon icon={Plus} color={primaryColor} size={24} />
+                    <Button.Text style={{ color: primaryColor }} className="text-lg ml-2">Adicionar Cartão</Button.Text>
+                </Button>
+
+                <Button 
                     onPress={() => {
                         setIsAiModalVisible(true);
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     }}
-                    className="mt-3 flex-row items-center justify-center p-4 rounded-2xl"
-                    style={{ backgroundColor: isDark ? '#27272A' : '#F4F4F5', borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}
+                    variant="ghost"
+                    className="mt-3 h-16 border bg-surface-secondary"
+                    style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}
+                    color={primaryColor}
                 >
-                    <Sparkles size={20} color={primaryColor} />
-                    <Text style={{ color: primaryColor }} className="font-sans-bold text-lg ml-2">Gerar com IA</Text>
-                </TouchableOpacity>
+                    <Button.Icon icon={Sparkles} color={primaryColor} size={20} />
+                    <Button.Text style={{ color: primaryColor }} className="text-lg ml-2">Gerar com IA</Button.Text>
+                </Button>
             </View>
         )}
 
@@ -424,14 +448,15 @@ export default function FlashcardsScreen() {
                     style={{ minHeight: 120 }}
                 />
 
-                <TouchableOpacity 
+                <Button 
+                    size="lg"
+                    rounded="full"
                     onPress={handleAddCard}
-                    className="p-4 rounded-full items-center justify-center shadow-sm"
-                    style={{ backgroundColor: primaryColor, opacity: (!newFront || !newBack) ? 0.5 : 1 }}
                     disabled={!newFront || !newBack}
+                    className="shadow-sm"
                 >
-                    <Text className="font-sans-bold text-white text-lg">Salvar Cartão</Text>
-                </TouchableOpacity>
+                    <Button.Text>Salvar Cartão</Button.Text>
+                </Button>
             </View>
         )}
 
@@ -491,17 +516,18 @@ export default function FlashcardsScreen() {
                  </View>
 
                  {showBack && (
-                     <View className="w-full mt-10">
-                        <TouchableOpacity 
+                      <View className="w-full mt-10">
+                        <Button 
+                            size="lg"
+                            rounded="full"
                             onPress={handleNextCard}
-                            className="w-full p-4 rounded-full items-center justify-center flex-row shadow-sm"
-                            style={{ backgroundColor: primaryColor }}
+                            className="shadow-sm"
                         >
-                            <Text className="font-sans-bold text-white text-lg mr-2">
+                            <Button.Text>
                                 {currentIdx < cards.length - 1 ? "Próximo Cartão" : "Finalizar Estudo"}
-                            </Text>
-                        </TouchableOpacity>
-                     </View>
+                            </Button.Text>
+                        </Button>
+                      </View>
                  )}
              </View>
         )}
@@ -631,19 +657,16 @@ export default function FlashcardsScreen() {
                 fontFamily: 'Montserrat-Regular',
               }}
             />
-            <TouchableOpacity
+            <Button
+              size="lg"
               onPress={handleAIGenerate}
               disabled={!aiPrompt.trim() || isGenerating}
-              className="rounded-2xl py-4 items-center justify-center flex-row gap-2"
-              style={{ backgroundColor: primaryColor, opacity: (!aiPrompt.trim() || isGenerating) ? 0.5 : 1 }}
+              loading={isGenerating}
+              className="mt-2"
             >
-              {isGenerating ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <Sparkles size={18} color="#FFF" />
-              )}
-              <Text className="font-sans-bold text-white text-base">{isGenerating ? 'Gerando...' : 'Gerar Flashcards'}</Text>
-            </TouchableOpacity>
+              {!isGenerating && <Button.Icon icon={Sparkles} />}
+              <Button.Text>{isGenerating ? 'Gerando...' : 'Gerar Flashcards'}</Button.Text>
+            </Button>
           </View>
         </View>
       )}

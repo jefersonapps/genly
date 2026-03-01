@@ -26,17 +26,18 @@ import {
 import React, { useCallback, useState } from "react";
 import {
   SectionList,
+  SectionListProps,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from "react-native";
-import {
+import Animated, {
   useAnimatedScrollHandler, useSharedValue
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const AnimatedSectionList = SectionList as any;
+const AnimatedSectionList = Animated.createAnimatedComponent(SectionList) as unknown as React.ComponentType<SectionListProps<Transaction, MonthSection>>;
 
 export default function FinancesScreen() {
   const insets = useSafeAreaInsets();

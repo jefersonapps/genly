@@ -56,7 +56,7 @@ const Ctx = createContext<ButtonContext>({
 
 // ─── Size Maps ───────────────────────────────────
 const PADDING: Record<ButtonSize, string> = {
-  sm: "px-2 py-1",
+  sm: "px-2.5 py-1.5",
   md: "px-4 py-2",
   lg: "px-8 py-4",
 };

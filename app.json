@@ -19,7 +19,9 @@
           {
             "CFBundleTypeName": "PDF Document",
             "LSHandlerRank": "Alternate",
-            "LSItemContentTypes": ["com.adobe.pdf"]
+            "LSItemContentTypes": [
+              "com.adobe.pdf"
+            ]
           }
         ]
       }
@@ -67,7 +69,9 @@
             "BROWSABLE"
           ],
           "data": [
-            { "mimeType": "application/pdf" }
+            {
+              "mimeType": "application/pdf"
+            }
           ]
         }
       ]
@@ -140,7 +144,90 @@
       ],
       "./plugins/withMaterialPickerStyles.js",
       "./plugins/withShareTargets.js",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-image",
+      "expo-web-browser",
+      ["react-native-android-widget", {
+        "fonts": [
+          "./assets/fonts/Montserrat-Regular.ttf",
+          "./assets/fonts/Montserrat-Bold.ttf",
+          "./assets/fonts/Montserrat-Medium.ttf",
+          "./assets/fonts/Montserrat-SemiBold.ttf"
+        ],
+        "widgets": [
+          {
+            "name": "Reminders",
+            "label": "Genly - Lembretes",
+            "minWidth": "110dp",
+            "minHeight": "40dp",
+            "minResizeWidth": "72dp",
+            "minResizeHeight": "40dp",
+            "targetCellWidth": 4,
+            "targetCellHeight": 2,
+            "description": "Notas com lembretes agendados",
+            "previewImage": "./assets/widget-preview/reminders.png",
+            "updatePeriodMillis": 1800000,
+            "resizeMode": "horizontal|vertical"
+          },
+          {
+            "name": "RecentTasks",
+            "label": "Genly - Notas Recentes",
+            "minWidth": "110dp",
+            "minHeight": "40dp",
+            "minResizeWidth": "72dp",
+            "minResizeHeight": "40dp",
+            "targetCellWidth": 4,
+            "targetCellHeight": 2,
+            "description": "As 10 notas mais recentes",
+            "previewImage": "./assets/widget-preview/recent-tasks.png",
+            "updatePeriodMillis": 1800000,
+            "resizeMode": "horizontal|vertical"
+          },
+          {
+            "name": "RecentMindMaps",
+            "label": "Genly - Mapas Mentais",
+            "minWidth": "110dp",
+            "minHeight": "40dp",
+            "minResizeWidth": "72dp",
+            "minResizeHeight": "40dp",
+            "targetCellWidth": 4,
+            "targetCellHeight": 2,
+            "description": "Os 10 mapas mentais mais recentes",
+            "previewImage": "./assets/widget-preview/mind-maps.png",
+            "updatePeriodMillis": 1800000,
+            "resizeMode": "horizontal|vertical"
+          },
+          {
+            "name": "RecentFlashcards",
+            "label": "Genly - Flashcards",
+            "minWidth": "110dp",
+            "minHeight": "40dp",
+            "minResizeWidth": "72dp",
+            "minResizeHeight": "40dp",
+            "targetCellWidth": 4,
+            "targetCellHeight": 2,
+            "description": "Os 10 flashcards mais recentes",
+            "previewImage": "./assets/widget-preview/flashcards.png",
+            "updatePeriodMillis": 1800000,
+            "resizeMode": "horizontal|vertical"
+          },
+          {
+            "name": "GroupWidget",
+            "label": "Genly - Grupo",
+            "minWidth": "110dp",
+            "minHeight": "40dp",
+            "minResizeWidth": "72dp",
+            "minResizeHeight": "40dp",
+            "targetCellWidth": 4,
+            "targetCellHeight": 2,
+            "description": "Notas recentes de um grupo",
+            "previewImage": "./assets/widget-preview/group.png",
+            "updatePeriodMillis": 1800000,
+            "resizeMode": "horizontal|vertical",
+            "widgetFeatures": "reconfigurable"
+          }
+        ]
+      }]
     ],
     "experiments": {
       "typedRoutes": true,
