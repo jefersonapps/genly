@@ -3,6 +3,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Divider } from "@/components/ui/Divider";
 import { TabHeader } from "@/components/ui/TabHeader";
+import { useHeaderSnap } from "@/hooks/useHeaderSnap";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { exportBackup, importBackup } from "@/services/backupService";
@@ -32,9 +33,7 @@ import {
 } from "lucide-react-native";
 import React, { useCallback, useRef, useState } from "react";
 import { Text, View } from "react-native";
-import Animated, {
-    useAnimatedScrollHandler, useSharedValue
-} from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function SettingsScreen() {
@@ -54,13 +53,7 @@ export default function SettingsScreen() {
   const [exportPath, setExportPath] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  const scrollY = useSharedValue(0);
-
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollY.value = event.contentOffset.y;
-    },
-  });
+  const { headerScrollY, scrollHandler } = useHeaderSnap({ snapThreshold: 60 });
 
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   const snapPoints = React.useMemo(() => ["35%"], []);
@@ -226,7 +219,7 @@ export default function SettingsScreen() {
     <View className="flex-1 bg-surface">
       {/* Floating Header */}
       <TabHeader
-        scrollY={scrollY}
+        scrollY={headerScrollY}
         title="Ajustes"
         titleThreshold={[40, 60]}
         hasSlideIn

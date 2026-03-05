@@ -3,6 +3,7 @@ import { BalanceChart } from "@/components/finance/BalanceChart";
 import { Button } from "@/components/ui/Button";
 import { TabHeader } from "@/components/ui/TabHeader";
 import type { Transaction } from "@/db/schema";
+import { useHeaderSnap } from "@/hooks/useHeaderSnap";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import {
@@ -32,10 +33,9 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import Animated, {
-  useAnimatedScrollHandler, useSharedValue
-} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import Animated from "react-native-reanimated";
 
 const AnimatedSectionList = Animated.createAnimatedComponent(SectionList) as unknown as React.ComponentType<SectionListProps<Transaction, MonthSection>>;
 
@@ -47,13 +47,7 @@ export default function FinancesScreen() {
   const safeAccent = getContrastSafeColor(primaryColor, isDark);
   const dialog = useDialog();
 
-  const scrollY = useSharedValue(0);
-
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollY.value = event.contentOffset.y;
-    },
-  });
+  const { scrollY, headerScrollY, scrollHandler } = useHeaderSnap({ snapThreshold: 50 });
 
   const [balance, setBalance] = useState(0);
   const [sections, setSections] = useState<MonthSection[]>([]);
@@ -309,7 +303,7 @@ export default function FinancesScreen() {
 
       {/* Chart */}
       <View>
-        <View style={styles.sectionLabelRow}>
+        <View style={[styles.sectionLabelRow, { marginVertical: 16 }]}>
           <Text style={[styles.sectionLabel, { color: colors.text }]}>
             Balanço Mensal
           </Text>
@@ -318,7 +312,7 @@ export default function FinancesScreen() {
       </View>
 
       {/* Transactions Section Label */}
-      <View style={[styles.sectionLabelRow, { marginTop: 24 }]}>
+      <View style={[styles.sectionLabelRow, { marginVertical: 16 }]}>
         <Text style={[styles.sectionLabel, { color: colors.text }]}>
           Transações
         </Text>
@@ -342,7 +336,7 @@ export default function FinancesScreen() {
     <View className="flex-1 bg-surface">
       {/* Floating Header */}
       <TabHeader
-        scrollY={scrollY}
+        scrollY={headerScrollY}
         title="Finanças"
         backgroundThreshold={[15, 30]}
         titleThreshold={[30, 50]}
@@ -422,8 +416,6 @@ const styles = StyleSheet.create({
   },
   sectionLabelRow: {
     paddingHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 12,
   },
   sectionLabel: {
     fontSize: 17,

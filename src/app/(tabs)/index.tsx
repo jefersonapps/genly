@@ -7,6 +7,7 @@ import { GroupChipList } from "@/components/ui/GroupChipList";
 import { TabHeader } from "@/components/ui/TabHeader";
 import { BLUR_CONFIG } from "@/config/blurConfig";
 import type { Group, Media, Task } from "@/db/schema";
+import { useHeaderSnap } from "@/hooks/useHeaderSnap";
 import { useDialog } from "@/providers/DialogProvider";
 import { ScreenContext } from "@/providers/ScreenProvider";
 import { useTheme } from "@/providers/ThemeProvider";
@@ -15,6 +16,7 @@ import { deleteGroup, deleteTask, getAllGroups, getAllTasks, getMediaForTask } f
 import { adjustColor, withOpacity } from "@/utils/colors";
 import { getGreeting } from "@/utils/date";
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
+import { FlashList } from "@shopify/flash-list";
 import { BlurView } from "expo-blur";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Bell, Clock, Edit3, FolderPlus, Plus, Search, Trash2 } from "lucide-react-native";
@@ -23,7 +25,6 @@ import { Dimensions, RefreshControl, ScrollView, Text, TouchableOpacity, View } 
 import Animated, {
   Extrapolation,
   interpolate,
-  useAnimatedRef,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
@@ -41,6 +42,8 @@ const GERAL_CARD_THEME = {
     tertiary: '#50B0F9',
   }
 };
+
+const AnimatedFlashList = Animated.createAnimatedComponent(FlashList<Task>);
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -65,43 +68,63 @@ export default function HomeScreen() {
 
   // Animation values for the "fan" effect
   const fanProgress = useSharedValue(0);
-  const scrollY = useSharedValue(0);
-  const scrollViewRef = useAnimatedRef<Animated.ScrollView>();
+  const { scrollY, headerScrollY, scrollHandler } = useHeaderSnap({ snapThreshold: 60 });
+  const scrollViewRef = React.useRef<any>(null);
   const contentHeight = useSharedValue(0);
   const layoutHeight = useSharedValue(0);
   const groupsScrollRef = React.useRef<ScrollView>(null);
   const screenWidth = Dimensions.get('window').width;
+  
+  // Store exact native coordinates to perfectly scroll horizontally on all devices
+  const groupCardLayouts = React.useRef<Record<string, { x: number, width: number }>>({});
 
-  // Card dimensions for horizontal carousel centering
-  const GROUP_CARD_WIDTH = 224; // w-56 = 14rem = 224px
-  const GROUP_CARD_MARGIN = 20; // mr-5 = 1.25rem = 20px
-  const GROUP_CAROUSEL_PADDING = 24; // pl-6 = 1.5rem = 24px
+  const MIN_CARD_WIDTH = screenWidth * 0.45;
 
   // Sticky chips threshold — must be declared before scroll handler
   const STICKY_CHIPS_THRESHOLD: [number, number] = [350, 420];
   const stickyChipsProgress = useSharedValue(0);
 
-  const scrollHandler = useAnimatedScrollHandler({
+  // We inject custom onScroll logic directly to `FlashList` by intercepting the events 
+  // without losing our generic useHeaderSnap hook behaviors. Since useHeaderSnap creates
+  // a useAnimatedScrollHandler internally, but doesn't expose the raw functions cleanly for TS
+  // we will manually trigger the shared value updates here for the generic header, plus our custom chip logic.
+  const customScrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
-      scrollY.value = Math.max(0, event.contentOffset.y);
-      // Drive chips progress directly from scroll during active scrolling
+      const y = Math.max(0, event.contentOffset.y);
+      scrollY.value = y;
+      headerScrollY.value = y;
+      
+      // Sticky Chips Progress (Index specific)
       const maxScroll = contentHeight.value - layoutHeight.value;
       const canShow = maxScroll > STICKY_CHIPS_THRESHOLD[0] ? 1 : 0;
       stickyChipsProgress.value = interpolate(
-        scrollY.value,
+        y,
         STICKY_CHIPS_THRESHOLD,
         [0, 1],
         Extrapolation.CLAMP
       ) * canShow;
     },
-    onEndDrag: () => {
-      // Snap the chips animation (not the page!) to open or closed
+    onEndDrag: (event) => {
+      // 1. Generic Header Snap
+      const y = event.contentOffset.y;
+      if (y > 0 && y < 60) {
+        headerScrollY.value = withTiming(y >= 30 ? 60 : 0, { duration: 200 });
+      }
+
+      // 2. Sticky Chips Snap
       const p = stickyChipsProgress.value;
       if (p > 0 && p < 1) {
         stickyChipsProgress.value = withTiming(p >= 0.5 ? 1 : 0, { duration: 200 });
       }
     },
-    onMomentumEnd: () => {
+    onMomentumEnd: (event) => {
+      // 1. Generic Header Snap
+      const y = event.contentOffset.y;
+      if (y > 0 && y < 60) {
+        headerScrollY.value = withTiming(y >= 30 ? 60 : 0, { duration: 200 });
+      }
+
+      // 2. Sticky Chips Snap
       const p = stickyChipsProgress.value;
       if (p > 0 && p < 1) {
         stickyChipsProgress.value = withTiming(p >= 0.5 ? 1 : 0, { duration: 200 });
@@ -282,15 +305,14 @@ export default function HomeScreen() {
           backgroundColor: isDark ? '#0a0a0a' : '#ffffff' 
         }}
       >
-            <Animated.ScrollView
+            <AnimatedFlashList
                 ref={scrollViewRef}
-                onScroll={scrollHandler}
+                onScroll={customScrollHandler}
                 scrollEventThrottle={16}
                 className="flex-1"
                 showsVerticalScrollIndicator={false}
                 overScrollMode="never"
                 bounces={false}
-                removeClippedSubviews={false}
                 onContentSizeChange={(_w, h) => { contentHeight.value = h; }}
                 onLayout={(e) => { layoutHeight.value = e.nativeEvent.layout.height; }}
                 contentContainerStyle={{ 
@@ -304,136 +326,52 @@ export default function HomeScreen() {
                         progressViewOffset={insets.top + 80}
                     />
                 }
-            >
-                {/* Spacer block to replace content padding — crucial for RefreshControl stability on Android */}
-                <View style={{ height: insets.top + 80 }} />
-                
-                <View className="px-6">
-                    <Text className="font-sans text-on-surface-secondary text-base">{getGreeting(profileName)}</Text>
-                    <Text className="font-sans-bold text-3xl text-on-surface mt-1">Sua Biblioteca</Text>
-                </View>
+                data={filteredTasks}
+                ListHeaderComponent={
+                  <>
+                    {/* Spacer block to replace content padding — crucial for RefreshControl stability on Android */}
+                    <View style={{ height: insets.top + 80 }} />
+                    
+                    <View className="px-6">
+                        <Text className="font-sans text-on-surface-secondary text-base">{getGreeting(profileName)}</Text>
+                        <Text className="font-sans-bold text-3xl text-on-surface mt-1">Sua Biblioteca</Text>
+                    </View>
 
-                {/* Dynamic Groups Selection */}
-                <View className="mt-4">
-                    <ScrollView ref={groupsScrollRef} horizontal showsHorizontalScrollIndicator={false} className="pl-6 overflow-visible">
-                        {/* "All" Group Card */}
-                        <TouchableOpacity 
-                            activeOpacity={0.7}
-                            onPress={() => setSelectedGroupId(null)}
-                            className={`mr-5 h-72 w-56 rounded-[3rem] border p-6 justify-between overflow-hidden`}
-                            style={{ 
-                                backgroundColor: isDark ? '#18181b' : '#f4f4f5',
-                                borderColor: selectedGroupId === null ? withOpacity(primaryColor, 0.5) : (isDark ? '#27272a' : '#e4e4e7')
-                            }}
-                        >
-                                <CardGradient 
-                                    color={primaryColor}
-                                    style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.5 }} 
-                                />
-                                
-                                <View className="h-40 items-center justify-center relative">
-                                    <Animated.View 
-                                        className="absolute h-[130px] w-24 rounded-2xl z-0 overflow-hidden" 
-                                        style={[
-                                            leftCardStyle,
-                                            { backgroundColor: withOpacity(GERAL_CARD_THEME.colors.primary, isDark ? 0.6 : 0.8) }
-                                        ]}
-                                    >
-                                        <BlurView 
-                                            intensity={BLUR_CONFIG.cards.intensity} 
-                                            tint={isDark ? 'dark' : 'light'} 
-                                            blurMethod={BLUR_CONFIG.cards.blurMethod}
-                                            blurReductionFactor={BLUR_CONFIG.cards.blurReductionFactor}
-                                            style={{ flex: 1 }}
-                                        />
-                                    </Animated.View>
-                                    <Animated.View 
-                                        className="absolute h-[130px] w-24 rounded-2xl z-10 overflow-hidden" 
-                                        style={[
-                                            rightCardStyle,
-                                            { backgroundColor: withOpacity(GERAL_CARD_THEME.colors.tertiary, isDark ? 0.6 : 0.8) }
-                                        ]}
-                                    >
-                                        <BlurView 
-                                            intensity={BLUR_CONFIG.cards.intensity} 
-                                            tint={isDark ? 'dark' : 'light'} 
-                                            blurMethod={BLUR_CONFIG.cards.blurMethod}
-                                            blurReductionFactor={BLUR_CONFIG.cards.blurReductionFactor}
-                                            style={{ flex: 1 }}
-                                        />
-                                    </Animated.View>
-                                    <Animated.View 
-                                        className="h-[140px] w-28 rounded-2xl shadow-xl border border-white/20 z-20 overflow-hidden" 
-                                        style={[
-                                            centerCardStyle,
-                                            { backgroundColor: withOpacity(GERAL_CARD_THEME.colors.secondary, isDark ? 0.85 : 0.95) }
-                                        ]}
-                                    >
-                                        <BlurView 
-                                            intensity={BLUR_CONFIG.cards.intensity} 
-                                            tint={isDark ? 'dark' : 'light'} 
-                                            blurMethod={BLUR_CONFIG.cards.blurMethod}
-                                            blurReductionFactor={BLUR_CONFIG.cards.blurReductionFactor}
-                                            style={{ flex: 1 }}
-                                        />
-                                    </Animated.View>
-                                </View>
-
-                                
-                                {/* Bottom Row: Text and FAB */}
-                                <View className="flex-row items-end justify-between w-full">
-                                    <View>
-                                        <Text className="font-sans-bold text-xl text-on-surface">Geral</Text>
-                                        <Text className="font-sans text-sm text-on-surface-secondary mt-1">{tasks.length} Notas</Text>
-                                    </View>
-                                    
-                                    {/* FAB Container (No Glow) */}
-                                    <View className="items-center justify-center relative w-12 h-12">
-                                        <TouchableOpacity 
-                                            activeOpacity={0.7}
-                                            className="rounded-full w-12 h-12 items-center justify-center"
-                                            style={{
-                                                backgroundColor: primaryColor,
-                                                borderWidth: 1,
-                                                borderColor: adjustColor(primaryColor, -20),
-                                            }}
-                                            onPress={() => router.push("/task/editor")}
-                                        >
-                                        <Plus size={22} color="#FFF" />
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            </TouchableOpacity>
-                        {/* Dynamic Groups */}
-                        {groups.map((group, index) => (
+                    {/* Dynamic Groups Selection */}
+                    <View className="mt-4">
+                         <ScrollView ref={groupsScrollRef} horizontal showsHorizontalScrollIndicator={false} className="pl-6 overflow-visible">
+                            {/* "All" Group Card */}
                             <TouchableOpacity 
-                                key={group.id}
                                 activeOpacity={0.7}
-                                onPress={() => setSelectedGroupId(group.id)}
-                                onLongPress={() => handleLongPressGroup(group)}
+                                onPress={() => setSelectedGroupId(null)}
+                                onLayout={(e) => {
+                                    groupCardLayouts.current['geral'] = {
+                                        x: e.nativeEvent.layout.x,
+                                        width: e.nativeEvent.layout.width,
+                                    };
+                                }}
                                 className={`mr-5 h-72 w-56 rounded-[3rem] border p-6 justify-between overflow-hidden`}
                                 style={{ 
                                     backgroundColor: isDark ? '#18181b' : '#f4f4f5',
-                                    borderColor: selectedGroupId === group.id ? withOpacity(primaryColor, 0.5) : (isDark ? '#27272a' : '#e4e4e7')
+                                    borderColor: selectedGroupId === null ? withOpacity(primaryColor, 0.5) : (isDark ? '#27272a' : '#e4e4e7')
                                 }}
                             >
                                     <CardGradient 
-                                        color={group.color || (isDark ? '#52525b' : '#a1a1aa')} 
+                                        color={primaryColor}
                                         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.5 }} 
                                     />
-
+                                    
                                     <View className="h-40 items-center justify-center relative">
-                                        {/* Glassmorphic Custom Cards */}
                                         <Animated.View 
                                             className="absolute h-[130px] w-24 rounded-2xl z-0 overflow-hidden" 
                                             style={[
                                                 leftCardStyle,
-                                                { backgroundColor: group.color ? `${group.color}${isDark ? '66' : '99'}` : (isDark ? '#6366f166' : '#6366f199') }
+                                                { backgroundColor: withOpacity(GERAL_CARD_THEME.colors.primary, isDark ? 0.6 : 0.8) }
                                             ]}
                                         >
                                             <BlurView 
                                                 intensity={BLUR_CONFIG.cards.intensity} 
-                                                tint={isDark ? 'dark' : 'light'}
+                                                tint={isDark ? 'dark' : 'light'} 
                                                 blurMethod={BLUR_CONFIG.cards.blurMethod}
                                                 blurReductionFactor={BLUR_CONFIG.cards.blurReductionFactor}
                                                 style={{ flex: 1 }}
@@ -443,47 +381,43 @@ export default function HomeScreen() {
                                             className="absolute h-[130px] w-24 rounded-2xl z-10 overflow-hidden" 
                                             style={[
                                                 rightCardStyle,
-                                                { backgroundColor: group.color ? `${group.color}${isDark ? '88' : 'BB'}` : (isDark ? '#6366f188' : '#6366f1BB') }
+                                                { backgroundColor: withOpacity(GERAL_CARD_THEME.colors.tertiary, isDark ? 0.6 : 0.8) }
                                             ]}
                                         >
                                             <BlurView 
                                                 intensity={BLUR_CONFIG.cards.intensity} 
-                                                tint={isDark ? 'dark' : 'light'}
+                                                tint={isDark ? 'dark' : 'light'} 
                                                 blurMethod={BLUR_CONFIG.cards.blurMethod}
                                                 blurReductionFactor={BLUR_CONFIG.cards.blurReductionFactor}
                                                 style={{ flex: 1 }}
                                             />
                                         </Animated.View>
                                         <Animated.View 
-                                            className="h-[140px] w-28 rounded-2xl shadow-xl border border-white/20 items-center justify-center z-20 overflow-hidden" 
+                                            className="h-[140px] w-28 rounded-2xl shadow-xl border border-white/20 z-20 overflow-hidden" 
                                             style={[
                                                 centerCardStyle,
-                                                { backgroundColor: group.color ? `${group.color}${isDark ? 'cc' : 'FF'}` : (isDark ? '#6366f1cc' : '#6366f1FF') }
+                                                { backgroundColor: withOpacity(GERAL_CARD_THEME.colors.secondary, isDark ? 0.85 : 0.95) }
                                             ]}
                                         >
                                             <BlurView 
                                                 intensity={BLUR_CONFIG.cards.intensity} 
-                                                tint={isDark ? 'dark' : 'light'}
+                                                tint={isDark ? 'dark' : 'light'} 
                                                 blurMethod={BLUR_CONFIG.cards.blurMethod}
                                                 blurReductionFactor={BLUR_CONFIG.cards.blurReductionFactor}
-                                                style={{ flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center' }}
-                                            >
-                                                <Text className="text-4xl">{group.emoji || '📁'}</Text>
-                                            </BlurView>
+                                                style={{ flex: 1 }}
+                                            />
                                         </Animated.View>
                                     </View>
 
                                     
                                     {/* Bottom Row: Text and FAB */}
                                     <View className="flex-row items-end justify-between w-full">
-                                        <View className="flex-1 mr-2">
-                                            <Text className="font-sans-bold text-xl text-on-surface" numberOfLines={1}>{group.name}</Text>
-                                            <Text className="font-sans text-sm text-on-surface-secondary mt-1">
-                                                {tasks.filter(t => t.groupId === group.id).length} Notas
-                                            </Text>
+                                        <View>
+                                            <Text className="font-sans-bold text-xl text-on-surface">Geral</Text>
+                                            <Text className="font-sans text-sm text-on-surface-secondary mt-1">{tasks.length} Notas</Text>
                                         </View>
                                         
-                                         {/* FAB Container (No Glow) */}
+                                        {/* FAB Container (No Glow) */}
                                         <View className="items-center justify-center relative w-12 h-12">
                                             <TouchableOpacity 
                                                 activeOpacity={0.7}
@@ -493,136 +427,239 @@ export default function HomeScreen() {
                                                     borderWidth: 1,
                                                     borderColor: adjustColor(primaryColor, -20),
                                                 }}
-                                                onPress={() => {
-                                                    if (group.name === "Mapas Mentais") {
-                                                        router.push({ pathname: "/tools/mind-map", params: { groupId: group.id } });
-                                                    } else if (group.name === "Flashcards") {
-                                                        router.push({ pathname: "/tools/flashcards", params: { groupId: group.id } });
-                                                    } else {
-                                                        router.push({ pathname: "/task/editor", params: { groupId: group.id } });
-                                                    }
-                                                }}
+                                                onPress={() => router.push("/task/editor")}
                                             >
-                                                <Plus size={22} color="#FFF" />
+                                            <Plus size={22} color="#FFF" />
                                             </TouchableOpacity>
                                         </View>
                                     </View>
                                 </TouchableOpacity>
-                        ))}
-
-                        <TouchableOpacity 
-                            activeOpacity={0.7}
-                            onPress={handleCreateGroup}
-                            className="mr-10 h-72 w-56 rounded-[3rem] bg-surface-secondary border border-dashed border-border p-6 items-center justify-center"
-                        >
-                            <View className="h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: primaryColor + '15' }}>
-                                <FolderPlus size={32} color={primaryColor} />
-                            </View>
-                            <Text className="mt-4 font-sans-bold text-base text-on-surface">Novo Grupo</Text>
-                        </TouchableOpacity>
-                    </ScrollView>
-                </View>
-
-                {/* Section Header */}
-                <View className="mt-4 px-6 flex-row items-center justify-between">
-                    <View>
-                        <Text className="font-sans-bold text-2xl text-on-surface">
-                            {selectedGroupId ? groups.find(g => g.id === selectedGroupId)?.name : "Recentes"}
-                        </Text>
-                        <Text className="font-sans text-sm text-on-surface-secondary">{filteredTasks.length} Notas</Text>
-                    </View>
-                </View>
-
-                {/* Task List Grid/List */}
-                <View className="px-6 mt-6 gap-4">
-                    {filteredTasks.length === 0 && !loading && (
-                        <View>
-                            {/* Determine current group type */}
-                            {(() => {
-                                const currentGroup = groups.find(g => g.id === selectedGroupId);
-                                const isMindMap = currentGroup?.name === "Mapas Mentais";
-                                const isFlashcard = currentGroup?.name === "Flashcards";
-
-                                if (isMindMap) {
-                                    return (
-                                        <EmptyState
-                                            icon={<View className="w-20 h-20 rounded-full items-center justify-center bg-purple-500/20"><Text className="text-4xl">🧠</Text></View>}
-                                            title="Nenhum mapa mental"
-                                            description="Comece a organizar suas ideias agora mesmo."
-                                            action={
-                                                <View className="gap-3 w-full mt-4 flex-row flex-wrap justify-center">
-                                                    <Button variant="ghost" className="bg-surface-secondary border border-border shrink-0" onPress={() => router.push({ pathname: "/tools/mind-map", params: { groupId: currentGroup.id } })}>
-                                                        <Button.Text>🧠 Em Branco</Button.Text>
-                                                    </Button>
-                                                    <Button variant="ghost" className="bg-surface-secondary border border-border shrink-0" onPress={() => router.push({ pathname: "/tools/mind-map", params: { groupId: currentGroup.id, template: "brainstorming" } })}>
-                                                        <Button.Text>💡 Brainstorming</Button.Text>
-                                                    </Button>
-                                                </View>
-                                            }
+                            {/* Dynamic Groups */}
+                            {groups.map((group, index) => (
+                                <TouchableOpacity 
+                                    key={group.id}
+                                    activeOpacity={0.7}
+                                    onPress={() => setSelectedGroupId(group.id)}
+                                    onLongPress={() => handleLongPressGroup(group)}
+                                    onLayout={(e) => {
+                                        groupCardLayouts.current[group.id.toString()] = {
+                                            x: e.nativeEvent.layout.x,
+                                            width: e.nativeEvent.layout.width,
+                                        };
+                                    }}
+                                    className={`mr-5 h-72 w-56 rounded-[3rem] border p-6 justify-between overflow-hidden`}
+                                    style={{ 
+                                        backgroundColor: isDark ? '#18181b' : '#f4f4f5',
+                                        borderColor: selectedGroupId === group.id ? withOpacity(primaryColor, 0.5) : (isDark ? '#27272a' : '#e4e4e7')
+                                    }}
+                                >
+                                        <CardGradient 
+                                            color={group.color || (isDark ? '#52525b' : '#a1a1aa')} 
+                                            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.5 }} 
                                         />
-                                    );
-                                }
-                                
-                                if (isFlashcard) {
-                                     return (
-                                        <EmptyState
-                                            icon={<View className="w-20 h-20 rounded-full items-center justify-center bg-blue-500/20"><Text className="text-4xl">🗂️</Text></View>}
-                                            title="Nenhum Baralho"
-                                            description="Crie seu primeiro deck de estudos para reter mais informações."
-                                            action={
-                                                <View className="mt-4">
-                                                    <Button className="flex-row items-center w-full justify-center" onPress={() => router.push({ pathname: "/tools/flashcards", params: { groupId: currentGroup.id } })}>
-                                                        <Plus size={20} color="#FFF" className="mr-2" />
-                                                        <Button.Text>Criar Novo Baralho</Button.Text>
-                                                    </Button>
-                                                </View>
-                                            }
-                                        />
-                                    );
-                                }
 
-                                return (
-                                    <EmptyState
-                                        icon={<View className="w-20 h-20 rounded-full items-center justify-center" style={{ backgroundColor: currentGroup?.color ? `${currentGroup.color}20` : primaryColor + '20' }}><Text className="text-4xl">{currentGroup?.emoji || '📝'}</Text></View>}
-                                        title="Nenhuma nota encontrada"
-                                        description="Crie sua primeira nota ou lembrete neste grupo."
-                                        action={
-                                            <View className="gap-3 w-full mt-4 flex-col">
-                                                <Button className="flex-row items-center justify-center w-full" onPress={() => router.push({ pathname: "/task/editor", params: { groupId: currentGroup?.id } })}>
-                                                    <Plus size={20} color="#FFF" className="mr-2" />
-                                                    <Button.Text>Nova Nota Vazia</Button.Text>
-                                                </Button>
-                                                <Button variant="ghost" className="bg-surface-secondary border border-border flex-row items-center justify-center w-full" 
+                                        <View className="h-40 items-center justify-center relative">
+                                            {/* Glassmorphic Custom Cards */}
+                                            <Animated.View 
+                                                className="absolute h-[130px] w-24 rounded-2xl z-0 overflow-hidden" 
+                                                style={[
+                                                    leftCardStyle,
+                                                    { backgroundColor: group.color ? `${group.color}${isDark ? '66' : '99'}` : (isDark ? '#6366f166' : '#6366f199') }
+                                                ]}
+                                            >
+                                                <BlurView 
+                                                    intensity={BLUR_CONFIG.cards.intensity} 
+                                                    tint={isDark ? 'dark' : 'light'}
+                                                    blurMethod={BLUR_CONFIG.cards.blurMethod}
+                                                    blurReductionFactor={BLUR_CONFIG.cards.blurReductionFactor}
+                                                    style={{ flex: 1 }}
+                                                />
+                                            </Animated.View>
+                                            <Animated.View 
+                                                className="absolute h-[130px] w-24 rounded-2xl z-10 overflow-hidden" 
+                                                style={[
+                                                    rightCardStyle,
+                                                    { backgroundColor: group.color ? `${group.color}${isDark ? '88' : 'BB'}` : (isDark ? '#6366f188' : '#6366f1BB') }
+                                                ]}
+                                            >
+                                                <BlurView 
+                                                    intensity={BLUR_CONFIG.cards.intensity} 
+                                                    tint={isDark ? 'dark' : 'light'}
+                                                    blurMethod={BLUR_CONFIG.cards.blurMethod}
+                                                    blurReductionFactor={BLUR_CONFIG.cards.blurReductionFactor}
+                                                    style={{ flex: 1 }}
+                                                />
+                                            </Animated.View>
+                                            <Animated.View 
+                                                className="h-[140px] w-28 rounded-2xl shadow-xl border border-white/20 items-center justify-center z-20 overflow-hidden" 
+                                                style={[
+                                                    centerCardStyle,
+                                                    { backgroundColor: group.color ? `${group.color}${isDark ? 'cc' : 'FF'}` : (isDark ? '#6366f1cc' : '#6366f1FF') }
+                                                ]}
+                                            >
+                                                <BlurView 
+                                                    intensity={BLUR_CONFIG.cards.intensity} 
+                                                    tint={isDark ? 'dark' : 'light'}
+                                                    blurMethod={BLUR_CONFIG.cards.blurMethod}
+                                                    blurReductionFactor={BLUR_CONFIG.cards.blurReductionFactor}
+                                                    style={{ flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center' }}
+                                                >
+                                                    <Text className="text-4xl">{group.emoji || '📁'}</Text>
+                                                </BlurView>
+                                            </Animated.View>
+                                        </View>
+
+                                        
+                                        {/* Bottom Row: Text and FAB */}
+                                        <View className="flex-row items-end justify-between w-full">
+                                            <View className="flex-1 mr-2">
+                                                <Text className="font-sans-bold text-xl text-on-surface" numberOfLines={1}>{group.name}</Text>
+                                                <Text className="font-sans text-sm text-on-surface-secondary mt-1">
+                                                    {tasks.filter(t => t.groupId === group.id).length} Notas
+                                                </Text>
+                                            </View>
+                                            
+                                             {/* FAB Container (No Glow) */}
+                                            <View className="items-center justify-center relative w-12 h-12">
+                                                <TouchableOpacity 
+                                                    activeOpacity={0.7}
+                                                    className="rounded-full w-12 h-12 items-center justify-center"
+                                                    style={{
+                                                        backgroundColor: primaryColor,
+                                                        borderWidth: 1,
+                                                        borderColor: adjustColor(primaryColor, -20),
+                                                    }}
                                                     onPress={() => {
-                                                        const tomorrow = new Date();
-                                                        tomorrow.setDate(tomorrow.getDate() + 1);
-                                                        router.push({ 
-                                                            pathname: "/task/editor", 
-                                                            params: { 
-                                                                groupId: currentGroup?.id,
-                                                                reminderDate: tomorrow.toISOString()
-                                                            } 
-                                                        });
+                                                        if (group.name === "Mapas Mentais") {
+                                                            router.push({ pathname: "/tools/mind-map", params: { groupId: group.id } });
+                                                        } else if (group.name === "Flashcards") {
+                                                            router.push({ pathname: "/tools/flashcards", params: { groupId: group.id } });
+                                                        } else {
+                                                            router.push({ pathname: "/task/editor", params: { groupId: group.id } });
+                                                        }
                                                     }}
                                                 >
-                                                    <Clock size={18} color={primaryColor} className="mr-2" />
-                                                    <Button.Text>📅 Lembrete para Amanhã</Button.Text>
+                                                    <Plus size={22} color="#FFF" />
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+                                    </TouchableOpacity>
+                            ))}
+
+                            <TouchableOpacity 
+                                activeOpacity={0.7}
+                                onPress={handleCreateGroup}
+                                className="mr-10 h-72 w-56 rounded-[3rem] bg-surface-secondary border border-dashed border-border p-6 items-center justify-center"
+                            >
+                                <View className="h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: primaryColor + '15' }}>
+                                    <FolderPlus size={32} color={primaryColor} />
+                                </View>
+                                <Text className="mt-4 font-sans-bold text-base text-on-surface">Novo Grupo</Text>
+                            </TouchableOpacity>
+                        </ScrollView>
+                    </View>
+
+                    {/* Section Header */}
+                    <View className="mt-4 px-6 flex-row items-center justify-between mb-4">
+                        <View>
+                            <Text className="font-sans-bold text-2xl text-on-surface">
+                                {selectedGroupId ? groups.find(g => g.id === selectedGroupId)?.name : "Recentes"}
+                            </Text>
+                            <Text className="font-sans text-sm text-on-surface-secondary">{filteredTasks.length} Notas</Text>
+                        </View>
+                    </View>
+                  </>
+                }
+                ListEmptyComponent={
+                  !loading ? (
+                    <View className="px-6 mt-2">
+                        {/* Determine current group type */}
+                        {(() => {
+                            const currentGroup = groups.find(g => g.id === selectedGroupId);
+                            const isMindMap = currentGroup?.name === "Mapas Mentais";
+                            const isFlashcard = currentGroup?.name === "Flashcards";
+
+                            if (isMindMap) {
+                                return (
+                                    <EmptyState
+                                        icon={<View className="w-20 h-20 rounded-full items-center justify-center bg-purple-500/20"><Text className="text-4xl">🧠</Text></View>}
+                                        title="Nenhum mapa mental"
+                                        description="Comece a organizar suas ideias agora mesmo."
+                                        action={
+                                            <View className="gap-3 w-full mt-4 flex-row flex-wrap justify-center">
+                                                <Button variant="ghost" className="bg-surface-secondary border border-border shrink-0" onPress={() => router.push({ pathname: "/tools/mind-map", params: { groupId: currentGroup.id } })}>
+                                                    <Button.Text>🧠 Em Branco</Button.Text>
+                                                </Button>
+                                                <Button variant="ghost" className="bg-surface-secondary border border-border shrink-0" onPress={() => router.push({ pathname: "/tools/mind-map", params: { groupId: currentGroup.id, template: "brainstorming" } })}>
+                                                    <Button.Text>💡 Brainstorming</Button.Text>
                                                 </Button>
                                             </View>
                                         }
                                     />
                                 );
-                            })()}
-                        </View>
-                    )}
-                    {filteredTasks.map((item) => {
-                        const taskGroup = groups.find(g => g.id === item.groupId);
-                        const isMindMap = taskGroup?.name === "Mapas Mentais";
-                        const isFlashcard = taskGroup?.name === "Flashcards";
+                            }
+                            
+                            if (isFlashcard) {
+                                 return (
+                                    <EmptyState
+                                        icon={<View className="w-20 h-20 rounded-full items-center justify-center bg-blue-500/20"><Text className="text-4xl">🗂️</Text></View>}
+                                        title="Nenhum Baralho"
+                                        description="Crie seu primeiro deck de estudos para reter mais informações."
+                                        action={
+                                            <View className="mt-4">
+                                                <Button className="flex-row items-center w-full justify-center" onPress={() => router.push({ pathname: "/tools/flashcards", params: { groupId: currentGroup.id } })}>
+                                                    <Plus size={20} color="#FFF" className="mr-2" />
+                                                    <Button.Text>Criar Novo Baralho</Button.Text>
+                                                </Button>
+                                            </View>
+                                        }
+                                    />
+                                );
+                            }
 
-                        return (
+                            return (
+                                <EmptyState
+                                    icon={<View className="w-20 h-20 rounded-full items-center justify-center" style={{ backgroundColor: currentGroup?.color ? `${currentGroup.color}20` : primaryColor + '20' }}><Text className="text-4xl">{currentGroup?.emoji || '📝'}</Text></View>}
+                                    title="Nenhuma nota encontrada"
+                                    description="Crie sua primeira nota ou lembrete neste grupo."
+                                    action={
+                                        <View className="gap-3 w-full mt-4 flex-col">
+                                            <Button className="flex-row items-center justify-center w-full" onPress={() => router.push({ pathname: "/task/editor", params: { groupId: currentGroup?.id } })}>
+                                                <Plus size={20} color="#FFF" className="mr-2" />
+                                                <Button.Text>Nova Nota Vazia</Button.Text>
+                                            </Button>
+                                            <Button variant="ghost" className="bg-surface-secondary border border-border flex-row items-center justify-center w-full" 
+                                                onPress={() => {
+                                                    const tomorrow = new Date();
+                                                    tomorrow.setDate(tomorrow.getDate() + 1);
+                                                    router.push({ 
+                                                        pathname: "/task/editor", 
+                                                        params: { 
+                                                            groupId: currentGroup?.id,
+                                                            reminderDate: tomorrow.toISOString()
+                                                        } 
+                                                    });
+                                                }}
+                                            >
+                                                <Clock size={18} color={primaryColor} className="mr-2" />
+                                                <Button.Text>📅 Lembrete para Amanhã</Button.Text>
+                                            </Button>
+                                        </View>
+                                    }
+                                />
+                            );
+                        })()}
+                    </View>
+                  ) : null
+                }
+                renderItem={({ item }) => {
+                    const taskGroup = groups.find(g => g.id === item.groupId);
+                    const isMindMap = taskGroup?.name === "Mapas Mentais";
+                    const isFlashcard = taskGroup?.name === "Flashcards";
+
+                    return (
+                        <View className="px-6 pb-4">
                             <TaskCard
-                                key={item.id}
                                 task={item}
                                 mediaItems={taskMedia[item.id]}
                                 onPress={() => {
@@ -635,31 +672,31 @@ export default function HomeScreen() {
                                     }
                                 }}
                                 onDelete={() => handleDeleteTask(item)}
-                            onMediaPress={(media) => {
-                                if (media.type === 'image' || media.type === 'latex' || media.type === 'pdf') {
-                                    const mediaItems = taskMedia[item.id] || [];
-                                    const index = mediaItems.indexOf(media);
-                                    router.push({
-                                        pathname: "/media-preview",
-                                        params: { 
-                                            uri: media.uri, 
-                                            type: media.type,
-                                            thumbnailUri: media.thumbnailUri || (media as any).thumbnail_uri,
-                                            mediaItems: JSON.stringify(mediaItems.map(m => ({ 
-                                                uri: m.uri, 
-                                                type: m.type,
-                                            thumbnailUri: m.thumbnailUri || (m as any).thumbnail_uri
-                                        }))),
-                                        index: index >= 0 ? index.toString() : "0"
-                                    }
-                                });
-                            }
-                        }}
-                    />
+                                onMediaPress={(media) => {
+                                    if (media.type === 'image' || media.type === 'latex' || media.type === 'pdf') {
+                                        const mediaItems = taskMedia[item.id] || [];
+                                        const index = mediaItems.indexOf(media);
+                                        router.push({
+                                            pathname: "/media-preview",
+                                            params: { 
+                                                uri: media.uri, 
+                                                type: media.type,
+                                                thumbnailUri: media.thumbnailUri || (media as any).thumbnail_uri,
+                                                mediaItems: JSON.stringify(mediaItems.map(m => ({ 
+                                                    uri: m.uri, 
+                                                    type: m.type,
+                                                thumbnailUri: m.thumbnailUri || (m as any).thumbnail_uri
+                                            }))),
+                                            index: index >= 0 ? index.toString() : "0"
+                                        }
+                                    });
+                                }
+                            }}
+                        />
+                      </View>
                     );
-                })}
-                </View>
-            </Animated.ScrollView>
+                }}
+            />
     </View>
 
       <BottomSheetModal
@@ -724,12 +761,12 @@ export default function HomeScreen() {
 
       {isReady && (
         <TabHeader
-          scrollY={scrollY}
-          stickyProgress={stickyChipsProgress}
-          title="Sua Biblioteca"
-          titleThreshold={[50, 70]}
-          secondaryTitle={selectedGroupId ? groups.find(g => g.id === selectedGroupId)?.name : "Recentes"}
-          secondaryTitleThreshold={[420, 480]}
+        scrollY={headerScrollY}
+        title="Sua Biblioteca"
+        backgroundThreshold={[0, 1]}
+        secondaryTitle={selectedGroupId ? groups.find(g => g.id === selectedGroupId)?.name : "Recentes"}
+        secondaryTitleThreshold={[380, 420]}
+        stickyProgress={stickyChipsProgress}
           leftComponent={
             <Avatar 
                 uri={profileImage}
@@ -755,20 +792,36 @@ export default function HomeScreen() {
                 selectedGroupId={selectedGroupId}
                 onSelect={(id) => {
                   setSelectedGroupId(id);
-                  // Scroll vertically to top
-                  (scrollViewRef.current as any)?.scrollTo?.({ y: 0, animated: true });
-                  // Center the selected group card in the horizontal carousel
-                  if (id === null) {
-                    // "Geral" is the first card
-                    groupsScrollRef.current?.scrollTo?.({ x: 0, animated: true });
+                  const isScrolledDown = scrollY.value > 100;
+
+                  // Calculate target X position for centering
+                  let targetX = 0;
+                  const layoutData = id === null ? groupCardLayouts.current['geral'] : groupCardLayouts.current[id.toString()];
+                  
+                  if (layoutData) {
+                    const cardCenter = layoutData.x + (layoutData.width / 2);
+                    // O Tailwind 'mr-5' (20px) fica fora do layout do card (à direita).
+                    // Adicionamos metade da margem (10px) para que fique no centro VISUAL
+                    targetX = cardCenter - (screenWidth / 2) + 10;
+                  }
+
+                  if (isScrolledDown) {
+                    // Start vertical scroll
+                    scrollViewRef.current?.scrollToOffset({ offset: 0, animated: true });
+                    // Wait for vertical scroll to finish natively (~300ms) before horizontal scroll
+                    // This prevents Android from dropping the horizontal scroll command
+                    setTimeout(() => {
+                      groupsScrollRef.current?.scrollTo?.({ 
+                        x: Math.max(0, targetX), 
+                        animated: true 
+                      });
+                    }, 400);
                   } else {
-                    const groupIndex = groups.findIndex(g => g.id === id);
-                    if (groupIndex >= 0) {
-                      // +1 because "Geral" card is at index 0
-                      const cardOffset = (groupIndex + 1) * (GROUP_CARD_WIDTH + GROUP_CARD_MARGIN);
-                      const centerX = cardOffset - (screenWidth / 2) + (GROUP_CARD_WIDTH / 2) + GROUP_CAROUSEL_PADDING;
-                      groupsScrollRef.current?.scrollTo?.({ x: Math.max(0, centerX), animated: true });
-                    }
+                    // Do it immediately if we're not scrolling vertically
+                    groupsScrollRef.current?.scrollTo?.({ 
+                      x: Math.max(0, targetX), 
+                      animated: true 
+                    });
                   }
                 }}
               />

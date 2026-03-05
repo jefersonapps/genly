@@ -1,13 +1,12 @@
 import { SettingsRow } from "@/components/settings/SettingsRow";
 import { TabHeader } from "@/components/ui/TabHeader";
+import { useHeaderSnap } from "@/hooks/useHeaderSnap";
 import { useTheme } from "@/providers/ThemeProvider";
 import { useRouter } from "expo-router";
 import { ArrowRightLeft, Camera, FilePen, FileStack, ImageDown, Library, Network, QrCode, ScanText, Sigma, Timer } from "lucide-react-native";
 import React from "react";
 import { Text, View } from "react-native";
-import Animated, {
-    useAnimatedScrollHandler, useSharedValue
-} from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ToolsScreen() {
@@ -16,13 +15,7 @@ export default function ToolsScreen() {
   const { resolvedTheme, primaryColor } = useTheme();
   const isDark = resolvedTheme === "dark";
 
-  const scrollY = useSharedValue(0);
-
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollY.value = event.contentOffset.y;
-    },
-  });
+  const { headerScrollY, scrollHandler } = useHeaderSnap({ snapThreshold: 30 });
 
   const iconColor = primaryColor === "#000000" || primaryColor === "#000" 
     ? (isDark ? "#FFF" : "#000") 
@@ -32,7 +25,7 @@ export default function ToolsScreen() {
     <View className="flex-1 bg-surface">
       {/* Floating Header */}
       <TabHeader
-        scrollY={scrollY}
+        scrollY={headerScrollY}
         title="Ferramentas"
         titleThreshold={[15, 30]}
         hasSlideIn
