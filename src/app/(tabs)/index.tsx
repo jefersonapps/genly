@@ -3,6 +3,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { CardGradient } from "@/components/ui/CardGradient";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { GroupChipList } from "@/components/ui/GroupChipList";
 import { TabHeader } from "@/components/ui/TabHeader";
 import { BLUR_CONFIG } from "@/config/blurConfig";
 import type { Group, Media, Task } from "@/db/schema";
@@ -18,13 +19,17 @@ import { BlurView } from "expo-blur";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Bell, Clock, Edit3, FolderPlus, Plus, Search, Trash2 } from "lucide-react-native";
 import React, { useCallback, useContext, useEffect, useLayoutEffect, useState } from "react";
-import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Dimensions, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
-    useAnimatedScrollHandler,
-    useAnimatedStyle,
-    useSharedValue,
-    withDelay,
-    withSpring
+  Extrapolation,
+  interpolate,
+  useAnimatedRef,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
+  withTiming
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -61,12 +66,46 @@ export default function HomeScreen() {
   // Animation values for the "fan" effect
   const fanProgress = useSharedValue(0);
   const scrollY = useSharedValue(0);
+  const scrollViewRef = useAnimatedRef<Animated.ScrollView>();
+  const contentHeight = useSharedValue(0);
+  const layoutHeight = useSharedValue(0);
+  const groupsScrollRef = React.useRef<ScrollView>(null);
+  const screenWidth = Dimensions.get('window').width;
+
+  // Card dimensions for horizontal carousel centering
+  const GROUP_CARD_WIDTH = 224; // w-56 = 14rem = 224px
+  const GROUP_CARD_MARGIN = 20; // mr-5 = 1.25rem = 20px
+  const GROUP_CAROUSEL_PADDING = 24; // pl-6 = 1.5rem = 24px
+
+  // Sticky chips threshold — must be declared before scroll handler
+  const STICKY_CHIPS_THRESHOLD: [number, number] = [350, 420];
+  const stickyChipsProgress = useSharedValue(0);
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
-      // Clamp to >= 0: RefreshControl on Android injects negative offsets
-      // near y=0 which cause a correction loop manifesting as scroll jump
       scrollY.value = Math.max(0, event.contentOffset.y);
+      // Drive chips progress directly from scroll during active scrolling
+      const maxScroll = contentHeight.value - layoutHeight.value;
+      const canShow = maxScroll > STICKY_CHIPS_THRESHOLD[0] ? 1 : 0;
+      stickyChipsProgress.value = interpolate(
+        scrollY.value,
+        STICKY_CHIPS_THRESHOLD,
+        [0, 1],
+        Extrapolation.CLAMP
+      ) * canShow;
+    },
+    onEndDrag: () => {
+      // Snap the chips animation (not the page!) to open or closed
+      const p = stickyChipsProgress.value;
+      if (p > 0 && p < 1) {
+        stickyChipsProgress.value = withTiming(p >= 0.5 ? 1 : 0, { duration: 200 });
+      }
+    },
+    onMomentumEnd: () => {
+      const p = stickyChipsProgress.value;
+      if (p > 0 && p < 1) {
+        stickyChipsProgress.value = withTiming(p >= 0.5 ? 1 : 0, { duration: 200 });
+      }
     },
   });
 
@@ -95,6 +134,18 @@ export default function HomeScreen() {
       { translateY: fanProgress.value * -4 }
     ]
   }));
+
+  // Sticky group chips: animated style reading from the snappable progress value
+  const stickyChipsStyle = useAnimatedStyle(() => {
+    const p = stickyChipsProgress.value;
+    return {
+      opacity: p,
+      maxHeight: p * 50,
+      paddingVertical: p * 8,
+      overflow: 'hidden' as const,
+      transform: [{ translateY: interpolate(p, [0, 1], [-8, 0]) }],
+    };
+  });
 
   const loadData = useCallback(async () => {
     try {
@@ -231,7 +282,8 @@ export default function HomeScreen() {
           backgroundColor: isDark ? '#0a0a0a' : '#ffffff' 
         }}
       >
-            <Animated.ScrollView 
+            <Animated.ScrollView
+                ref={scrollViewRef}
                 onScroll={scrollHandler}
                 scrollEventThrottle={16}
                 className="flex-1"
@@ -239,6 +291,8 @@ export default function HomeScreen() {
                 overScrollMode="never"
                 bounces={false}
                 removeClippedSubviews={false}
+                onContentSizeChange={(_w, h) => { contentHeight.value = h; }}
+                onLayout={(e) => { layoutHeight.value = e.nativeEvent.layout.height; }}
                 contentContainerStyle={{ 
                     paddingTop: 0, 
                     paddingBottom: 150 
@@ -261,7 +315,7 @@ export default function HomeScreen() {
 
                 {/* Dynamic Groups Selection */}
                 <View className="mt-4">
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="pl-6 overflow-visible">
+                    <ScrollView ref={groupsScrollRef} horizontal showsHorizontalScrollIndicator={false} className="pl-6 overflow-visible">
                         {/* "All" Group Card */}
                         <TouchableOpacity 
                             activeOpacity={0.7}
@@ -671,6 +725,7 @@ export default function HomeScreen() {
       {isReady && (
         <TabHeader
           scrollY={scrollY}
+          stickyProgress={stickyChipsProgress}
           title="Sua Biblioteca"
           titleThreshold={[50, 70]}
           secondaryTitle={selectedGroupId ? groups.find(g => g.id === selectedGroupId)?.name : "Recentes"}
@@ -692,6 +747,32 @@ export default function HomeScreen() {
                 <Button.Icon icon={<Bell size={22} color={resolvedTheme === 'dark' ? '#FFF' : '#333'} />} />
               </Button>
             </>
+          }
+          bottomContent={
+            <Animated.View style={stickyChipsStyle}>
+              <GroupChipList
+                groups={groups}
+                selectedGroupId={selectedGroupId}
+                onSelect={(id) => {
+                  setSelectedGroupId(id);
+                  // Scroll vertically to top
+                  (scrollViewRef.current as any)?.scrollTo?.({ y: 0, animated: true });
+                  // Center the selected group card in the horizontal carousel
+                  if (id === null) {
+                    // "Geral" is the first card
+                    groupsScrollRef.current?.scrollTo?.({ x: 0, animated: true });
+                  } else {
+                    const groupIndex = groups.findIndex(g => g.id === id);
+                    if (groupIndex >= 0) {
+                      // +1 because "Geral" card is at index 0
+                      const cardOffset = (groupIndex + 1) * (GROUP_CARD_WIDTH + GROUP_CARD_MARGIN);
+                      const centerX = cardOffset - (screenWidth / 2) + (GROUP_CARD_WIDTH / 2) + GROUP_CAROUSEL_PADDING;
+                      groupsScrollRef.current?.scrollTo?.({ x: Math.max(0, centerX), animated: true });
+                    }
+                  }
+                }}
+              />
+            </Animated.View>
           }
         />
       )}

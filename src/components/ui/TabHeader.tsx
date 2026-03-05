@@ -19,6 +19,10 @@ interface TabHeaderProps {
   leftComponent?: React.ReactNode;
   rightComponent?: React.ReactNode;
   hasSlideIn?: boolean;
+  /** Optional content rendered below the header row (inside the absolute container) */
+  bottomContent?: React.ReactNode;
+  /** When provided, drives title swap snap — 1 = force secondary title visible */
+  stickyProgress?: SharedValue<number>;
 }
 
 export const TabHeader: React.FC<TabHeaderProps> = ({
@@ -31,6 +35,8 @@ export const TabHeader: React.FC<TabHeaderProps> = ({
   leftComponent,
   rightComponent,
   hasSlideIn = false,
+  bottomContent,
+  stickyProgress,
 }) => {
   const insets = useSafeAreaInsets();
   const { resolvedTheme } = useTheme();
@@ -81,15 +87,19 @@ export const TabHeader: React.FC<TabHeaderProps> = ({
       Extrapolation.CLAMP
     );
 
-    // If we have a secondary title, we might need to fade this one out
+    // If we have a secondary title, fade primary out as secondary comes in
     let fadeOut = 1;
     if (secondaryTitle) {
-      fadeOut = interpolate(
+      // When stickyProgress snaps to 1, force primary title hidden
+      const stickyP = stickyProgress ? stickyProgress.value : 0;
+      const scrollFadeOut = interpolate(
         scrollY.value,
         [secondaryTitleThreshold[0] - 60, secondaryTitleThreshold[0]],
         [1, 0],
         Extrapolation.CLAMP
       );
+      // Use the minimum — either scroll drove it to 0, or sticky snap did
+      fadeOut = Math.min(scrollFadeOut, 1 - stickyP);
     }
 
     return { opacity: opacity * fadeOut };
@@ -98,12 +108,15 @@ export const TabHeader: React.FC<TabHeaderProps> = ({
   const sectionHeaderTitleStyle = useAnimatedStyle(() => {
     if (!secondaryTitle) return { opacity: 0 };
     
-    const opacity = interpolate(
+    const scrollOpacity = interpolate(
       scrollY.value,
       secondaryTitleThreshold,
       [0, 1],
       Extrapolation.CLAMP
     );
+    // When stickyProgress snaps to 1, force secondary title fully visible
+    const stickyP = stickyProgress ? stickyProgress.value : 0;
+    const opacity = Math.max(scrollOpacity, stickyP);
     return { opacity };
   });
 
@@ -158,6 +171,9 @@ export const TabHeader: React.FC<TabHeaderProps> = ({
             {rightComponent}
           </View>
         </View>
+
+        {/* Optional content below header (e.g. sticky group chips) */}
+        {bottomContent}
       </Animated.View>
     </View>
   );

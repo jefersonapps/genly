@@ -55,6 +55,7 @@ import {
 import { MediaPreview } from "@/components/task/MediaPreview";
 import { Button } from "@/components/ui/Button";
 import { Dropdown } from "@/components/ui/Dropdown";
+import { GroupChipList } from "@/components/ui/GroupChipList";
 import type { Group, Media } from "@/db/schema";
 import { AIProcessMode, aiService } from "@/services/aiService";
 import { latexStateService } from "@/services/latexStateService";
@@ -1068,83 +1069,12 @@ export default function TaskEditor() {
             {/* Group picker */}
             <View style={{ marginBottom: 12 }}>
               <Text style={[styles.label, { color: colors.textSecondary, marginBottom: 4, fontSize: 10 }]}>Grupo</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                <TouchableOpacity
-                  onPress={() => setSelectedGroupId(null)}
-                  activeOpacity={0.7}
-                  style={[
-                    styles.groupChip,
-                    {
-                      borderColor: selectedGroupId === null ? safeAccent : "transparent",
-                      backgroundColor:
-                        selectedGroupId === null ? safeAccent + "15" : colors.surfaceSecondary,
-                    },
-                  ]}
-                >
-                  <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center', marginRight: 6 }}>
-                    <View style={{ 
-                      position: 'absolute', 
-                      width: 14, 
-                      height: 18, 
-                      backgroundColor: '#3b82f6', 
-                      borderRadius: 3, 
-                      transform: [{ rotate: '8deg' }, { translateX: 2 }], 
-                      opacity: 0.6 
-                    }} />
-                    <View style={{ 
-                      width: 14, 
-                      height: 18, 
-                      backgroundColor: '#f97316', 
-                      borderRadius: 3, 
-                      opacity: 1,
-                      borderWidth: 1,
-                      borderColor: 'rgba(255,255,255,0.2)'
-                    }} />
-                  </View>
-                  <Text
-                    style={[
-                      styles.groupLabel,
-                      { fontSize: 13, color: selectedGroupId === null ? safeAccent : colors.textSecondary },
-                    ]}
-                  >
-                    Geral
-                  </Text>
-                </TouchableOpacity>
-
-                {groups.map((g) => (
-                  <TouchableOpacity
-                    key={g.id}
-                    onPress={() => setSelectedGroupId(g.id)}
-                    activeOpacity={0.7}
-                    style={[
-                      styles.groupChip,
-                      {
-                        paddingHorizontal: 8,
-                        paddingVertical: 5,
-                        borderColor: selectedGroupId === g.id ? primaryColor : "transparent",
-                        backgroundColor:
-                          selectedGroupId === g.id
-                            ? (g.color || primaryColor) + "15"
-                            : colors.surfaceSecondary,
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[styles.groupIcon, { width: 18, height: 18, backgroundColor: g.color || primaryColor }]}
-                    >
-                      <Text style={{ fontSize: 9 }}>{g.emoji}</Text>
-                    </View>
-                    <Text
-                      style={[
-                        styles.groupLabel,
-                        { fontSize: 13, color: selectedGroupId === g.id ? primaryColor : colors.text },
-                      ]}
-                    >
-                      {g.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              <GroupChipList
+                groups={groups}
+                selectedGroupId={selectedGroupId}
+                onSelect={setSelectedGroupId}
+                accentColor={safeAccent}
+              />
             </View>
 
             {/* Reminder */}
