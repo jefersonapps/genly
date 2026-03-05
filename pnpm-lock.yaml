@@ -41,6 +41,9 @@ importers:
       '@s77rt/react-native-date-picker':
         specifier: ^3.1.1
         version: 3.1.1(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)
+      '@shopify/flash-list':
+        specifier: ^2.3.0
+        version: 2.3.0(@babel/runtime@7.28.6)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)
       '@shopify/react-native-skia':
         specifier: 2.4.18
         version: 2.4.18(react-native-reanimated@4.2.1(react-native-worklets@0.7.2(@babel/core@7.29.0)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0))(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0))(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)
@@ -1838,6 +1841,13 @@ packages:
   '@s77rt/react-native-date-picker@3.1.1':
     resolution: {integrity: sha512-G43rpl8NaZ8pKBNz7+Se4bSp+HEsZLfqU6tq908uZoB0P9i+mwH41PhsViyQw9SB6GkWqQJ2JZy8woeqw88UWg==}
     peerDependencies:
+      react: '*'
+      react-native: '*'
+
+  '@shopify/flash-list@2.3.0':
+    resolution: {integrity: sha512-DR7VuN8KJHTYj9zv1/IhpqrMBMQyeeW/DCWCbVQAAkWhHrc6ylIbXOY+qK93CuHABV+dNHXK/3V6p4wCSW/+wA==}
+    peerDependencies:
+      '@babel/runtime': '*'
       react: '*'
       react-native: '*'
 
@@ -7464,6 +7474,12 @@ snapshots:
 
   '@s77rt/react-native-date-picker@3.1.1(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)':
     dependencies:
+      react: 19.2.0
+      react-native: 0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0)
+
+  '@shopify/flash-list@2.3.0(@babel/runtime@7.28.6)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)':
+    dependencies:
+      '@babel/runtime': 7.28.6
       react: 19.2.0
       react-native: 0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0)
 

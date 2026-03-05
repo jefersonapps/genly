@@ -237,10 +237,12 @@ export default function SettingsScreen() {
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ 
-            paddingTop: insets.top + 16,
-            paddingBottom: 100 
+            paddingTop: 0,
+            paddingBottom: 40 
         }}
       >
+        <View style={{ height: insets.top + 16 }} />
+
         {/* Static Title */}
         <View className="px-6 mb-6">
            <Text className="font-sans-bold text-3xl text-on-surface mt-1">Ajustes</Text>

@@ -20,11 +20,11 @@ import { Bell, Clock, Edit3, FolderPlus, Plus, Search, Trash2 } from "lucide-rea
 import React, { useCallback, useContext, useEffect, useLayoutEffect, useState } from "react";
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withSpring
+    useAnimatedScrollHandler,
+    useAnimatedStyle,
+    useSharedValue,
+    withDelay,
+    withSpring
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -64,7 +64,9 @@ export default function HomeScreen() {
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
-      scrollY.value = event.contentOffset.y;
+      // Clamp to >= 0: RefreshControl on Android injects negative offsets
+      // near y=0 which cause a correction loop manifesting as scroll jump
+      scrollY.value = Math.max(0, event.contentOffset.y);
     },
   });
 
@@ -234,14 +236,24 @@ export default function HomeScreen() {
                 scrollEventThrottle={16}
                 className="flex-1"
                 showsVerticalScrollIndicator={false}
+                overScrollMode="never"
+                bounces={false}
+                removeClippedSubviews={false}
                 contentContainerStyle={{ 
-                    paddingTop: insets.top + 80, 
+                    paddingTop: 0, 
                     paddingBottom: 150 
                 }}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} />
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={() => { setRefreshing(true); loadData(); }}
+                        progressViewOffset={insets.top + 80}
+                    />
                 }
             >
+                {/* Spacer block to replace content padding — crucial for RefreshControl stability on Android */}
+                <View style={{ height: insets.top + 80 }} />
+                
                 <View className="px-6">
                     <Text className="font-sans text-on-surface-secondary text-base">{getGreeting(profileName)}</Text>
                     <Text className="font-sans-bold text-3xl text-on-surface mt-1">Sua Biblioteca</Text>

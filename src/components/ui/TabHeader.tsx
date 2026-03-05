@@ -5,7 +5,7 @@ import Animated, {
     Extrapolation,
     interpolate,
     SharedValue,
-    useAnimatedStyle
+    useAnimatedStyle,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -36,28 +36,40 @@ export const TabHeader: React.FC<TabHeaderProps> = ({
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
-  const headerBarStyle = useAnimatedStyle(() => {
+  // Solid background color — no rgba interpolation needed
+  const bgColor = isDark ? '#121212' : '#ffffff';
+  const borderColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+
+  // Background layer: only animates numeric `opacity` — 100% worklet-safe
+  const bgLayerStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
       scrollY.value,
       backgroundThreshold,
       [0, 1],
       Extrapolation.CLAMP
     );
+    return { opacity };
+  });
 
-    const translateY = hasSlideIn 
-      ? interpolate(scrollY.value, backgroundThreshold, [-100, 0], Extrapolation.CLAMP)
-      : 0;
-
+  // Container anim: only translateY for slide-in, no color/shadow props
+  const containerAnimStyle = useAnimatedStyle(() => {
+    if (!hasSlideIn) return {};
+    
+    const opacity = interpolate(
+      scrollY.value,
+      backgroundThreshold,
+      [0, 1],
+      Extrapolation.CLAMP
+    );
+    const translateY = interpolate(
+      scrollY.value,
+      backgroundThreshold,
+      [-100, 0],
+      Extrapolation.CLAMP
+    );
     return {
-      backgroundColor: isDark 
-        ? `rgba(18, 18, 18, ${opacity})` 
-        : `rgba(255, 255, 255, ${opacity})`,
-      borderBottomColor: isDark 
-        ? `rgba(255, 255, 255, ${opacity * 0.1})` 
-        : `rgba(0, 0, 0, ${opacity * 0.05})`,
-      shadowOpacity: opacity * 0.1,
+      opacity,
       transform: [{ translateY }],
-      opacity: hasSlideIn ? opacity : 1,
     };
   });
 
@@ -96,16 +108,29 @@ export const TabHeader: React.FC<TabHeaderProps> = ({
   });
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} pointerEvents="box-none">
       <Animated.View
         style={[
           styles.headerBar,
-          { 
-            paddingTop: insets.top + 4,
-          },
-          headerBarStyle
+          { paddingTop: insets.top + 4 },
+          containerAnimStyle,
         ]}
+        pointerEvents="auto"
       >
+        {/* Background layer — solid color, numeric opacity only (no rgba strings) */}
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: bgColor,
+              borderBottomWidth: 1,
+              borderBottomColor: borderColor,
+            },
+            bgLayerStyle,
+          ]}
+          pointerEvents="none"
+        />
+
         <View style={styles.content}>
           <View style={styles.leftSection}>
             {leftComponent}
@@ -149,14 +174,9 @@ const styles = StyleSheet.create({
   headerBar: {
     paddingBottom: 8,
     paddingHorizontal: 24,
-    borderBottomWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowRadius: 3.84,
-    elevation: 5,
+    // No elevation, no shadowColor/Offset/Radius here —
+    // these cause native re-layout loops on Android during scroll.
+    // The background + border are handled by the bgLayer child.
   },
   content: {
     flexDirection: 'row',
