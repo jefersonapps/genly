@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/Button";
 import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
+import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import type { Task } from "@/db/schema";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
@@ -10,7 +11,7 @@ import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Check, Download, FileEdit, FilePlus2, FileText, Library, MoreVertical, PlayCircle, Plus, Sparkles, Trash2, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Keyboard, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { FlatList, Keyboard, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -172,7 +173,7 @@ export default function FlashcardsScreen() {
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      dialog.show({ title: 'Sucesso', description: 'Flashcards salvos no banco de dados!', variant: 'success' });
+      dialog.show({ title: 'Sucesso', description: 'Flashcards salvos no grupo Flashcards!', variant: 'success' });
 
     } catch (e) {
       console.error(e);
@@ -554,7 +555,7 @@ export default function FlashcardsScreen() {
             <View className="h-10 w-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: 'rgba(59,130,246,0.1)' }}>
               <Download size={20} color="#3B82F6" />
             </View>
-            <Button.Text className="flex-1 text-left">Salvar no Banco de Dados</Button.Text>
+            <Button.Text className="flex-1 text-left">Salvar no grupo Flashcards</Button.Text>
           </Button>
 
           <Button 
@@ -672,14 +673,7 @@ export default function FlashcardsScreen() {
       )}
 
       {/* Overlay Loading */}
-      {isGenerating && (
-        <View className="absolute z-50 top-0 left-0 right-0 bottom-0 bg-black/60 items-center justify-center">
-          <View className="bg-surface p-6 rounded-2xl items-center shadow-lg">
-            <ActivityIndicator size="large" color={primaryColor} />
-            <Text className="font-sans-semibold mt-4 text-on-surface text-base">Gerando flashcards com IA...</Text>
-          </View>
-        </View>
-      )}
+      <LoadingOverlay visible={isGenerating} title="Gerando flashcards com IA..." />
       </View>
     </KeyboardAvoidingView>
   );

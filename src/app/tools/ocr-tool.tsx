@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/Button";
+import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { ToolActions } from "@/components/ui/ToolActions";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
@@ -18,7 +19,6 @@ import {
 } from "lucide-react-native";
 import React, { useState } from "react";
 import {
-    ActivityIndicator,
     Share,
     Text,
     TextInput,
@@ -241,16 +241,10 @@ export default function OCRToolScreen() {
         </View>
       )}
 
-      {isProcessing && (
-        <View className="absolute z-[100] inset-0 items-center justify-center bg-black/50">
-          <View className="rounded-2xl bg-surface p-6 items-center">
-            <ActivityIndicator size="large" color={primaryColor} />
-            <Text className="mt-4 font-sans-semibold text-on-surface text-center">
-              Extraindo Texto...
-            </Text>
-          </View>
-        </View>
-      )}
+      <LoadingOverlay
+        visible={isProcessing}
+        title="Extraindo Texto..."
+      />
     </View>
   );
 }

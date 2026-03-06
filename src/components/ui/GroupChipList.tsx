@@ -128,7 +128,7 @@ export const GroupChipList: React.FC<GroupChipListProps> = ({
 const styles = StyleSheet.create({
   container: {
     gap: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
   },
   chip: {
     flexDirection: 'row',

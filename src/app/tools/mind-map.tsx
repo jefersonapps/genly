@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/Button';
 import { ColorPicker, PRESET_COLORS } from '@/components/ui/ColorPicker';
 import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
+import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { exportToImage } from '@/lib/mindmap/exportUtils';
 import { computeChildDirs, computeHiddenNodes, computeLayout } from '@/lib/mindmap/layoutEngine';
 import { MindMapCanvas } from '@/lib/mindmap/MindMapCanvas';
@@ -10,38 +11,36 @@ import { useDialog } from '@/providers/DialogProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 import { aiService, validateMindMapJSON } from '@/services/aiService';
 import {
-    BottomSheetBackdrop, BottomSheetModal,
-    BottomSheetTextInput, BottomSheetView,
+  BottomSheetBackdrop, BottomSheetModal,
+  BottomSheetTextInput, BottomSheetView,
 } from '@gorhom/bottom-sheet';
 import { useFont } from '@shopify/react-native-skia';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import {
-    ChevronLeft,
-    Download,
-    Expand,
-    FilePlus2, FileText, Image as ImageIcon,
-    Maximize,
-    Network,
-    Palette,
-    Plus,
-    Settings,
-    Share2,
-    Sparkles,
-    Trash2, Type
+  ChevronLeft,
+  Download,
+  Expand,
+  FilePlus2, Image as ImageIcon,
+  Maximize,
+  Network,
+  Palette,
+  Plus,
+  Settings,
+  Share2,
+  Sparkles,
+  Trash2, Type
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator, Dimensions, FlatList, Modal,
-    Platform, StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator, Dimensions, Platform, StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 
-import type { Task } from '@/db/schema';
-import { addMedia, createTask, getAllTasks, getGroupByName, getTaskById, updateTask } from '@/services/taskService';
+import { createTask, getGroupByName, getTaskById, updateTask } from '@/services/taskService';
 import * as MediaLibrary from 'expo-media-library';
 import { useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
@@ -97,8 +96,6 @@ export default function MindMapScreen() {
   const [editText, setEditText] = useState('');
   
   const [isExporting, setIsExporting] = useState(false);
-  const [showNoteSelector, setShowNoteSelector] = useState(false);
-  const [allNotes, setAllNotes] = useState<Task[]>([]);
 
   // AI Generation state
   const [isAiModalVisible, setIsAiModalVisible] = useState(false);
@@ -151,31 +148,6 @@ export default function MindMapScreen() {
     return { nodes, rootId };
   }, []);
 
-
-  const loadNotes = async () => {
-    const list = await getAllTasks();
-    setAllNotes(list);
-  };
-
-  const handleAddToNote = async (taskId: number) => {
-    setShowNoteSelector(false);
-    setIsExporting(true);
-    // slight delay to let modal close gracefully
-    setTimeout(async () => {
-      try {
-        const uri = await exportToImage(layoutNodes, isDark, font, canvasBgColor, bgPattern);
-        if (uri) {
-           await addMedia(taskId, uri, 'image');
-           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-           dialog.show({ title: 'Sucesso', description: 'Mapa mental adicionado à nota com sucesso!', variant: 'success' });
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setIsExporting(false);
-      }
-    }, 150);
-  };
 
   const handleShareImage = async () => {
     exportSheetRef.current?.dismiss();
@@ -247,7 +219,7 @@ export default function MindMapScreen() {
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      dialog.show({ title: 'Sucesso', description: 'Mapa mental salvo no banco de dados!', variant: 'success' });
+      dialog.show({ title: 'Sucesso', description: 'Mapa mental salvo no grupo Mapas Mentais!', variant: 'success' });
 
     } catch (e) {
       console.error("Failed to save mind map:", e);
@@ -626,14 +598,7 @@ export default function MindMapScreen() {
         )}
 
         {/* Overlay Loading */}
-        {isGenerating && (
-          <View className="absolute z-50 top-0 left-0 right-0 bottom-0 bg-black/60 items-center justify-center">
-            <View className="bg-surface p-6 rounded-2xl items-center shadow-lg">
-              <ActivityIndicator size="large" color={primaryColor} />
-              <Text className="font-sans-semibold mt-4 text-on-surface text-base">Gerando mapa com IA...</Text>
-            </View>
-          </View>
-        )}
+        <LoadingOverlay visible={isGenerating} title="Gerando mapa com IA..." />
       </View>
     );
   }
@@ -1025,22 +990,42 @@ export default function MindMapScreen() {
             <View className="h-10 w-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: 'rgba(59,130,246,0.1)' }}>
               <Download size={20} color="#3B82F6" />
             </View>
-            <Button.Text className="flex-1 text-left">Salvar no Banco de Dados</Button.Text>
+            <Button.Text className="flex-1 text-left">Salvar no grupo Mapas Mentais</Button.Text>
           </Button>
 
           <Button 
             variant="ghost"
-            onPress={() => {
+            onPress={async () => {
                exportSheetRef.current?.dismiss();
-               loadNotes();
-               setShowNoteSelector(true);
+               setIsExporting(true);
+               // slight delay to let modal close gracefully
+               setTimeout(async () => {
+                 try {
+                   const uri = await exportToImage(layoutNodes, isDark, font, canvasBgColor, bgPattern);
+                   if (uri) {
+                      const rootNode = nodes.find(n => n.id === rootId);
+                      const minTitle = rootNode ? rootNode.title : "Novo Mapa Mental";
+                      router.push({
+                         pathname: "/task/editor",
+                         params: {
+                           title: `Mapa: ${minTitle}`,
+                           sharedImages: JSON.stringify([uri])
+                         }
+                      });
+                   }
+                 } catch (e) {
+                   console.error(e);
+                 } finally {
+                   setIsExporting(false);
+                 }
+               }, 150);
             }}
             className="flex-row items-center p-4 bg-surface-secondary rounded-2xl border border-border"
           >
             <View className="h-10 w-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: 'rgba(59,130,246,0.1)' }}>
               <FilePlus2 size={20} color="#3B82F6" />
             </View>
-            <Button.Text className="flex-1 text-left">Adicionar como imagem a uma nota</Button.Text>
+            <Button.Text className="flex-1 text-left">Criar Nota</Button.Text>
           </Button>
 
           <View className="flex-row gap-3 mt-2">
@@ -1056,37 +1041,7 @@ export default function MindMapScreen() {
         </BottomSheetView>
       </BottomSheetModal>
 
-      {/* Note Selector Modal */}
-      <Modal visible={showNoteSelector} transparent animationType="slide">
-        <View className="flex-1 bg-black/50 justify-end">
-           <View className="bg-surface rounded-t-3xl pt-6 h-[80%]" style={{ paddingBottom: Math.max(insets.bottom, 24) }}>
-             <View className="px-6 mb-4 flex-row justify-between items-center">
-                <Text className="font-sans-bold text-xl text-on-surface">Selecionar Nota</Text>
-                <TouchableOpacity onPress={() => setShowNoteSelector(false)} className="p-2 -mr-2">
-                   <Text className="font-sans-medium text-primary">Cancelar</Text>
-                </TouchableOpacity>
-             </View>
-             <FlatList
-               data={allNotes}
-               keyExtractor={(item) => item.id.toString()}
-               contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}
-               ItemSeparatorComponent={() => <View className="h-px bg-border/50 my-2" />}
-               renderItem={({ item }) => (
-                  <TouchableOpacity onPress={() => handleAddToNote(item.id)} className="py-3 flex-row items-center">
-                     <FileText size={20} color={isDark ? '#D4D4D8' : '#52525B'} className="mr-3" />
-                     <View className="flex-1">
-                        <Text className="font-sans-medium text-base text-on-surface" numberOfLines={1}>{item.title}</Text>
-                        <Text className="font-sans text-xs text-on-surface-secondary mt-1">{new Date(item.updatedAt).toLocaleDateString()}</Text>
-                     </View>
-                  </TouchableOpacity>
-               )}
-               ListEmptyComponent={() => (
-                 <Text className="font-sans text-center text-on-surface-secondary py-8">Nenhuma nota encontrada.</Text>
-               )}
-             />
-           </View>
-        </View>
-      </Modal>
+
 
       {/* Overlay Loading */}
       {isExporting && (
@@ -1099,14 +1054,7 @@ export default function MindMapScreen() {
       )}
 
       {/* Overlay Loading for AI */}
-      {isGenerating && (
-        <View className="absolute z-50 top-0 left-0 right-0 bottom-0 bg-black/60 items-center justify-center">
-          <View className="bg-surface p-6 rounded-2xl items-center shadow-lg">
-            <ActivityIndicator size="large" color={primaryColor} />
-            <Text className="font-sans-semibold mt-4 text-on-surface text-base">Gerando mapa com IA...</Text>
-          </View>
-        </View>
-      )}
+      <LoadingOverlay visible={isGenerating} title="Gerando mapa com IA..." />
     </View>
   );
 }

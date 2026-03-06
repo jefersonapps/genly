@@ -10,42 +10,42 @@ import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight, Crop,
-  Download,
-  Eraser,
-  Image as ImageIcon,
-  ImagePlus,
-  Maximize,
-  RefreshCw,
-  Share2,
-  Trash2,
-  Type,
-  X
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight, Crop,
+    Download,
+    Eraser,
+    Image as ImageIcon,
+    ImagePlus,
+    Maximize,
+    RefreshCw,
+    Share2,
+    Trash2,
+    Type,
+    X
 } from 'lucide-react-native';
 import { PDFButton, PDFCheckBox, PDFDocument, PDFDropdown, PDFOptionList, PDFRadioGroup, PDFTextField } from 'pdf-lib';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Dimensions,
-  Keyboard,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text, TextInput, TouchableOpacity,
-  View
+    Dimensions,
+    Keyboard,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text, TextInput, TouchableOpacity,
+    View
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Pdf from 'react-native-pdf';
 import Animated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  type SharedValue,
+    runOnJS,
+    useAnimatedStyle,
+    useSharedValue,
+    type SharedValue,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { exportEditedPdf } from '@/lib/pdfEditor/pdfExportUtils';
 import { usePdfEditorStore, type Annotation, type FormField } from '@/lib/pdfEditor/usePdfEditorStore';
 
@@ -1917,14 +1917,10 @@ export default function PdfEditorScreen() {
       </BottomSheetModal>
 
       {/* Loading overlay */}
-      {isProcessing && (
-        <View className="absolute z-50 top-0 left-0 right-0 bottom-0 bg-black/60 items-center justify-center">
-          <View className="bg-surface p-6 rounded-2xl items-center shadow-lg">
-            <ActivityIndicator size="large" color={primaryColor} />
-            <Text className="font-sans-semibold mt-4 text-on-surface text-base">Processando...</Text>
-          </View>
-        </View>
-      )}
+      <LoadingOverlay
+        visible={isProcessing}
+        title="Processando..."
+      />
     </View>
   );
 }

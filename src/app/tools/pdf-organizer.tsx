@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/Button";
+import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { withOpacity } from "@/utils/colors";
@@ -26,7 +27,6 @@ import {
 import { PDFDocument, PDFName, degrees, rgb } from "pdf-lib";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
     Dimensions,
     Platform,
     StyleSheet,
@@ -586,16 +586,11 @@ export default function PDFOrganizerScreen() {
         </View>
       </View>
 
-      {isProcessing && (
-        <View className="absolute z-10 bottom-0 left-0 right-0 top-0 flex-1 items-center justify-center bg-black/50">
-          <View className="rounded-2xl bg-surface p-6 items-center">
-            <ActivityIndicator size="large" color={primaryColor} />
-            <Text className="mt-4 font-sans-semibold text-on-surface text-center">
-              Processando PDF...{"\n"}Isto pode levar alguns segundos.
-            </Text>
-          </View>
-        </View>
-      )}
+      <LoadingOverlay
+        visible={isProcessing}
+        title="Processando PDF..."
+        description="Isto pode levar alguns segundos."
+      />
 
       {pages.length === 0 ? (
         <View className="flex-1 justify-center items-center px-8">

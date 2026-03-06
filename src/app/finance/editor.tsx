@@ -1,28 +1,32 @@
 import { getContrastSafeColor } from "@/components/editor/Editor";
 import { Button } from "@/components/ui/Button";
+import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
+import { useKeyboard } from "@/hooks/useKeyboard";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import {
-    createTransaction,
-    getTransactionById,
-    updateTransaction,
-    type TransactionType,
+  createTransaction,
+  getTransactionById,
+  updateTransaction,
+  type TransactionType,
 } from "@/services/financeService";
 import {
-    extractCentsFromInput,
-    formatBRL,
-    formatBRLInput,
+  extractCentsFromInput,
+  formatBRL,
+  formatBRLInput,
 } from "@/utils/currency";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Check, TrendingDown, TrendingUp } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -50,6 +54,13 @@ export default function TransactionEditor() {
   const [isAmountUndefined, setIsAmountUndefined] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(!isEditing);
+
+  const { isVisible: isKeyboardVisible } = useKeyboard();
+  const [flexToggle, setFlexToggle] = useState(true);
+
+  useEffect(() => {
+    setFlexToggle(!isKeyboardVisible);
+  }, [isKeyboardVisible]);
 
   const colors = {
     text: isDark ? "#FAFAFA" : "#18181B",
@@ -131,11 +142,13 @@ export default function TransactionEditor() {
   const typeColor = isIncome ? "#22C55E" : "#EF4444";
 
   return (
-    <View
+    <KeyboardAvoidingView
       style={[
         styles.root,
         { paddingTop: insets.top, backgroundColor: colors.surface },
+        flexToggle ? { flexGrow: 1 } : { flex: 1 }
       ]}
+      behavior={Platform.OS === "ios" ? "padding" : "padding"}
     >
       {/* Header */}
       <View
@@ -161,7 +174,11 @@ export default function TransactionEditor() {
         </Button>
       </View>
 
-      <View style={styles.content}>
+      <ScrollView 
+        contentContainerStyle={[styles.content, { paddingBottom: flexToggle ? 40 : 100 }]} 
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         {/* Type Toggle */}
         <View style={styles.typeRow}>
           <TouchableOpacity
@@ -274,8 +291,8 @@ export default function TransactionEditor() {
             ]}
           />
         </View>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -292,7 +309,6 @@ const styles = StyleSheet.create({
   headerLeft: { flexDirection: "row", alignItems: "center", flex: 1 },
   headerTitle: { fontWeight: "700", fontSize: 20, marginLeft: 4 },
   content: {
-    flex: 1,
     paddingHorizontal: 20,
     paddingTop: 16,
   },

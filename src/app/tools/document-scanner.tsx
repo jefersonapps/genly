@@ -1,13 +1,14 @@
 import { Button } from "@/components/ui/Button";
+import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { withOpacity } from "@/utils/colors";
 import { recognizeText, sanitizeForWinAnsi } from "@/utils/ocr";
 import { launchScanner } from "@dariyd/react-native-document-scanner";
 import {
-    BottomSheetBackdrop,
-    BottomSheetModal,
-    BottomSheetView,
+  BottomSheetBackdrop,
+  BottomSheetModal,
+  BottomSheetView,
 } from "@gorhom/bottom-sheet";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
@@ -16,28 +17,28 @@ import * as MediaLibrary from "expo-media-library";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import {
-    Camera,
-    Check,
-    ChevronLeft,
-    Download,
-    FilePlus2,
-    Languages,
-    Plus,
-    RotateCw,
-    Share2,
-    Trash2,
-    X
+  Camera,
+  Check,
+  ChevronLeft,
+  Download,
+  FilePlus2,
+  Languages,
+  Plus,
+  RotateCw,
+  Share2,
+  Trash2,
+  X
 } from "lucide-react-native";
 import { PDFDocument, degrees, rgb } from "pdf-lib";
 import React, { useCallback, useRef, useState } from "react";
 import {
-    ActivityIndicator, Dimensions,
-    Platform,
-    StyleSheet,
-    Switch,
-    Text,
-    TouchableOpacity,
-    View
+  Dimensions,
+  Platform,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 import Animated, { useAnimatedRef } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -568,16 +569,11 @@ export default function DocumentScannerScreen() {
       )}
 
       {/* Processing Overlay */}
-      {isProcessing && (
-        <View className="absolute z-[100] inset-0 items-center justify-center bg-black/50">
-          <View className="rounded-2xl bg-surface p-6 items-center">
-            <ActivityIndicator size="large" color={primaryColor} />
-            <Text className="mt-4 font-sans-semibold text-on-surface text-center">
-              Processando Documento...{"\n"}Isto pode levar alguns segundos.
-            </Text>
-          </View>
-        </View>
-      )}
+      <LoadingOverlay
+        visible={isProcessing}
+        title="Processando Documento..."
+        description="Isto pode levar alguns segundos."
+      />
 
       {/* Bottom Action Bar */}
       {pages.length > 0 && (
