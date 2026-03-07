@@ -68,6 +68,11 @@ export async function getAllTasks(): Promise<Task[]> {
   return db.select().from(tasks).orderBy(tasks.updatedAt).all().reverse();
 }
 
+export async function getTasksWithReminders(): Promise<Task[]> {
+  const all = await db.select().from(tasks).orderBy(tasks.deliveryDate).all();
+  return all.filter(t => t.deliveryDate != null);
+}
+
 export async function getTasksByGroupId(groupId: number): Promise<Task[]> {
     return db.select().from(tasks).where(eq(tasks.groupId, groupId)).orderBy(tasks.updatedAt).all().reverse();
 }

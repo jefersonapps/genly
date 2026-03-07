@@ -19,7 +19,7 @@ import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from "@gorhom/
 import { FlashList } from "@shopify/flash-list";
 import { BlurView } from "expo-blur";
 import { useFocusEffect, useRouter } from "expo-router";
-import { Bell, Clock, Edit3, FolderPlus, Plus, Search, Trash2 } from "lucide-react-native";
+import { Bell, CalendarDays, Clock, Edit3, FolderPlus, Plus, Search, Trash2 } from "lucide-react-native";
 import React, { useCallback, useContext, useEffect, useLayoutEffect, useState } from "react";
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, {
@@ -567,6 +567,11 @@ export default function HomeScreen() {
                             </Text>
                             <Text className="font-sans text-sm text-on-surface-secondary">{filteredTasks.length} Notas</Text>
                         </View>
+                        {!selectedGroupId && (
+                          <Button variant="icon" onPress={() => router.push("/calendar")}>
+                            <Button.Icon icon={<CalendarDays size={24} color={resolvedTheme === 'dark' ? '#FAFAFA' : '#18181B'} />} />
+                          </Button>
+                        )}
                     </View>
                   </>
                 }

@@ -13,8 +13,7 @@ import { StatusBar } from "expo-status-bar";
 import { LockKeyhole } from "lucide-react-native";
 import React, { useEffect } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
-import 'react-native-gesture-handler';
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 
 // Prevent splash screen from auto-hiding
@@ -262,6 +261,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="setup" options={{ headerShown: false, animation: "fade" }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: "fade" }} />
+        <Stack.Screen name="calendar" options={{ headerShown: false, animation: "slide_from_right" }} />
         <Stack.Screen
           name="task/editor"
           options={{ presentation: "modal", animation: "slide_from_bottom" }}
