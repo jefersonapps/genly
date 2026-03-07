@@ -43,6 +43,13 @@
       "when": 1772232610126,
       "tag": "0005_tan_squadron_supreme",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1772920000000,
+      "tag": "0006_add_task_completed",
+      "breakpoints": true
     }
   ]
 }

@@ -12,7 +12,7 @@ import { useDialog } from "@/providers/DialogProvider";
 import { ScreenContext } from "@/providers/ScreenProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { getSetting } from "@/services/settingsService";
-import { deleteGroup, deleteTask, getAllGroups, getAllTasks, getMediaForTask } from "@/services/taskService";
+import { completeTask, deleteGroup, deleteTask, getAllGroups, getAllTasks, getMediaForTask, uncompleteTask } from "@/services/taskService";
 import { adjustColor, withOpacity } from "@/utils/colors";
 import { getGreeting } from "@/utils/date";
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
@@ -692,6 +692,14 @@ export default function HomeScreen() {
                                     });
                                 }
                             }}
+                                onToggleComplete={async (t) => {
+                                    if (t.completed === 1) {
+                                        await uncompleteTask(t.id);
+                                    } else {
+                                        await completeTask(t.id);
+                                    }
+                                    await loadData();
+                                }}
                         />
                       </View>
                     );

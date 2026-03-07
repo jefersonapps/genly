@@ -19,6 +19,7 @@ export const tasks = sqliteTable("tasks", {
   deliveryTime: text("delivery_time"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+  completed: integer("completed").notNull().default(0),
 });
 
 // ─── Media (images + latex equations) ─────────────────

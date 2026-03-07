@@ -4,7 +4,7 @@ import type { Media, Task } from "@/db/schema";
 import { useTheme } from "@/providers/ThemeProvider";
 import { withOpacity } from "@/utils/colors";
 import { stripMarkdown, truncateText } from "@/utils/markdown";
-import { AlertCircle, Bell, Calendar, Clock, Paperclip, Trash2 } from "lucide-react-native";
+import { AlertCircle, Bell, Calendar, CheckCircle2, Circle, Clock, Paperclip, Trash2 } from "lucide-react-native";
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 
@@ -14,14 +14,16 @@ interface TaskCardProps {
   onPress: () => void;
   onDelete?: () => void;
   onMediaPress?: (media: Media) => void;
+  onToggleComplete?: (task: Task) => void;
 }
 
-export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPress }: TaskCardProps) {
+export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPress, onToggleComplete }: TaskCardProps) {
   const { resolvedTheme, primaryColor } = useTheme();
   const isDark = resolvedTheme === "dark";
   const snippet = truncateText(stripMarkdown(task.content ?? ""), 100);
   const thumbnailMedia = mediaItems.filter((m) => m.type === "image" || m.type === "latex" || m.type === "pdf");
   const hasMedia = mediaItems.length > 0;
+  const isCompleted = task.completed === 1;
 
   const formattedDate = new Date(task.updatedAt).toLocaleDateString("pt-BR", {
     day: "2-digit",
@@ -72,14 +74,31 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
           backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
           borderWidth: 1,
           borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+          opacity: isCompleted ? 0.5 : 1,
         }}
       >
         <View className="flex-row items-center">
+          {/* Completion checkbox */}
+          <TouchableOpacity
+            onPress={(e) => {
+              e.stopPropagation();
+              onToggleComplete?.(task);
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            className="mr-3"
+          >
+            {isCompleted ? (
+              <CheckCircle2 size={24} color="#10B981" />
+            ) : (
+              <Circle size={24} color={isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)"} />
+            )}
+          </TouchableOpacity>
+
           <View className="h-12 w-12 rounded-2xl items-center justify-center mr-4" style={{ backgroundColor: withOpacity(reminderConfig.color, 0.12) }}>
             <Icon size={24} color={reminderConfig.color} />
           </View>
           <View className="flex-1 mr-2">
-            <Text style={{ fontFamily: "Montserrat-Bold", fontSize: 16, color: isDark ? "#FAFAFA" : "#18181B" }} numberOfLines={1}>
+            <Text style={{ fontFamily: "Montserrat-Bold", fontSize: 16, color: isDark ? "#FAFAFA" : "#18181B", textDecorationLine: isCompleted ? 'line-through' : 'none' }} numberOfLines={1}>
               {task.title || "Sem título"}
             </Text>
             <Text style={{ fontFamily: "Montserrat-Regular", fontSize: 13, color: isDark ? "#A1A1AA" : "#71717A" }} className="mt-0.5">
@@ -130,11 +149,12 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
         shadowColor: "#000",
         shadowOffset: {
           width: 0,
-          height: 2, // Slightly reduced vertical offset for cards compared to floating tab bar
+          height: 2,
         },
-        shadowOpacity: 0.1, // Reduced opacity for a cleaner look on lists
+        shadowOpacity: 0.1,
         shadowRadius: 3,
         elevation: 3,
+        opacity: isCompleted ? 0.5 : 1,
       }}
     >
       {/* Media thumbnails scroll row */}
@@ -160,12 +180,29 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
           </ScrollView>
       )}
 
-      <View className="flex-row justify-between items-start">
+      <View className="flex-row items-start">
+         {/* Completion checkbox */}
+         <TouchableOpacity
+           onPress={(e) => {
+             e.stopPropagation();
+             onToggleComplete?.(task);
+           }}
+           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+           className="mr-3 mt-0.5"
+         >
+           {isCompleted ? (
+             <CheckCircle2 size={22} color="#10B981" />
+           ) : (
+             <Circle size={22} color={isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)"} />
+           )}
+         </TouchableOpacity>
+
          <View className="flex-1">
             {/* Title */}
             <Text
                 className="font-sans-semibold text-base text-on-surface"
                 numberOfLines={1}
+                style={{ textDecorationLine: isCompleted ? 'line-through' : 'none' }}
             >
                 {task.title}
             </Text>

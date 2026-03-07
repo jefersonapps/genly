@@ -141,6 +141,36 @@ export async function bulkUpdateTasksGroup(taskIds: number[], groupId: number | 
   );
 }
 
+export async function completeTask(id: number): Promise<void> {
+  const now = new Date().toISOString();
+  await db
+    .update(tasks)
+    .set({ completed: 1, updatedAt: now })
+    .where(eq(tasks.id, id));
+  
+  // Cancel any scheduled reminder for this task
+  await NotificationService.cancelReminder(id);
+  
+  refreshAllWidgets();
+}
+
+export async function uncompleteTask(id: number): Promise<void> {
+  const now = new Date().toISOString();
+  await db
+    .update(tasks)
+    .set({ completed: 0, updatedAt: now })
+    .where(eq(tasks.id, id));
+  
+  // Re-schedule reminder if delivery info exists
+  const task = await getTaskById(id);
+  if (task && task.deliveryDate && task.deliveryTime) {
+    const reminderDate = new Date(`${task.deliveryDate}T${task.deliveryTime}`);
+    await NotificationService.scheduleReminder(task.id, task.title, "Lembrete de nota", reminderDate);
+  }
+  
+  refreshAllWidgets();
+}
+
 export async function deleteTask(id: number): Promise<void> {
   // Media entries cascade-deleted via foreign key
   await NotificationService.cancelReminder(id);

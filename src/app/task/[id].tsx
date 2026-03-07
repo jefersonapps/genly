@@ -1,5 +1,6 @@
+import * as Haptics from "expo-haptics";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Edit, Trash2 } from "lucide-react-native";
+import { ArrowLeft, CheckCircle2, Edit, Trash2 } from "lucide-react-native";
 import React, { useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -10,7 +11,7 @@ import { RichTextRenderer } from "@/components/ui/RichTextRenderer";
 import type { Media, Task } from "@/db/schema";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
-import { deleteTask, getMediaForTask, getTaskById, updateTask } from "@/services/taskService";
+import { completeTask, deleteTask, getMediaForTask, getTaskById, uncompleteTask, updateTask } from "@/services/taskService";
 import { getEditorStyles } from "@/utils/editorStyles";
 
 // ─── Helpers ─────────────────────────────────────
@@ -133,6 +134,23 @@ export default function TaskDetail() {
             },
         ],
      });
+  };
+
+  const handleComplete = async () => {
+    if (!task) return;
+    const isCurrentlyCompleted = task.completed === 1;
+    
+    if (isCurrentlyCompleted) {
+      // Uncomplete the task
+      await uncompleteTask(task.id);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setTask(prev => prev ? { ...prev, completed: 0 } : prev);
+    } else {
+      // Complete the task
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await completeTask(task.id);
+      setTask(prev => prev ? { ...prev, completed: 1 } : prev);
+    }
   };
 
   const openMedia = (media: Media) => {
@@ -271,6 +289,21 @@ export default function TaskDetail() {
               </ScrollView>
           </View>
       )}
+
+      {/* Complete Task Button - Sticky at bottom */}
+      <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: insets.bottom + 20 }}>
+        <Button
+          variant={task.completed === 1 ? "outline" : "filled"}
+          size="lg"
+          rounded="full"
+          onPress={handleComplete}
+          className="w-full flex-row items-center justify-center gap-3"
+          color={task.completed === 1 ? undefined : "#10B981"}
+        >
+          <Button.Icon icon={<CheckCircle2 size={22} color={task.completed === 1 ? (isDark ? "#A1A1AA" : "#71717A") : "#FFF"} />} />
+          <Button.Text>{task.completed === 1 ? "Reabrir Tarefa" : "Concluir Tarefa"}</Button.Text>
+        </Button>
+      </View>
     </View>
   );
 }
