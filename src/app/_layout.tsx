@@ -10,6 +10,7 @@ import { Stack, useRootNavigationState, useRouter } from "expo-router";
 import { useShareIntent } from "expo-share-intent";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import { LockKeyhole } from "lucide-react-native";
 import React, { useEffect } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import 'react-native-gesture-handler';
@@ -44,6 +45,7 @@ function RootLayoutNav() {
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
   const [isAuthenticating, setIsAuthenticating] = React.useState(true);
   const [securityEnabled, setSecurityEnabled] = React.useState(false);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = React.useState<boolean | null>(null);
 
   const [fontsLoaded, fontError] = useFonts({
     "Montserrat-Regular": require("../../assets/fonts/Montserrat-Regular.ttf"),
@@ -60,10 +62,14 @@ function RootLayoutNav() {
 
   useEffect(() => {
     async function initApp() {
-      // 1. Check security
+      // 1. Check security and onboarding
       const enabled = await getSetting("security_enabled");
+      const onboardingSetting = await getSetting("has_completed_onboarding");
       const isEnabled = enabled === "1";
+      const onboardingCompleted = onboardingSetting === "1";
+      
       setSecurityEnabled(isEnabled);
+      setHasCompletedOnboarding(onboardingCompleted);
       
       if (isEnabled) {
         authenticate();
@@ -201,13 +207,22 @@ function RootLayoutNav() {
     }
   }, [isAuthenticated, hasShareIntent, shareIntent, router, resetShareIntent, isNavigationReady]);
 
+  useEffect(() => {
+    if (isNavigationReady && fontsLoaded && hasCompletedOnboarding === false) {
+      // Small timeout to ensure Stack is mounted before replacing route
+      setTimeout(() => {
+        router.replace("/setup");
+      }, 0);
+    }
+  }, [isNavigationReady, fontsLoaded, hasCompletedOnboarding, router]);
+
   if (securityEnabled && !isAuthenticated) {
     return (
       <View className="flex-1 items-center justify-center bg-surface">
          <StatusBar style={resolvedTheme === "dark" ? "light" : "dark"} />
          <View className="items-center p-8 bg-surface-secondary rounded-[3rem] border border-border mx-6">
             <View className="h-20 w-20 rounded-full items-center justify-center mb-6" style={{ backgroundColor: primaryColor + '20' }}>
-               <Text className="text-4xl">🔒</Text>
+               <LockKeyhole size={40} color={primaryColor} />
             </View>
             <Text className="font-sans-bold text-2xl text-on-surface mb-2 text-center">App Bloqueado</Text>
             <Text className="font-sans text-on-surface-secondary mb-8 text-center px-4 leading-relaxed">Use sua biometria para acessar o Genly</Text>
@@ -229,7 +244,7 @@ function RootLayoutNav() {
     );
   }
 
-  if (!isNavigationReady || !fontsLoaded) {
+  if (!isNavigationReady || !fontsLoaded || hasCompletedOnboarding === null) {
     return (
       <View className="flex-1 bg-surface items-center justify-center">
         <ActivityIndicator color={primaryColor} />
@@ -245,6 +260,7 @@ function RootLayoutNav() {
       <StatusBar style={isDark ? "light" : "dark"} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor } }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="setup" options={{ headerShown: false, animation: "fade" }} />
         <Stack.Screen
           name="task/editor"
           options={{ presentation: "modal", animation: "slide_from_bottom" }}

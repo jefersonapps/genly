@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text } from "react-native";
+import { Text, View } from "react-native";
 
 interface EmptyStateProps {
   icon: React.ReactNode;
@@ -20,7 +20,7 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
           {description}
         </Text>
       )}
-      {action && <View>{action}</View>}
+      {action && <View className="w-full">{action}</View>}
     </View>
   );
 }

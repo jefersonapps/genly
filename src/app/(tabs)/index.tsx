@@ -586,12 +586,12 @@ export default function HomeScreen() {
                                         title="Nenhum mapa mental"
                                         description="Comece a organizar suas ideias agora mesmo."
                                         action={
-                                            <View className="gap-3 w-full mt-4 flex-row flex-wrap justify-center">
-                                                <Button variant="ghost" className="bg-surface-secondary border border-border shrink-0" onPress={() => router.push({ pathname: "/tools/mind-map", params: { groupId: currentGroup.id } })}>
-                                                    <Button.Text>🧠 Em Branco</Button.Text>
+                                            <View className="gap-3 w-full mt-4 flex-col">
+                                                <Button variant="ghost" className="bg-surface-secondary border border-border w-full" onPress={() => router.push({ pathname: "/tools/mind-map", params: { groupId: currentGroup.id } })}>
+                                                    <Button.Text>🧠   Em Branco</Button.Text>
                                                 </Button>
-                                                <Button variant="ghost" className="bg-surface-secondary border border-border shrink-0" onPress={() => router.push({ pathname: "/tools/mind-map", params: { groupId: currentGroup.id, template: "brainstorming" } })}>
-                                                    <Button.Text>💡 Brainstorming</Button.Text>
+                                                <Button variant="ghost" className="bg-surface-secondary border border-border w-full" onPress={() => router.push({ pathname: "/tools/mind-map", params: { groupId: currentGroup.id, template: "brainstorming" } })}>
+                                                    <Button.Text>💡   Brainstorming</Button.Text>
                                                 </Button>
                                             </View>
                                         }
@@ -606,10 +606,10 @@ export default function HomeScreen() {
                                         title="Nenhum Baralho"
                                         description="Crie seu primeiro deck de estudos para reter mais informações."
                                         action={
-                                            <View className="mt-4">
-                                                <Button className="flex-row items-center w-full justify-center" onPress={() => router.push({ pathname: "/tools/flashcards", params: { groupId: currentGroup.id } })}>
-                                                    <Plus size={20} color="#FFF" className="mr-2" />
-                                                    <Button.Text>Criar Novo Baralho</Button.Text>
+                                            <View className="gap-3 w-full mt-4 flex-col">
+                                                <Button className="w-full" onPress={() => router.push({ pathname: "/tools/flashcards", params: { groupId: currentGroup.id } })}>
+                                                    <Button.Icon icon={Plus} size={20} />
+                                                    <Button.Text className="ml-2">Criar Novo Baralho</Button.Text>
                                                 </Button>
                                             </View>
                                         }
@@ -624,11 +624,11 @@ export default function HomeScreen() {
                                     description="Crie sua primeira nota ou lembrete neste grupo."
                                     action={
                                         <View className="gap-3 w-full mt-4 flex-col">
-                                            <Button className="flex-row items-center justify-center w-full" onPress={() => router.push({ pathname: "/task/editor", params: { groupId: currentGroup?.id } })}>
-                                                <Plus size={20} color="#FFF" className="mr-2" />
-                                                <Button.Text>Nova Nota Vazia</Button.Text>
+                                            <Button className="w-full" onPress={() => router.push({ pathname: "/task/editor", params: { groupId: currentGroup?.id } })}>
+                                                <Button.Icon icon={Plus} size={20} />
+                                                <Button.Text className="ml-2">Nova Nota Vazia</Button.Text>
                                             </Button>
-                                            <Button variant="ghost" className="bg-surface-secondary border border-border flex-row items-center justify-center w-full" 
+                                            <Button variant="ghost" className="bg-surface-secondary border border-border w-full" 
                                                 onPress={() => {
                                                     const tomorrow = new Date();
                                                     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -641,8 +641,8 @@ export default function HomeScreen() {
                                                     });
                                                 }}
                                             >
-                                                <Clock size={18} color={primaryColor} className="mr-2" />
-                                                <Button.Text>📅 Lembrete para Amanhã</Button.Text>
+                                                <Button.Icon icon={Clock} size={20} />
+                                                <Button.Text className="ml-2">Lembrete para Amanhã</Button.Text>
                                             </Button>
                                         </View>
                                     }

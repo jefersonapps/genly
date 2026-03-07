@@ -14,7 +14,8 @@ export type SettingKey =
   | "openai_model"
   | "active_model"
   | "latex_style"
-  | "finance_balance";
+  | "finance_balance"
+  | "has_completed_onboarding";
 
 const DEFAULTS: Record<SettingKey, string> = {
   theme_mode: "system",
@@ -29,6 +30,7 @@ const DEFAULTS: Record<SettingKey, string> = {
   active_model: "gemini",
   latex_style: "",
   finance_balance: "0",
+  has_completed_onboarding: "0",
 };
 
 export async function getSetting(key: SettingKey): Promise<string> {

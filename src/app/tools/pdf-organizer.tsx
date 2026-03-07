@@ -13,27 +13,27 @@ import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import {
-    Camera,
-    ChevronLeft,
-    Download,
-    FileText,
-    Languages,
-    Plus,
-    RotateCw,
-    Share2,
-    Trash2,
-    X
+  Camera,
+  ChevronLeft,
+  Download,
+  FileText,
+  Languages,
+  Plus,
+  RotateCw,
+  Share2,
+  Trash2,
+  X
 } from "lucide-react-native";
 import { PDFDocument, PDFName, degrees, rgb } from "pdf-lib";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-    Dimensions,
-    Platform,
-    StyleSheet,
-    Switch,
-    Text,
-    TouchableOpacity,
-    View
+  Dimensions,
+  Platform,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 import PdfThumbnail from "react-native-pdf-thumbnail";
 import Animated, { useAnimatedRef } from "react-native-reanimated";
@@ -605,7 +605,7 @@ export default function PDFOrganizerScreen() {
            </Text>
            <TouchableOpacity
              onPress={() => handleAddOptions()}
-             className="rounded-full px-8 py-4 items-center justify-center flex-row"
+             className="rounded-full px-8 py-4 gap-2 items-center justify-center flex-row"
              style={{ backgroundColor: primaryColor }}
            >
              <Plus size={20} color="#FFFFFF" className="mr-2" />

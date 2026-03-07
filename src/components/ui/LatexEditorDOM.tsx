@@ -41,7 +41,6 @@ export default function LatexEditorDOM({
       try {
         if (typeof window !== "undefined" && (window as any).ace) {
           const ace = (window as any).ace;
-          ace.config.set("mobileContextMenu", true);
           isInitialized.current = true;
         }
       } catch (e) {

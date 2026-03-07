@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/Button";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { withOpacity } from "@/utils/colors";
@@ -9,25 +8,25 @@ import * as MediaLibrary from "expo-media-library";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import {
-    CheckCircle2,
-    ChevronLeft,
-    Circle,
-    Download,
-    FilePlus2,
-    FileText,
-    Plus,
-    Share2
+  CheckCircle2,
+  ChevronLeft,
+  Circle,
+  Download,
+  FilePlus2,
+  FileText,
+  Plus,
+  Share2
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Dimensions,
-    FlatList,
-    Platform,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 import PdfThumbnail from "react-native-pdf-thumbnail";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -228,23 +227,24 @@ export default function PdfToImageScreen() {
       </View>
 
       {!pdfUri ? (
-        <View className="flex-1 items-center justify-center px-6">
-          <View className="h-24 w-24 items-center justify-center rounded-3xl bg-secondary-container mb-6">
-            <FileText size={48} color={primaryColor} />
-          </View>
-          <Text className="text-center font-sans-bold text-2xl text-on-surface mb-2">
-            Selecione um PDF
-          </Text>
-          <Text className="text-center font-sans text-base text-on-surface-secondary mb-8">
-            Escolha um arquivo para extrair suas páginas como imagens individuais.
-          </Text>
-          <Button
-            onPress={handlePickDocument}
-            className="w-full"
-          >
-            <Button.Icon icon={Plus} size={20} color="#FFF" />
-            <Button.Text>Escolher Arquivo</Button.Text>
-          </Button>
+        <View className="flex-1 justify-center items-center px-8">
+           <View className={`mb-6 h-24 w-24 items-center justify-center rounded-full ${isDark ? "bg-primary/20" : "bg-primary/10"}`}>
+             <FileText size={48} color={primaryColor} />
+           </View>
+           <Text className="font-sans-semibold text-xl text-on-surface text-center mb-2">
+             Selecione um PDF
+           </Text>
+           <Text className="font-sans text-base text-on-surface-secondary text-center mb-8">
+             Escolha um arquivo para extrair suas páginas como imagens individuais.
+           </Text>
+           <TouchableOpacity
+             onPress={handlePickDocument}
+             className="rounded-full px-8 py-4 gap-2 items-center justify-center flex-row"
+             style={{ backgroundColor: primaryColor }}
+           >
+             <Plus size={20} color="#FFFFFF" className="mr-2" />
+             <Text className="font-sans-bold text-white text-base">Escolher Arquivo</Text>
+           </TouchableOpacity>
         </View>
       ) : (
         <View className="flex-1">
