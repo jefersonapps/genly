@@ -1,12 +1,78 @@
 import { MediaPreview } from "@/components/task/MediaPreview";
-import { MathJaxRenderer } from "@/components/ui/MathJaxRenderer";
 import type { Media, Task } from "@/db/schema";
 import { useTheme } from "@/providers/ThemeProvider";
 import { withOpacity } from "@/utils/colors";
-import { stripMarkdown, truncateText } from "@/utils/markdown";
-import { AlertCircle, Bell, Calendar, CheckCircle2, Circle, Clock, Paperclip, Trash2 } from "lucide-react-native";
+import { htmlToMarkdown, stripMarkdown, truncateText } from "@/utils/markdown";
+import { AlertCircle, Bell, Calendar, CheckCircle2, ChevronDown, Circle, Clock, Paperclip, Trash2 } from "lucide-react-native";
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { EnrichedMarkdownText } from "react-native-enriched-markdown";
+
+// Safely truncate markdown/HTML, ensuring open tags are closed
+function truncateMarkdown(text: string, maxLength: number, maxLines: number = 5): { text: string; isTruncated: boolean } {
+    if (!text) return { text, isTruncated: false };
+
+    const lines = text.split('\n');
+    let isTruncated = false;
+    let truncated = text;
+
+    if (lines.length > maxLines) {
+        truncated = lines.slice(0, maxLines).join('\n');
+        isTruncated = true;
+    }
+
+    if (truncated.length > maxLength) {
+        truncated = truncated.substring(0, maxLength);
+        isTruncated = true;
+        
+        // Simple truncation at maxLength, trying not to break inside a word
+        const lastSpace = truncated.lastIndexOf(' ');
+        if (lastSpace > maxLength * 0.8) {
+            truncated = truncated.substring(0, lastSpace);
+        }
+    }
+
+    if (!isTruncated) {
+        return { text, isTruncated: false };
+    }
+
+    // Strip out any trailing partial tag, e.g., `<span sty`
+    const lastOpenIndex = truncated.lastIndexOf('<');
+    const lastCloseIndex = truncated.lastIndexOf('>');
+    if (lastOpenIndex > lastCloseIndex) {
+        truncated = truncated.substring(0, lastOpenIndex);
+    }
+
+    // Best-effort tag balancing for basic HTML formatting
+    const openTags: string[] = [];
+    const tagRegex = /<\/?([a-z0-9]+)[^>]*>/gi;
+    let match;
+    
+    while ((match = tagRegex.exec(truncated)) !== null) {
+        const isClosing = match[0].startsWith('</');
+        const tagName = match[1].toLowerCase();
+        
+        // Ignore self-closing tags
+        if (['br', 'hr', 'img', 'input', 'meta'].includes(tagName)) continue;
+        
+        if (isClosing) {
+            // Remove the last matching tag if it exists
+            const lastIndex = openTags.lastIndexOf(tagName);
+            if (lastIndex !== -1) {
+                openTags.splice(lastIndex, 1);
+            }
+        } else {
+            openTags.push(tagName);
+        }
+    }
+    
+    // Close the remaining open tags in reverse order
+    for (let i = openTags.length - 1; i >= 0; i--) {
+        truncated += `</${openTags[i]}>`;
+    }
+    
+    return { text: truncated, isTruncated: true };
+}
 
 interface TaskCardProps {
   task: Task;
@@ -20,6 +86,7 @@ interface TaskCardProps {
 export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPress, onToggleComplete }: TaskCardProps) {
   const { resolvedTheme, primaryColor } = useTheme();
   const isDark = resolvedTheme === "dark";
+  const safeAccent = primaryColor || "#3B82F6";
   const snippet = truncateText(stripMarkdown(task.content ?? ""), 100);
   const thumbnailMedia = mediaItems.filter((m) => m.type === "image" || m.type === "latex" || m.type === "pdf");
   const hasMedia = mediaItems.length > 0;
@@ -256,22 +323,82 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
                     // Not JSON, continue to standard renderers
                 }
 
-                if (task.content?.match(/(\$|\\\(|\\\[)/)) {
+                if (task.content) {
+                    // task.content from the editor is HTML. We need to convert it to Markdown
+                    // or strip it if no converter exists. Let's check `htmlToMarkdown`.
+                    const markdownContent = htmlToMarkdown ? htmlToMarkdown(task.content) : stripMarkdown(task.content);
+                    const { text: safeContent, isTruncated } = truncateMarkdown(markdownContent, 180);
+                    
                     return (
-                        <View className="mt-1 h-20 overflow-hidden pointer-events-none">
-                            <MathJaxRenderer content={task.content} color={isDark ? "rgb(212, 212, 216)" : "rgb(63, 63, 70)"} />
+                        <View className="mt-1 relative">
+                            <View className="max-h-32 overflow-hidden pointer-events-none">
+                                <EnrichedMarkdownText
+                                    flavor="github"
+                                    markdown={safeContent}
+                                    allowTrailingMargin={false}
+                                    markdownStyle={{
+                                        paragraph: {
+                                            color: isDark ? "rgb(212, 212, 216)" : "rgb(63, 63, 70)",
+                                            fontSize: 14,
+                                            marginTop: 0,
+                                            marginBottom: 4,
+                                        },
+                                        h1: { fontSize: 15, fontWeight: "bold", color: isDark ? "rgb(244, 244, 245)" : "rgb(39, 39, 42)", marginTop: 2, marginBottom: 2 },
+                                        h2: { fontSize: 15, fontWeight: "bold", color: isDark ? "rgb(244, 244, 245)" : "rgb(39, 39, 42)", marginTop: 2, marginBottom: 2 },
+                                        h3: { fontSize: 14, fontWeight: "bold", color: isDark ? "rgb(228, 228, 231)" : "rgb(63, 63, 70)", marginTop: 2, marginBottom: 2 },
+                                        h4: { fontSize: 14, fontWeight: "bold", color: isDark ? "rgb(228, 228, 231)" : "rgb(63, 63, 70)", marginTop: 2, marginBottom: 2 },
+                                        h5: { fontSize: 14, fontWeight: "bold", color: isDark ? "rgb(228, 228, 231)" : "rgb(63, 63, 70)", marginTop: 2, marginBottom: 2 },
+                                        h6: { fontSize: 14, fontWeight: "bold", color: isDark ? "rgb(228, 228, 231)" : "rgb(63, 63, 70)", marginTop: 2, marginBottom: 2 },
+                                        strong: { fontWeight: "bold", color: isDark ? "rgb(244, 244, 245)" : "rgb(39, 39, 42)" },
+                                        em: { fontStyle: "italic" },
+                                        link: { color: isDark ? "#60A5FA" : "#3B82F6", underline: false },
+                                        code: {
+                                            fontFamily: "monospace",
+                                            fontSize: 13,
+                                            color: isDark ? "#F472B6" : "#DB2777",
+                                            backgroundColor: isDark ? "rgba(244, 114, 182, 0.1)" : "rgba(219, 39, 119, 0.1)",
+                                        },
+                                        blockquote: {
+                                            color: isDark ? "rgb(161, 161, 170)" : "rgb(113, 113, 122)",
+                                            borderColor: safeAccent,
+                                            borderWidth: 3,
+                                            gapWidth: 12,
+                                            backgroundColor: "transparent",
+                                        },
+                                        list: {
+                                            color: isDark ? "rgb(212, 212, 216)" : "rgb(63, 63, 70)",
+                                            fontSize: 14,
+                                            marginTop: 0,
+                                            marginBottom: 4,
+                                            bulletColor: safeAccent,
+                                            markerColor: isDark ? "rgb(161, 161, 170)" : "rgb(113, 113, 122)",
+                                        },
+                                        taskList: {
+                                            checkedColor: safeAccent,
+                                            borderColor: isDark ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.2)",
+                                            checkboxSize: 16,
+                                            checkboxBorderRadius: 4,
+                                        },
+                                        math: {
+                                            color: isDark ? "rgb(212, 212, 216)" : "rgb(63, 63, 70)",
+                                            fontSize: 14,
+                                            marginTop: 2,
+                                            marginBottom: 2,
+                                        },
+                                        inlineMath: {
+                                            color: isDark ? "rgb(212, 212, 216)" : "rgb(63, 63, 70)",
+                                        }
+                                    }}
+                                />
+                            </View>
+                            {isTruncated && (
+                                // left: -34 perfectly offsets the CheckCircle2 width (22px) + mr-3 (12px) = 34px
+                                // right: 0 aligns with the right edge of the text container.
+                                <View className="absolute bottom-0 h-14 pointer-events-none justify-end items-center pb-0.5" style={{ left: -34, right: 0 }}>
+                                    <ChevronDown size={18} color={isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.3)"} />
+                                </View>
+                            )}
                         </View>
-                    );
-                }
-
-                if (snippet) {
-                    return (
-                        <Text
-                            className="mt-1 font-sans text-sm text-on-surface-secondary"
-                            numberOfLines={2}
-                        >
-                            {snippet}
-                        </Text>
                     );
                 }
 

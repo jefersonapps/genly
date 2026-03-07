@@ -1,10 +1,10 @@
-import { MathJaxRenderer } from "@/components/ui/MathJaxRenderer";
 import { TransparencyGrid } from "@/components/ui/TransparencyGrid";
 import { useTheme } from "@/providers/ThemeProvider";
 import { Image } from "expo-image";
 import { FileText } from "lucide-react-native";
 import React from "react";
 import { StyleSheet, View, ViewProps } from "react-native";
+import { EnrichedMarkdownText } from "react-native-enriched-markdown";
 
 export interface MediaPreviewProps extends ViewProps {
   media: {
@@ -71,10 +71,21 @@ export function MediaPreview({
               />
             ) : (
               <View style={styles.mathJaxWrapper}>
-                <MathJaxRenderer 
-                  content={media.latexSource || ""} 
-                  color={isDark ? "#FFFFFF" : "#000000"}
-                  style={{ minHeight: size / 2 }} 
+                <EnrichedMarkdownText 
+                  flavor="github"
+                  markdown={media.latexSource || ""} 
+                  markdownStyle={{
+                      paragraph: {
+                          color: isDark ? "#FFFFFF" : "#000000",
+                      },
+                      math: {
+                          color: isDark ? "#FFFFFF" : "#000000",
+                          fontSize: 14,
+                      },
+                      inlineMath: {
+                          color: isDark ? "#FFFFFF" : "#000000",
+                      }
+                  }}
                 />
               </View>
             )}
