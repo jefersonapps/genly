@@ -10,6 +10,7 @@ interface SettingsRowProps {
   onPress?: () => void;
   rightElement?: React.ReactNode;
   showChevron?: boolean;
+  iconBackgroundColor?: string;
   toggle?: {
     value: boolean;
     onValueChange: (value: boolean) => void;
@@ -26,12 +27,16 @@ export function SettingsRow({
   showChevron = false,
   toggle,
   disabled = false,
+  iconBackgroundColor,
 }: SettingsRowProps) {
   const { primaryColor } = useTheme();
 
   const content = (
     <View className="flex-row items-center px-4 py-3.5">
-      <View className="mr-3 h-9 w-9 items-center justify-center rounded-xl bg-surface-secondary">
+      <View 
+        className={`mr-3 h-9 w-9 items-center justify-center rounded-xl ${!iconBackgroundColor ? 'bg-surface-secondary' : ''}`}
+        style={iconBackgroundColor ? { backgroundColor: iconBackgroundColor } : undefined}
+      >
         {icon}
       </View>
       <View className="flex-1">

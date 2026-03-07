@@ -2,8 +2,9 @@ import { MediaPreview } from "@/components/task/MediaPreview";
 import { MathJaxRenderer } from "@/components/ui/MathJaxRenderer";
 import type { Media, Task } from "@/db/schema";
 import { useTheme } from "@/providers/ThemeProvider";
+import { withOpacity } from "@/utils/colors";
 import { stripMarkdown, truncateText } from "@/utils/markdown";
-import { Bell, Clock, Paperclip, Trash2 } from "lucide-react-native";
+import { AlertCircle, Bell, Calendar, Clock, Paperclip, Trash2 } from "lucide-react-native";
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 
@@ -26,6 +27,97 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
     day: "2-digit",
     month: "short",
   });
+
+  const getReminderConfig = () => {
+    if (!task.deliveryDate) return null;
+    
+    const now = new Date();
+    const target = new Date(`${task.deliveryDate}T${task.deliveryTime || "00:00:00"}`);
+    
+    // Reset times to compare just dates for "today" and "tomorrow"
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const targetDate = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+
+    if (target.getTime() < now.getTime()) {
+      return { label: "Expirado", color: "#EF4444", icon: AlertCircle };
+    } else if (targetDate.getTime() === today.getTime()) {
+      return { label: "Hoje", color: primaryColor, icon: Bell };
+    } else if (targetDate.getTime() === tomorrow.getTime()) {
+      return { label: "Amanhã", color: "#F59E0B", icon: Clock };
+    } else {
+      const diffDays = Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays <= 7) {
+        return { label: `Em ${diffDays} dias`, color: "#3B82F6", icon: Calendar };
+      } else {
+        return { 
+          label: target.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }), 
+          color: "#10B981", 
+          icon: Calendar 
+        };
+      }
+    }
+  };
+
+  const reminderConfig = getReminderConfig();
+
+  if (reminderConfig) {
+    const Icon = reminderConfig.icon;
+    return (
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.7}
+        className="mb-3 rounded-[24px] p-5"
+        style={{
+          backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
+          borderWidth: 1,
+          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+        }}
+      >
+        <View className="flex-row items-center">
+          <View className="h-12 w-12 rounded-2xl items-center justify-center mr-4" style={{ backgroundColor: withOpacity(reminderConfig.color, 0.12) }}>
+            <Icon size={24} color={reminderConfig.color} />
+          </View>
+          <View className="flex-1 mr-2">
+            <Text style={{ fontFamily: "Montserrat-Bold", fontSize: 16, color: isDark ? "#FAFAFA" : "#18181B" }} numberOfLines={1}>
+              {task.title || "Sem título"}
+            </Text>
+            <Text style={{ fontFamily: "Montserrat-Regular", fontSize: 13, color: isDark ? "#A1A1AA" : "#71717A" }} className="mt-0.5">
+              {task.deliveryDate ? new Date(`${task.deliveryDate}T${task.deliveryTime || "00:00:00"}`).toLocaleDateString("pt-BR", {
+                weekday: 'short', day: "2-digit", month: "long"
+              }).replace('.', '') : ''}
+              {task.deliveryTime ? ` às ${task.deliveryTime.substring(0, 5)}` : ''}
+            </Text>
+          </View>
+          <View className="items-end gap-2">
+            <View className="px-3 py-1.5 rounded-full" style={{ backgroundColor: withOpacity(reminderConfig.color, 0.12) }}>
+              <Text style={{ fontFamily: "Montserrat-Bold", fontSize: 11, color: reminderConfig.color }}>
+                {reminderConfig.label}
+              </Text>
+            </View>
+            {onDelete && (
+              <TouchableOpacity 
+                  onPress={(e) => {
+                      e.stopPropagation();
+                      onDelete();
+                  }}
+                  className="p-1 -mr-1 opacity-50 active:opacity-100"
+              >
+                  <Trash2 size={16} color={isDark ? "rgb(163,163,163)" : "#737373"} /> 
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+        
+        {/* Render snippets conditionally below if they exist */}
+        {snippet ? (
+           <Text className="mt-4 font-sans text-sm text-on-surface-secondary" numberOfLines={2}>
+              {snippet}
+           </Text>
+        ) : null}
+      </TouchableOpacity>
+    );
+  }
 
   return (
     <TouchableOpacity
@@ -123,7 +215,7 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
                             </View>
                         );
                     }
-                } catch (e) {
+                } catch {
                     // Not JSON, continue to standard renderers
                 }
 

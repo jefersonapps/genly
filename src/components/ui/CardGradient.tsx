@@ -1,5 +1,5 @@
 import { adjustColor, adjustHue } from "@/utils/colors"; // Assuming this exists based on previous file usage
-import { BlurMask, Canvas, Circle } from "@shopify/react-native-skia";
+import { BlurMask, Canvas, Circle, Rect } from "@shopify/react-native-skia";
 import React, { useMemo } from "react";
 import { StyleProp, ViewStyle } from "react-native";
 
@@ -8,9 +8,10 @@ interface CardGradientProps {
   colors?: string[]; // Allow passing specific colors for multi-color gradients
   style?: StyleProp<ViewStyle>;
   className?: string; // For NativeWind
+  hasSolidBackground?: boolean;
 }
 
-export const CardGradient = ({ color, colors: providedColors, style, className }: CardGradientProps) => {
+export const CardGradient = ({ color, colors: providedColors, style, className, hasSolidBackground }: CardGradientProps) => {
   // Generate variations of the base color or use provided colors
   const gradientColors = useMemo(() => {
     if (providedColors && providedColors.length >= 3) {
@@ -37,6 +38,11 @@ export const CardGradient = ({ color, colors: providedColors, style, className }
 
   return (
     <Canvas style={[{ flex: 1 }, style]} className={className}>
+      {/* Optional solid base wrapper */}
+      {hasSolidBackground && (
+        <Rect x={0} y={0} width={4000} height={4000} color={gradientColors.c1} />
+      )}
+
       {/* Top Left - Base/C1 */}
       <Circle cx={0} cy={0} r={140} color={gradientColors.c1} opacity={0.3}>
         <BlurMask blur={70} style="normal" />

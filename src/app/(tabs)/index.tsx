@@ -21,7 +21,7 @@ import { BlurView } from "expo-blur";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Bell, Clock, Edit3, FolderPlus, Plus, Search, Trash2 } from "lucide-react-native";
 import React, { useCallback, useContext, useEffect, useLayoutEffect, useState } from "react";
-import { Dimensions, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, {
   Extrapolation,
   interpolate,
@@ -73,7 +73,7 @@ export default function HomeScreen() {
   const contentHeight = useSharedValue(0);
   const layoutHeight = useSharedValue(0);
   const groupsScrollRef = React.useRef<ScrollView>(null);
-  const screenWidth = Dimensions.get('window').width;
+  const { width: screenWidth } = useWindowDimensions();
   
   // Store exact native coordinates to perfectly scroll horizontally on all devices
   const groupCardLayouts = React.useRef<Record<string, { x: number, width: number }>>({});

@@ -16,7 +16,7 @@ import {
 } from '@gorhom/bottom-sheet';
 import { useFont } from '@shopify/react-native-skia';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+import { useRouter , useLocalSearchParams } from 'expo-router';
 import {
   ChevronLeft,
   Download,
@@ -33,27 +33,26 @@ import {
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Dimensions, Platform, StyleSheet,
+  ActivityIndicator, Platform, StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  useWindowDimensions
 } from "react-native";
 
 import { createTask, getGroupByName, getTaskById, updateTask } from '@/services/taskService';
 import * as MediaLibrary from 'expo-media-library';
-import { useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 export default function MindMapScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
+  const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
   const primaryColor = isDark ? '#3B82F6' : '#2563EB';
   const dialog = useDialog();
 

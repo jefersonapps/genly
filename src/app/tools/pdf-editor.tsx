@@ -27,13 +27,13 @@ import {
 import { PDFButton, PDFCheckBox, PDFDocument, PDFDropdown, PDFOptionList, PDFRadioGroup, PDFTextField } from 'pdf-lib';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Dimensions,
     Keyboard,
     Platform,
     ScrollView,
     StyleSheet,
     Text, TextInput, TouchableOpacity,
-    View
+    View,
+    useWindowDimensions
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Pdf from 'react-native-pdf';
@@ -48,8 +48,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { exportEditedPdf } from '@/lib/pdfEditor/pdfExportUtils';
 import { usePdfEditorStore, type Annotation, type FormField } from '@/lib/pdfEditor/usePdfEditorStore';
-
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 const SPRING_CONFIG = { damping: 20, stiffness: 200 };
 
@@ -760,12 +758,13 @@ function FormFieldItem({
 }
 
 // ─── Main Screen ──────────────────────────────────────
-export default function PdfEditorScreen() {
+export default function PdfEditorTool() {
   const insets = useSafeAreaInsets();
   const { sharedUri } = useLocalSearchParams<{ sharedUri?: string }>();
   const router = useRouter();
   const { resolvedTheme, primaryColor } = useTheme();
   const isDark = resolvedTheme === 'dark';
+  const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
   const dialog = useDialog();
 
   // Store

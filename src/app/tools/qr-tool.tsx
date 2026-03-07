@@ -7,9 +7,9 @@ import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { withOpacity } from "@/utils/colors";
 import {
-    BottomSheetBackdrop,
-    BottomSheetModal,
-    BottomSheetView
+  BottomSheetBackdrop,
+  BottomSheetModal,
+  BottomSheetView
 } from "@gorhom/bottom-sheet";
 import BarcodeScanning from "@react-native-ml-kit/barcode-scanning";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -22,39 +22,36 @@ import * as MediaLibrary from "expo-media-library";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import {
-    Camera,
-    Check,
-    ChevronLeft,
-    Copy,
-    Download,
-    ExternalLink,
-    FilePlus2,
-    Image as ImageIcon,
-    QrCode,
-    ScanLine,
-    Share2,
-    Wifi,
-    X
+  Camera,
+  Check,
+  ChevronLeft,
+  Copy,
+  Download,
+  ExternalLink,
+  FilePlus2,
+  Image as ImageIcon,
+  QrCode,
+  ScanLine,
+  Share2,
+  Wifi,
+  X
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Animated,
-    Dimensions, PermissionsAndroid,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    ToastAndroid,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Animated, PermissionsAndroid,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  ToastAndroid,
+  TouchableOpacity,
+  View
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import WifiManager from "react-native-wifi-reborn";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type TabType = "create" | "read";
 
@@ -76,11 +73,7 @@ export default function QrToolScreen() {
   const { resolvedTheme, primaryColor } = useTheme();
   const isDark = resolvedTheme === "dark";
   const dialog = useDialog();
-  
-  // Safety check for navigation context readiness
-  // If we are mounting while navigation state is undefined, return null to avoid
-  // child components trying to use navigation context (like ToolActions or router.back).
-  if (!router || !params || !insets) return null;
+  // Removed conditional return block here to satisfy React Hooks rules.
 
   const [permission, requestPermission] = useCameraPermissions();
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
@@ -255,6 +248,10 @@ export default function QrToolScreen() {
     ),
     []
   );
+
+  // Safety check for navigation context readiness
+  // (Moved here to ensure all Hooks render unconditionally above)
+  if (!router || !params || !insets) return null;
 
   const handleShareQr = () => {
     if (!qrRef.current) return;

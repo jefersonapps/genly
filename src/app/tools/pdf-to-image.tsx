@@ -19,21 +19,18 @@ import {
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Dimensions,
-  FlatList,
+  ActivityIndicator, FlatList,
   Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View
 } from "react-native";
 import PdfThumbnail from "react-native-pdf-thumbnail";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const COLUMN_COUNT = 2;
-const ITEM_WIDTH = (SCREEN_WIDTH - 48) / COLUMN_COUNT;
 
 type PDFImageItem = {
   id: string;
@@ -53,6 +50,8 @@ export default function PdfToImageScreen() {
   const [images, setImages] = useState<PDFImageItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
+  const ITEM_WIDTH = (SCREEN_WIDTH - 48) / COLUMN_COUNT;
 
   // Load PDF if passed via route params
   useEffect(() => {
@@ -191,7 +190,7 @@ export default function PdfToImageScreen() {
       <TouchableOpacity
         onPress={() => toggleSelection(item.id)}
         activeOpacity={0.8}
-        style={[styles.itemContainer, { backgroundColor: isDark ? "#1A1A1A" : "#F5F5F5" }]}
+        style={[styles.itemContainer, { backgroundColor: isDark ? "#1A1A1A" : "#F5F5F5", width: ITEM_WIDTH, height: ITEM_WIDTH * 1.4 }]}
       >
         <Image
           source={{ uri: item.uri }}
@@ -327,8 +326,6 @@ export default function PdfToImageScreen() {
 
 const styles = StyleSheet.create({
   itemContainer: {
-    width: ITEM_WIDTH,
-    height: ITEM_WIDTH * 1.4,
     margin: 8,
     borderRadius: 16,
     overflow: "hidden",

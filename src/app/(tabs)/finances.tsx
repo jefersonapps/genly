@@ -1,6 +1,7 @@
 import { getContrastSafeColor } from "@/components/editor/Editor";
 import { BalanceChart } from "@/components/finance/BalanceChart";
 import { Button } from "@/components/ui/Button";
+import { CardGradient } from "@/components/ui/CardGradient";
 import { TabHeader } from "@/components/ui/TabHeader";
 import type { Transaction } from "@/db/schema";
 import { useHeaderSnap } from "@/hooks/useHeaderSnap";
@@ -217,19 +218,19 @@ export default function FinancesScreen() {
         style={[
           styles.balanceCard,
           {
-            backgroundColor: isDark
-              ? "rgba(255,255,255,0.05)"
-              : "rgba(0,0,0,0.03)",
-            borderColor: colors.border,
+            overflow: "hidden", // Important to mask the absolute gradient
+            borderWidth: 0,
+            padding: 24, // Increased padding to match the Slide
+            height: 120, // Match the slide fixed height
+            justifyContent: "center",
           },
         ]}
       >
-        <View style={styles.balanceHeader}>
-          <View style={[styles.balanceIconWrap, { backgroundColor: safeAccent + "18" }]}>
-            <Wallet size={20} color={safeAccent} />
-          </View>
-          <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>
-            Saldo Total
+        <CardGradient color="#10B981" style={StyleSheet.absoluteFill} hasSolidBackground />
+        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+          <Wallet size={18} color="rgba(255,255,255,0.8)" />
+          <Text style={{ fontFamily: "Montserrat-Medium", fontSize: 13, color: "rgba(255,255,255,0.8)", marginLeft: 8, flex: 1 }}>
+            Saldo Atual
           </Text>
           <TouchableOpacity
             onPress={() => {
@@ -249,10 +250,10 @@ export default function FinancesScreen() {
             }}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Edit3 size={16} color={colors.textSecondary} />
+            <Edit3 size={16} color="rgba(255,255,255,0.8)" />
           </TouchableOpacity>
         </View>
-        <Text style={[styles.balanceAmount, { color: colors.text }]}>
+        <Text style={{ fontFamily: "Montserrat-Bold", fontSize: 32, color: "#FFFFFF" }}>
           {formatBRL(balance)}
         </Text>
       </View>

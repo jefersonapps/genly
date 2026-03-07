@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { ChevronLeft, Share2 } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TransparencyGrid } from '@/components/ui/TransparencyGrid';
@@ -17,6 +17,7 @@ export default function NativePDFViewerScreen() {
   const { resolvedTheme, primaryColor } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const [loading, setLoading] = React.useState(true);
+  const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
 
   const pdfSource = React.useMemo(() => {
     if (!uri) return null;
@@ -62,7 +63,7 @@ export default function NativePDFViewerScreen() {
             onPressLink={(uri) => {
               console.log(`Link pressed: ${uri}`);
             }}
-            style={[styles.pdf, { backgroundColor: 'transparent' }]}
+            style={[styles.pdf, { backgroundColor: 'transparent', width: SCREEN_W, height: SCREEN_H }]}
           />
         ) : (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -113,7 +114,5 @@ const styles = StyleSheet.create({
   },
   pdf: {
     flex: 1,
-    width: Dimensions.get('window').width,
-    height: Dimensions.get('window').height,
   }
 });

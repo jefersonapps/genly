@@ -27,20 +27,18 @@ import {
 import { PDFDocument, PDFName, degrees, rgb } from "pdf-lib";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Dimensions,
   Platform,
   StyleSheet,
   Switch,
   Text,
   TouchableOpacity,
-  View
+  View,
+  useWindowDimensions
 } from "react-native";
 import PdfThumbnail from "react-native-pdf-thumbnail";
 import Animated, { useAnimatedRef } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Sortable from "react-native-sortables";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export type PDFPageItem = {
   id: string; // unique page ID for the list
@@ -59,6 +57,7 @@ export default function PDFOrganizerScreen() {
   const params = useLocalSearchParams<{ imageUris?: string }>();
   const { resolvedTheme, primaryColor } = useTheme();
   const isDark = resolvedTheme === "dark";
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
   const dialog = useDialog();
 
   const [pages, setPages] = useState<PDFPageItem[]>([]);

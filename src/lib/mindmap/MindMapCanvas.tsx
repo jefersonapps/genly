@@ -10,7 +10,7 @@ import {
     type SkFont
 } from '@shopify/react-native-skia';
 import React, { useMemo } from 'react';
-import { Dimensions, StyleSheet } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 import { useDerivedValue, type SharedValue } from 'react-native-reanimated';
 import { computeEdges } from './layoutEngine';
 import type { DragState, ResizeState } from './useMapGestures';
@@ -38,7 +38,7 @@ const BackgroundLayer = React.memo(function BackgroundLayer({
   translateY: SharedValue<number>;
   scale: SharedValue<number>;
 }) {
-  const { width: scrW, height: scrH } = Dimensions.get('window');
+  const { width: scrW, height: scrH } = useWindowDimensions();
   // Use a generous size to cover all pans/zooms before the grid calculation
   const w = Math.max(scrW, 4000);
   const h = Math.max(scrH, 4000);

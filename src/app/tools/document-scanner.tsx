@@ -32,20 +32,18 @@ import {
 import { PDFDocument, degrees, rgb } from "pdf-lib";
 import React, { useCallback, useRef, useState } from "react";
 import {
-  Dimensions,
   Platform,
   StyleSheet,
   Switch,
   Text,
   TouchableOpacity,
-  View
+  View,
+  useWindowDimensions,
 } from "react-native";
 import Animated, { useAnimatedRef } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import RNShare from "react-native-share";
 import Sortable from "react-native-sortables";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export type ScannedPageItem = {
   id: string;
@@ -65,6 +63,7 @@ export default function DocumentScannerScreen() {
   const [pages, setPages] = useState<ScannedPageItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isOCREnabled, setIsOCREnabled] = useState(false);
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const snapPoints = React.useMemo(() => ["55%"], []);
 

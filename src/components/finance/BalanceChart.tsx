@@ -3,10 +3,9 @@ import { useTheme } from "@/providers/ThemeProvider";
 import type { MonthlyBalance } from "@/services/financeService";
 import { formatBRL } from "@/utils/currency";
 import React, { useRef } from "react";
-import { Dimensions, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Svg, { Rect, Text as SvgText } from "react-native-svg";
 
-const SCREEN_WIDTH = Dimensions.get("window").width;
 const BAR_WIDTH = 40;
 const BAR_GAP = 16;
 const CHART_HEIGHT = 180;
@@ -20,6 +19,7 @@ interface BalanceChartProps {
 
 export function BalanceChart({ data }: BalanceChartProps) {
   const { primaryColor, resolvedTheme } = useTheme();
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
   const isDark = resolvedTheme === "dark";
   const safeAccent = getContrastSafeColor(primaryColor, isDark);
   const scrollRef = useRef<ScrollView>(null);

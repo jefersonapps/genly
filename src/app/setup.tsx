@@ -88,7 +88,7 @@ export default function SetupScreen() {
       await setSetting("security_enabled", securityEnabled ? "1" : "0");
       await setSetting("has_completed_onboarding", "1");
       
-      router.replace("/");
+      router.replace("/onboarding");
     } catch (e) {
       console.error(e);
       dialog.show({ title: "Erro", description: "Falha ao salvar as configurações." });

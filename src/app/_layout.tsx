@@ -261,6 +261,7 @@ function RootLayoutNav() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor } }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="setup" options={{ headerShown: false, animation: "fade" }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false, animation: "fade" }} />
         <Stack.Screen
           name="task/editor"
           options={{ presentation: "modal", animation: "slide_from_bottom" }}
