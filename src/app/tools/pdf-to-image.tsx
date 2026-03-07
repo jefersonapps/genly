@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/Button";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { withOpacity } from "@/utils/colors";
@@ -8,24 +9,24 @@ import * as MediaLibrary from "expo-media-library";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import {
-  CheckCircle2,
-  ChevronLeft,
-  Circle,
-  Download,
-  FilePlus2,
-  FileText,
-  Plus,
-  Share2
+    CheckCircle2,
+    ChevronLeft,
+    Circle,
+    Download,
+    FilePlus2,
+    FileText,
+    Plus,
+    Share2
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator, FlatList,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  useWindowDimensions,
-  View
+    ActivityIndicator, FlatList,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    useWindowDimensions,
+    View
 } from "react-native";
 import PdfThumbnail from "react-native-pdf-thumbnail";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -236,14 +237,10 @@ export default function PdfToImageScreen() {
            <Text className="font-sans text-base text-on-surface-secondary text-center mb-8">
              Escolha um arquivo para extrair suas páginas como imagens individuais.
            </Text>
-           <TouchableOpacity
-             onPress={handlePickDocument}
-             className="rounded-full px-8 py-4 gap-2 items-center justify-center flex-row"
-             style={{ backgroundColor: primaryColor }}
-           >
-             <Plus size={20} color="#FFFFFF" className="mr-2" />
-             <Text className="font-sans-bold text-white text-base">Escolher Arquivo</Text>
-           </TouchableOpacity>
+           <Button onPress={handlePickDocument} rounded="full" size="lg">
+             <Button.Icon icon={Plus} />
+             <Button.Text>Escolher Arquivo</Button.Text>
+           </Button>
         </View>
       ) : (
         <View className="flex-1">

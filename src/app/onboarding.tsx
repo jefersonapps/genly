@@ -1,40 +1,41 @@
+import { Button } from "@/components/ui/Button";
 import { CardGradient } from "@/components/ui/CardGradient";
 import { useTheme } from "@/providers/ThemeProvider";
 import { withOpacity } from "@/utils/colors";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import {
-  ArrowRightLeft,
-  Bell,
-  Camera,
-  ChevronRight,
-  Clock,
-  DollarSign,
-  FileStack,
-  Grid3X3,
-  ImageDown,
-  Library,
-  Network,
-  Paperclip,
-  QrCode,
-  ScanText,
-  Share2,
-  Sparkles,
-  Timer,
-  TrendingDown,
-  TrendingUp,
-  Wallet,
+    ArrowRightLeft,
+    Bell,
+    Camera,
+    ChevronRight,
+    Clock,
+    DollarSign,
+    FileStack,
+    Grid3X3,
+    ImageDown,
+    Library,
+    Network,
+    Paperclip,
+    QrCode,
+    ScanText,
+    Share2,
+    Sparkles,
+    Timer,
+    TrendingDown,
+    TrendingUp,
+    Wallet,
 } from "lucide-react-native";
 import React, { useCallback, useRef, useState } from "react";
 import {
-  FlatList,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
-  type ViewToken,
+    FlatList,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
+    type ViewToken,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -614,17 +615,15 @@ export default function OnboardingScreen() {
         </View>
 
         {/* Next / Start button */}
-        <TouchableOpacity
+        <Button
           onPress={handleNext}
-          activeOpacity={0.8}
-          className="w-full rounded-full py-4 flex-row items-center justify-center"
-          style={{ backgroundColor: primaryColor }}
+          className="w-full"
+          rounded="full"
+          size="lg"
         >
-          <Text style={{ fontFamily: "Montserrat-Bold", fontSize: 16, color: "#FFFFFF" }}>
-            {isLastSlide ? "Começar" : "Próximo"}
-          </Text>
-          {!isLastSlide && <ChevronRight size={20} color="#FFFFFF" style={{ marginLeft: 4 }} />}
-        </TouchableOpacity>
+          <Button.Text>{isLastSlide ? "Começar" : "Próximo"}</Button.Text>
+          {!isLastSlide && <Button.Icon icon={ChevronRight} />}
+        </Button>
       </View>
     </View>
   );

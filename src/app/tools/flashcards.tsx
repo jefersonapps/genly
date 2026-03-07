@@ -350,7 +350,7 @@ export default function FlashcardsScreen() {
                         onChangeText={setDeckTitle}
                         placeholder="Ex: Anatomia Humana, Verbos em Inglês..."
                         placeholderTextColor={isDark ? "#555" : "#AAA"}
-                        className="bg-surface-secondary p-4 rounded-2xl font-sans text-on-surface border border-outline/10"
+                        className="bg-surface-secondary p-4 rounded-2xl font-sans text-on-surface border border-border"
                     />
                 </View>
 
@@ -431,7 +431,7 @@ export default function FlashcardsScreen() {
                     onChangeText={setNewFront}
                     placeholder="Ex: Qual a capital da França?"
                     placeholderTextColor={isDark ? "#555" : "#AAA"}
-                    className="bg-surface-secondary p-4 rounded-xl font-sans text-on-surface mb-6 border border-outline/10"
+                    className="bg-surface-secondary p-4 rounded-2xl font-sans text-on-surface mb-6 border border-border"
                     multiline
                     textAlignVertical="top"
                     style={{ minHeight: 100 }}
@@ -443,7 +443,7 @@ export default function FlashcardsScreen() {
                     onChangeText={setNewBack}
                     placeholder="Ex: Paris"
                     placeholderTextColor={isDark ? "#555" : "#AAA"}
-                    className="bg-surface-secondary p-4 rounded-xl font-sans text-on-surface mb-8 border border-outline/10"
+                    className="bg-surface-secondary p-4 rounded-2xl font-sans text-on-surface mb-8 border border-border"
                     multiline
                     textAlignVertical="top"
                     style={{ minHeight: 120 }}

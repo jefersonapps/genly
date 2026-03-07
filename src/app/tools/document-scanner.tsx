@@ -6,9 +6,9 @@ import { withOpacity } from "@/utils/colors";
 import { recognizeText, sanitizeForWinAnsi } from "@/utils/ocr";
 import { launchScanner } from "@dariyd/react-native-document-scanner";
 import {
-  BottomSheetBackdrop,
-  BottomSheetModal,
-  BottomSheetView,
+    BottomSheetBackdrop,
+    BottomSheetModal,
+    BottomSheetView,
 } from "@gorhom/bottom-sheet";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
@@ -17,28 +17,28 @@ import * as MediaLibrary from "expo-media-library";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import {
-  Camera,
-  Check,
-  ChevronLeft,
-  Download,
-  FilePlus2,
-  Languages,
-  Plus,
-  RotateCw,
-  Share2,
-  Trash2,
-  X
+    Camera,
+    Check,
+    ChevronLeft,
+    Download,
+    FilePlus2,
+    Languages,
+    Plus,
+    RotateCw,
+    Share2,
+    Trash2,
+    X
 } from "lucide-react-native";
 import { PDFDocument, degrees, rgb } from "pdf-lib";
 import React, { useCallback, useRef, useState } from "react";
 import {
-  Platform,
-  StyleSheet,
-  Switch,
-  Text,
-  TouchableOpacity,
-  View,
-  useWindowDimensions,
+    Platform,
+    StyleSheet,
+    Switch,
+    Text,
+    TouchableOpacity,
+    View,
+    useWindowDimensions,
 } from "react-native";
 import Animated, { useAnimatedRef } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -520,16 +520,10 @@ export default function DocumentScannerScreen() {
           <Text className="font-sans text-base text-on-surface-secondary text-center mb-8">
             Toque no botão + acima ou abaixo para começar a escanear.
           </Text>
-          <TouchableOpacity
-            onPress={() => handleScan()}
-            className="rounded-full px-8 py-4 gap-4 items-center justify-center flex-row"
-            style={{ backgroundColor: primaryColor }}
-          >
-            <Camera size={20} color="#FFFFFF" className="mr-2" />
-            <Text className="font-sans-bold text-white text-base">
-              Iniciar Scanner
-            </Text>
-          </TouchableOpacity>
+          <Button onPress={() => handleScan()} rounded="full" size="lg">
+            <Button.Icon icon={Camera} />
+            <Button.Text>Iniciar Scanner</Button.Text>
+          </Button>
         </View>
       ) : (
         <View className="flex-1 pt-4 pb-2">
@@ -580,20 +574,20 @@ export default function DocumentScannerScreen() {
           className="px-4 pt-4 pb-2 bg-surface border-t border-border/10 items-center"
           style={{ paddingBottom: Math.max(insets.bottom, 16) }}
         >
-          <TouchableOpacity
+          <Button
             onPress={() => {
               bottomSheetModalRef.current?.present();
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             }}
-            className="w-full rounded-2xl py-4 items-center justify-center flex-row gap-2"
-            style={{ backgroundColor: primaryColor }}
+            className="w-full"
             disabled={isProcessing}
+            size="lg"
           >
-            <Check size={20} color="#FFFFFF" />
-            <Text className="font-sans-bold text-white text-base">
-              Concluir ({pages.length} {pages.length === 1 ? "página" : "páginas"})
-            </Text>
-          </TouchableOpacity>
+            <Button.Icon icon={Check} />
+            <Button.Text>
+              {`Concluir (${pages.length} ${pages.length === 1 ? "página" : "páginas"})`}
+            </Button.Text>
+          </Button>
         </View>
       )}
 
