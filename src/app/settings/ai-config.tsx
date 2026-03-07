@@ -4,20 +4,20 @@ import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import {
-    getSetting,
-    setSetting,
+  getSetting,
+  setSetting,
 } from "@/services/settingsService";
 import { useRouter } from "expo-router";
 import { openBrowserAsync } from "expo-web-browser";
 import { ArrowLeft, Bot, Check, Info, KeyRound } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
-    Platform,
-    ScrollView,
-    StyleSheet, Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Platform,
+  ScrollView,
+  StyleSheet, Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -30,8 +30,8 @@ export default function AIConfigScreen() {
 
   const [geminiKey, setGeminiKey] = useState("");
   const [openaiKey, setOpenaiKey] = useState("");
-  const [geminiModel, setGeminiModel] = useState("gemini-3-flash-preview");
-  const [openaiModel, setOpenaiModel] = useState("gpt-4o-mini");
+  const [geminiModel, setGeminiModel] = useState("");
+  const [openaiModel, setOpenaiModel] = useState("");
   const [activeModel, setActiveModel] = useState<"gemini" | "openai">("gemini");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -50,8 +50,8 @@ export default function AIConfigScreen() {
 
       setGeminiKey(gKey || "");
       setOpenaiKey(oKey || "");
-      setGeminiModel(gModel || "gemini-3-flash-preview");
-      setOpenaiModel(oModel || "gpt-4o-mini");
+      setGeminiModel(gModel || "");
+      setOpenaiModel(oModel || "");
       setActiveModel((model as "gemini" | "openai") || "gemini");
     } catch {
       dialog.show({

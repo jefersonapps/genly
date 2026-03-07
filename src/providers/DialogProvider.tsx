@@ -26,6 +26,7 @@ interface DialogOptions {
     placeholder?: string;
     onConfirm: (text: string) => void | Promise<void>;
     autoFocus?: boolean;
+    formatInput?: (text: string) => string;
   };
 }
 
@@ -98,7 +99,10 @@ export function DialogProvider({ children }: PropsWithChildren) {
               <View className="mb-6">
                 <Input
                    value={promptValue}
-                   onChangeText={setPromptValue}
+                   onChangeText={(text) => {
+                     const formatted = options.prompt?.formatInput ? options.prompt.formatInput(text) : text;
+                     setPromptValue(formatted);
+                   }}
                    placeholder={options.prompt.placeholder}
                    autoFocus={options.prompt.autoFocus !== false}
                 />

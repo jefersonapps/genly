@@ -1,7 +1,7 @@
-import { adjustColor, adjustHue } from "@/utils/colors"; // Assuming this exists based on previous file usage
-import { BlurMask, Canvas, Circle, Rect } from "@shopify/react-native-skia";
+import { adjustColor, adjustHue } from "@/utils/colors";
 import React, { useMemo } from "react";
-import { StyleProp, ViewStyle } from "react-native";
+import { StyleProp, View, ViewStyle } from "react-native";
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
 interface CardGradientProps {
   color?: string;
@@ -12,61 +12,37 @@ interface CardGradientProps {
 }
 
 export const CardGradient = ({ color, colors: providedColors, style, className, hasSolidBackground }: CardGradientProps) => {
-  // Generate variations of the base color or use provided colors
   const gradientColors = useMemo(() => {
-    if (providedColors && providedColors.length >= 3) {
-      return {
-        c1: providedColors[0], // Base (Purple) - Top Left
-        c2: providedColors[1], // Green - Top Right
-        c3: providedColors[0], // Base (Purple) - Bottom Left
-        c4: providedColors[2], // Orange - Bottom Right
-        c5: providedColors[1], // Green - Center (Pop)
-      };
+    if (providedColors && providedColors.length >= 2) {
+      return providedColors;
     }
 
-    const baseColor = color || '#4f46e5'; // Fallback
+    const baseColor = color || '#4f46e5'; 
 
-    // Dynamic variations with Hue shifts for richness
-    return {
-      c1: baseColor, // Base
-      c2: adjustHue(adjustColor(baseColor, 40), 30), // Lighter & Hue Shift +30
-      c3: adjustHue(adjustColor(baseColor, -30), -20), // Darker & Hue Shift -20
-      c4: adjustHue(baseColor, 15), // Slight Hue Shift
-      c5: adjustHue(adjustColor(baseColor, -20), -10), // Darker Accent
-    };
+    // For better contrast with white text, we generate a richer, darker gradient
+    // If the color is a light/medium green like #10B981, we darken it significantly for the end point to provide depth and high contrast.
+    return [
+      adjustHue(adjustColor(baseColor, -15), 5), // Slightly darker, slightly shifted hue
+      adjustHue(adjustColor(baseColor, -45), 15) // Much darker for high contrast and depth
+    ];
   }, [color, providedColors]);
 
   return (
-    <Canvas style={[{ flex: 1 }, style]} className={className}>
-      {/* Optional solid base wrapper */}
-      {hasSolidBackground && (
-        <Rect x={0} y={0} width={4000} height={4000} color={gradientColors.c1} />
-      )}
-
-      {/* Top Left - Base/C1 */}
-      <Circle cx={0} cy={0} r={140} color={gradientColors.c1} opacity={0.3}>
-        <BlurMask blur={70} style="normal" />
-      </Circle>
-
-      {/* Top Right - Highlight/C2 */}
-      <Circle cx={280} cy={0} r={140} color={gradientColors.c2} opacity={0.5}>
-        <BlurMask blur={60} style="normal" />
-      </Circle>
-
-      {/* Bottom Left - Shadow/C3 */}
-      <Circle cx={0} cy={300} r={130} color={gradientColors.c3} opacity={0.25}>
-        <BlurMask blur={65} style="normal" />
-      </Circle>
-      
-      {/* Bottom Right - Accent/C4 */}
-      <Circle cx={280} cy={300} r={150} color={gradientColors.c4} opacity={0.4}>
-        <BlurMask blur={70} style="normal" />
-      </Circle>
-      
-      {/* Center/Random - Extra/C5 */}
-       <Circle cx={140} cy={140} r={120} color={gradientColors.c5} opacity={0.4}>
-        <BlurMask blur={50} style="normal" />
-      </Circle>
-    </Canvas>
+    <View style={[{ flex: 1, overflow: 'hidden' }, style]} className={className}>
+      <Svg height="100%" width="100%" style={{ position: 'absolute', top: 0, left: 0 }}>
+        <Defs>
+          <LinearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            {/* If it doesn't have a solid background (e.g. library cards), use transparency to mimic the old blurred circles */}
+            <Stop offset="0" stopColor={gradientColors[0]} stopOpacity={hasSolidBackground ? "1" : "0.5"} />
+            <Stop offset="1" stopColor={gradientColors[1]} stopOpacity={hasSolidBackground ? "1" : "0.1"} />
+          </LinearGradient>
+        </Defs>
+        {/* Fill a solid background color first ONLY if hasSolidBackground is true */}
+        {hasSolidBackground && (
+            <Rect x="0" y="0" width="100%" height="100%" fill={gradientColors[0]} />
+        )}
+        <Rect x="0" y="0" width="100%" height="100%" fill="url(#grad)" />
+      </Svg>
+    </View>
   );
 };

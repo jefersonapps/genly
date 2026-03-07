@@ -16,7 +16,7 @@ import {
   type MonthlyBalance,
 } from "@/services/financeService";
 import { getSetting, setSetting } from "@/services/settingsService";
-import { extractCentsFromInput, formatBRL } from "@/utils/currency";
+import { extractCentsFromInput, formatBRL, formatBRLInput } from "@/utils/currency";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   BanknoteArrowDown,
@@ -220,19 +220,37 @@ export default function FinancesScreen() {
           {
             overflow: "hidden", // Important to mask the absolute gradient
             borderWidth: 0,
-            padding: 24, // Increased padding to match the Slide
-            height: 120, // Match the slide fixed height
+            padding: 12, // Matches horizontal and vertical
+            paddingLeft: 18,
             justifyContent: "center",
           },
         ]}
       >
-        <CardGradient color="#10B981" style={StyleSheet.absoluteFill} hasSolidBackground />
+        <CardGradient color="#10B981" style={[StyleSheet.absoluteFill, { opacity: 0.85 }]} hasSolidBackground />
+        
+        {/* Coins Image Background */}
+        <Animated.Image 
+            source={require("../../../assets/images/coins.png")} 
+            style={{
+                position: "absolute",
+                right: -20,
+                bottom: -40,
+                width: 140,
+                height: 140,
+                opacity: 0.9,
+                transform: [{ rotate: '-15deg' }]
+            }}
+            resizeMode="contain"
+        />
+
         <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
           <Wallet size={18} color="rgba(255,255,255,0.8)" />
           <Text style={{ fontFamily: "Montserrat-Medium", fontSize: 13, color: "rgba(255,255,255,0.8)", marginLeft: 8, flex: 1 }}>
             Saldo Atual
           </Text>
-          <TouchableOpacity
+          <Button
+            variant="icon"
+            style={{ paddingHorizontal: 0 }}
             onPress={() => {
                 dialog.show({
                     title: "Definir saldo",
@@ -240,6 +258,7 @@ export default function FinancesScreen() {
                     prompt: {
                         defaultValue: formatBRL(balance),
                         placeholder: "R$ 0,00",
+                        formatInput: (text) => formatBRLInput(text),
                         onConfirm: handleUpdateBalance
                     },
                     buttons: [
@@ -251,9 +270,16 @@ export default function FinancesScreen() {
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Edit3 size={16} color="rgba(255,255,255,0.8)" />
-          </TouchableOpacity>
+          </Button>
         </View>
-        <Text style={{ fontFamily: "Montserrat-Bold", fontSize: 32, color: "#FFFFFF" }}>
+        <Text style={{ 
+          fontFamily: "Montserrat-Bold", 
+          fontSize: 32, 
+          color: "#FFFFFF",
+          textShadowColor: 'rgba(0, 0, 0, 0.25)',
+          textShadowOffset: { width: 0, height: 2 },
+          textShadowRadius: 4
+        }}>
           {formatBRL(balance)}
         </Text>
       </View>

@@ -3,11 +3,11 @@ import { clsx } from "clsx";
 import type { LucideIcon } from "lucide-react-native";
 import React, { createContext, useContext } from "react";
 import {
-  ActivityIndicator,
-  Text as RNText,
-  TouchableOpacity, type TextProps,
-  type TouchableOpacityProps,
-  type ViewStyle
+    ActivityIndicator,
+    Text as RNText,
+    TouchableOpacity, type TextProps,
+    type TouchableOpacityProps,
+    type ViewStyle
 } from "react-native";
 
 // ─── Types ───────────────────────────────────────
@@ -170,7 +170,7 @@ function ButtonRoot({
         disabled={isDisabled}
         activeOpacity={0.7}
         className={clsx(
-          "flex-row items-center justify-center",
+          "flex-row items-center justify-center gap-1.5",
           roundedClass,
           // Background
           variant === "filled" && "shadow-sm",

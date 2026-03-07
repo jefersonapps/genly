@@ -3,9 +3,6 @@ import { getSetting } from "./settingsService";
 export type AIModel = "gemini" | "openai";
 export type AIProcessMode = "format" | "grammar" | "generate_mindmap" | "generate_flashcards";
 
-const GEMINI_MODEL = "gemini-1.5-flash";
-const OPENAI_MODEL = "gpt-4o-mini";
-
 interface AIResponse {
   success: boolean;
   text?: string;
@@ -193,7 +190,7 @@ ${text}
 
   async callGemini(apiKey: string, model: string, prompt: string): Promise<AIResponse> {
     try {
-      const modelName = model || GEMINI_MODEL;
+      const modelName = model;
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
       const response = await fetch(url, {
         method: "POST",
@@ -226,7 +223,7 @@ ${text}
 
   async callOpenAI(apiKey: string, model: string, prompt: string): Promise<AIResponse> {
     try {
-      const modelName = model || OPENAI_MODEL;
+      const modelName = model;
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {

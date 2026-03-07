@@ -261,7 +261,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="setup" options={{ headerShown: false, animation: "fade" }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: "fade" }} />
-        <Stack.Screen name="calendar" options={{ headerShown: false, animation: "slide_from_right" }} />
+        <Stack.Screen name="calendar" options={{ headerShown: false, animation: "fade_from_bottom" }} />
         <Stack.Screen
           name="task/editor"
           options={{ presentation: "modal", animation: "slide_from_bottom" }}

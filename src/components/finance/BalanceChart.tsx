@@ -6,6 +6,15 @@ import React, { useRef } from "react";
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Svg, { Rect, Text as SvgText } from "react-native-svg";
 
+import Animated, {
+  useAnimatedProps,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
+
+const AnimatedRect = Animated.createAnimatedComponent(Rect);
+const AnimatedSvgText = Animated.createAnimatedComponent(SvgText);
+
 const BAR_WIDTH = 40;
 const BAR_GAP = 16;
 const CHART_HEIGHT = 180;
@@ -15,6 +24,104 @@ const LABEL_HEIGHT = 20;
 
 interface BalanceChartProps {
   data: MonthlyBalance[];
+}
+
+interface AnimatedBarProps {
+  x: number;
+  barY: number;
+  barHeight: number;
+  fill: string;
+  zeroY: number;
+  isPositive: boolean;
+  valueText: string;
+  isDark: boolean;
+  month: string;
+}
+
+function AnimatedBar({
+  x,
+  barY,
+  barHeight,
+  fill,
+  zeroY,
+  isPositive,
+  valueText,
+  isDark,
+  month,
+}: AnimatedBarProps) {
+  const progress = useSharedValue(0);
+
+  React.useEffect(() => {
+    progress.value = withSpring(1, {
+      damping: 15,
+      stiffness: 90,
+    });
+  }, []);
+
+  const animatedRectProps = useAnimatedProps(() => {
+    // Height grows from 0 to barHeight
+    // Y position starts at zeroY and moves to barY (if positive) or stays at zeroY (if negative)
+    const currentHeight = barHeight * progress.value;
+    const currentY = isPositive ? zeroY - currentHeight : zeroY;
+
+    return {
+      height: currentHeight,
+      y: currentY,
+    };
+  });
+
+  const animatedTextProps = useAnimatedProps(() => {
+    const currentHeight = barHeight * progress.value;
+    const currentY = isPositive ? zeroY - currentHeight : zeroY;
+    
+    // Label follows the edge of the bar
+    const labelY = isPositive
+      ? currentY - 6
+      : currentY + currentHeight + 14;
+
+    return {
+      y: labelY,
+    };
+  });
+
+  return (
+    <React.Fragment>
+      {/* Bar */}
+      <AnimatedRect
+        x={x}
+        width={BAR_WIDTH}
+        rx={6}
+        ry={6}
+        fill={fill}
+        opacity={0.85}
+        animatedProps={animatedRectProps}
+      />
+
+      {/* Value label */}
+      <AnimatedSvgText
+        x={x + BAR_WIDTH / 2}
+        fontSize={9}
+        fontWeight="600"
+        fill={isDark ? "#A1A1AA" : "#71717A"}
+        textAnchor="middle"
+        animatedProps={animatedTextProps}
+      >
+        {valueText}
+      </AnimatedSvgText>
+
+      {/* Month label */}
+      <SvgText
+        x={x + BAR_WIDTH / 2}
+        y={CHART_HEIGHT - 6}
+        fontSize={11}
+        fontWeight="600"
+        fill={isDark ? "#D4D4D8" : "#52525B"}
+        textAnchor="middle"
+      >
+        {month}
+      </SvgText>
+    </React.Fragment>
+  );
 }
 
 export function BalanceChart({ data }: BalanceChartProps) {
@@ -83,52 +190,23 @@ export function BalanceChart({ data }: BalanceChartProps) {
             const barY = isPositive ? zeroY - barHeight : zeroY;
             const fill = isPositive ? positiveColor : negativeColor;
 
-            // Value label
             const valueText = item.balance === 0
               ? "R$ 0"
               : formatBRL(item.balance);
-            const valueLabelY = isPositive
-              ? barY - 6
-              : barY + barHeight + 14;
 
             return (
-              <React.Fragment key={item.fullMonth}>
-                {/* Bar */}
-                <Rect
-                  x={x}
-                  y={barY}
-                  width={BAR_WIDTH}
-                  height={barHeight}
-                  rx={6}
-                  ry={6}
-                  fill={fill}
-                  opacity={0.85}
-                />
-
-                {/* Value label */}
-                <SvgText
-                  x={x + BAR_WIDTH / 2}
-                  y={valueLabelY}
-                  fontSize={9}
-                  fontWeight="600"
-                  fill={isDark ? "#A1A1AA" : "#71717A"}
-                  textAnchor="middle"
-                >
-                  {valueText}
-                </SvgText>
-
-                {/* Month label */}
-                <SvgText
-                  x={x + BAR_WIDTH / 2}
-                  y={CHART_HEIGHT - 6}
-                  fontSize={11}
-                  fontWeight="600"
-                  fill={isDark ? "#D4D4D8" : "#52525B"}
-                  textAnchor="middle"
-                >
-                  {item.month}
-                </SvgText>
-              </React.Fragment>
+              <AnimatedBar
+                key={item.fullMonth}
+                x={x}
+                barY={barY}
+                barHeight={barHeight}
+                fill={fill}
+                zeroY={zeroY}
+                isPositive={isPositive}
+                valueText={valueText}
+                isDark={isDark}
+                month={item.month}
+              />
             );
           })}
         </Svg>
