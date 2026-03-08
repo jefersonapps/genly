@@ -72,6 +72,7 @@
     "react-native-enriched-markdown": "0.4.0-nightly-20260306-bc76debc5",
     "react-native-gesture-handler": "~2.30.0",
     "react-native-get-random-values": "^1.11.0",
+    "react-native-material-palette": "^0.2.0",
     "react-native-mathjax": "^2.1.2",
     "react-native-pdf": "^7.0.3",
     "react-native-pdf-thumbnail": "^1.3.1",

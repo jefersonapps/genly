@@ -52,7 +52,7 @@ interface PdfEditorState {
   pdfFileName: string;
   pageCount: number;
   currentPage: number;
-  pageDimensions: { width: number; height: number } | null;
+  pagesDimensions: { width: number; height: number }[];
 
   // Annotations
   annotations: Annotation[];
@@ -63,7 +63,7 @@ interface PdfEditorState {
   setPdf: (uri: string, fileName: string, pageCount: number, formFields?: FormField[]) => void;
   setPageCount: (count: number) => void;
   setCurrentPage: (page: number) => void;
-  setPageDimensions: (dims: { width: number; height: number }) => void;
+  setPagesDimensions: (dims: { width: number; height: number }[]) => void;
   reset: () => void;
 
   // Actions - Annotations
@@ -97,23 +97,23 @@ export const usePdfEditorStore = create<PdfEditorState>((set, get) => ({
   pdfFileName: '',
   pageCount: 0,
   currentPage: 0,
-  pageDimensions: null,
+  pagesDimensions: [],
 
   annotations: [],
   formFields: [],
   selectedId: null,
 
   setPdf: (uri, fileName, pageCount, formFields = []) =>
-    set({ pdfUri: uri, pdfFileName: fileName, pageCount, currentPage: 0, annotations: [], formFields, selectedId: null, pageDimensions: null }),
+    set({ pdfUri: uri, pdfFileName: fileName, pageCount, currentPage: 0, annotations: [], formFields, selectedId: null, pagesDimensions: [] }),
 
   setPageCount: (count) => set({ pageCount: count }),
 
   setCurrentPage: (page) => set({ currentPage: page, selectedId: null }),
 
-  setPageDimensions: (dims) => set({ pageDimensions: dims }),
+  setPagesDimensions: (dims) => set({ pagesDimensions: dims }),
 
   reset: () =>
-    set({ pdfUri: null, pdfFileName: '', pageCount: 0, currentPage: 0, annotations: [], formFields: [], selectedId: null, pageDimensions: null }),
+    set({ pdfUri: null, pdfFileName: '', pageCount: 0, currentPage: 0, annotations: [], formFields: [], selectedId: null, pagesDimensions: [] }),
 
   addText: (page, x, y) => {
     const id = generateId();

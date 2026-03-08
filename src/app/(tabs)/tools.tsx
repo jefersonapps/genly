@@ -4,7 +4,7 @@ import { useHeaderSnap } from "@/hooks/useHeaderSnap";
 import { useTheme } from "@/providers/ThemeProvider";
 import { withOpacity } from "@/utils/colors";
 import { useRouter } from "expo-router";
-import { ArrowRightLeft, Camera, FilePen, FileStack, ImageDown, Library, Network, QrCode, ScanText, Sigma, Timer } from "lucide-react-native";
+import { ArrowRightLeft, Camera, FilePen, FileStack, ImageDown, Library, Network, Pipette, QrCode, ScanText, Sigma, Timer } from "lucide-react-native";
 import React from "react";
 import { Text, View } from "react-native";
 import Animated from "react-native-reanimated";
@@ -156,6 +156,15 @@ export default function ToolsScreen() {
             subtitle="Crie ou leia códigos QR de forma inteligente"
             showChevron
             onPress={() => router.push("/tools/qr-tool")}
+          />
+          <View style={{ height: 1, backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)", marginHorizontal: 16 }} />
+          <SettingsRow
+            icon={<Pipette size={20} color="#E11D48" />}
+            iconBackgroundColor={withOpacity("#E11D48", isDark ? 0.15 : 0.12)}
+            title="Color Picker"
+            subtitle="Extraia cores de imagens com conta-gotas"
+            showChevron
+            onPress={() => router.push("/tools/color-picker")}
           />
         </View>
 

@@ -10,39 +10,39 @@ import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import {
-    ChevronDown,
-    ChevronLeft,
-    ChevronRight, Crop,
-    Download,
-    Eraser,
-    FilePen,
-    FileText,
-    Image as ImageIcon,
-    ImagePlus,
-    Maximize,
-    RefreshCw,
-    Share2,
-    Trash2,
-    Type,
-    X
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight, Crop,
+  Download,
+  Eraser,
+  FilePen,
+  FileText,
+  Image as ImageIcon,
+  ImagePlus,
+  Maximize,
+  RefreshCw,
+  Share2,
+  Trash2,
+  Type,
+  X
 } from 'lucide-react-native';
 import { PDFButton, PDFCheckBox, PDFDocument, PDFDropdown, PDFOptionList, PDFRadioGroup, PDFTextField } from 'pdf-lib';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Keyboard,
-    Platform,
-    ScrollView,
-    Text, TextInput, TouchableOpacity,
-    View,
-    useWindowDimensions
+  Keyboard,
+  Platform,
+  ScrollView,
+  Text, TextInput, TouchableOpacity,
+  View,
+  useWindowDimensions
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Pdf from 'react-native-pdf';
 import Animated, {
-    runOnJS,
-    useAnimatedStyle,
-    useSharedValue,
-    type SharedValue,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -779,7 +779,7 @@ export default function PdfEditorTool() {
   const pdfFileName = usePdfEditorStore((s) => s.pdfFileName);
   const pageCount = usePdfEditorStore((s) => s.pageCount);
   const currentPage = usePdfEditorStore((s) => s.currentPage);
-  const pageDimensions = usePdfEditorStore((s) => s.pageDimensions);
+  const pagesDimensions = usePdfEditorStore((s) => s.pagesDimensions);
   const annotations = usePdfEditorStore((s) => s.annotations);
   const formFields = usePdfEditorStore((s) => s.formFields);
   const selectedId = usePdfEditorStore((s) => s.selectedId);
@@ -787,7 +787,7 @@ export default function PdfEditorTool() {
   const setFormFields = usePdfEditorStore((s) => s.setFormFields);
   const updateFormField = usePdfEditorStore((s) => s.updateFormField);
   const setCurrentPage = usePdfEditorStore((s) => s.setCurrentPage);
-  const setPageDimensions = usePdfEditorStore((s) => s.setPageDimensions);
+  const setPagesDimensions = usePdfEditorStore((s) => s.setPagesDimensions);
   const addText = usePdfEditorStore((s) => s.addText);
   const addImage = usePdfEditorStore((s) => s.addImage);
   const addEraser = usePdfEditorStore((s) => s.addEraser);
@@ -839,10 +839,30 @@ export default function PdfEditorTool() {
     }
   }, [currentPage]);
 
-  const pdfDisplayWidth = viewLayout.width;
-  const pdfDisplayHeight = pageDimensions && pageDimensions.width > 0
-    ? viewLayout.width * (pageDimensions.height / pageDimensions.width)
-    : viewLayout.height;
+  const currentPageDim = pagesDimensions[currentPage] || pagesDimensions[0] || { width: 1, height: 1 };
+  
+  const displayDim = useMemo(() => {
+    if (!viewLayout.width || !viewLayout.height || !currentPageDim.width || !currentPageDim.height) {
+      return { width: viewLayout.width, height: viewLayout.height };
+    }
+    
+    const containerW = viewLayout.width;
+    const containerH = viewLayout.height;
+    const pageW = currentPageDim.width;
+    const pageH = currentPageDim.height;
+    
+    const scaleW = containerW / pageW;
+    const scaleH = containerH / pageH;
+    const scale = Math.min(scaleW, scaleH);
+    
+    return {
+      width: pageW * scale,
+      height: pageH * scale,
+    };
+  }, [currentPageDim, viewLayout]);
+
+  const pdfDisplayWidth = displayDim.width;
+  const pdfDisplayHeight = displayDim.height;
 
   // Bottom sheets
   const editSheetRef = useRef<BottomSheetModal>(null);
@@ -1099,7 +1119,7 @@ export default function PdfEditorTool() {
 
       setPdf(uri, customUri ? 'Documento Compartilhado' : 'Novo PDF', exactPageCount, extractedFields);
       if (pages.length > 0) {
-        setPageDimensions({ width: pages[0].getWidth(), height: pages[0].getHeight() });
+        setPagesDimensions(pages.map(p => ({ width: p.getWidth(), height: p.getHeight() })));
       }
       setIsProcessing(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -1108,7 +1128,7 @@ export default function PdfEditorTool() {
       console.error('Import PDF error:', e);
       dialog.show({ title: 'Erro', description: 'Não foi possível importar o PDF.' });
     }
-  }, [setPdf, setPageDimensions, setIsProcessing, scale, translateX, translateY, savedScale, savedTranslateX, savedTranslateY, dialog]);
+  }, [setPdf, setPagesDimensions, setIsProcessing, scale, translateX, translateY, savedScale, savedTranslateX, savedTranslateY, dialog]);
 
   useEffect(() => {
     if (sharedUri) {
@@ -1432,30 +1452,28 @@ export default function PdfEditorTool() {
         <GestureDetector gesture={canvasGesture}>
           {/* Stationary invisible wrapper to catch full-screen gestures without moving */}
           <View style={{ flex: 1, backgroundColor: 'transparent' }}>
-            <Animated.View style={[{ flex: 1, width: viewLayout.width, height: viewLayout.height, alignItems: 'center', justifyContent: pdfDisplayHeight < viewLayout.height ? 'center' : 'flex-start' }, canvasAnimatedStyle]}>
-              <View style={{ width: pdfDisplayWidth, height: pdfDisplayHeight }}>
+            <Animated.View style={[{ flex: 1, width: viewLayout.width, height: viewLayout.height, alignItems: 'center', justifyContent: 'flex-start' }, canvasAnimatedStyle]}>
+              <View style={{ width: pdfDisplayWidth, height: pdfDisplayHeight, overflow: 'visible' }}>
                 {/* PDF Background */}
                 <Pdf
+                  key={`pdf-${pdfUri}-${pdfDisplayWidth.toFixed(0)}-${pdfDisplayHeight.toFixed(0)}`}
                   ref={pdfRef}
                   source={{ uri: pdfUri }}
+                  // @ts-ignore - Internal prop required for singlePage mode
+                  currentPage={currentPage}
                   page={currentPage + 1}
                   style={{ flex: 1 }}
                   enablePaging={true}
                   horizontal={true}
-                  fitPolicy={0}
+                  fitPolicy={2}
+                  singlePage={true}
                   spacing={0}
                   enableAntialiasing
-                  onPageChanged={(page) => {
-                    // Sync native page changes back to Zustand without looping (since it's 1-indexed)
-                    if (currentPage !== page - 1) {
-                      usePdfEditorStore.getState().setCurrentPage(page - 1);
-                    }
-                  }}
                   onLoadComplete={(numberOfPages, path, dims) => {
                     // Only set if not already present from pdf-lib
-                    const existing = usePdfEditorStore.getState().pageDimensions;
-                    if (!existing && dims && dims.width && dims.height) {
-                      usePdfEditorStore.getState().setPageDimensions({ width: dims.width, height: dims.height });
+                    const existing = usePdfEditorStore.getState().pagesDimensions;
+                    if (existing.length === 0 && dims && dims.width && dims.height) {
+                      usePdfEditorStore.getState().setPagesDimensions([{ width: dims.width, height: dims.height }]);
                     }
                   }}
                   onPageSingleTap={() => {
@@ -1471,9 +1489,10 @@ export default function PdfEditorTool() {
 
                 <View className="absolute inset-0" pointerEvents="box-none">
                   {/* Form Fields - Rendered First (Bottom Layer) */}
-                  {pageDimensions && formFields.filter(f => f.page === currentPage).map((field) => {
+                  {pagesDimensions.length > 0 && formFields.filter(f => f.page === currentPage).map((field) => {
                     // Map PDF points to view space
-                    const pdfW = pageDimensions.width;
+                    const currentDim = pagesDimensions[field.page] || pagesDimensions[0];
+                    const pdfW = currentDim.width;
                     const s = pdfDisplayWidth / pdfW;
 
                     return (
@@ -1859,11 +1878,9 @@ export default function PdfEditorTool() {
           </View>
 
           {/* Save button */}
-          <BottomSheet.Button
-             title="Salvar"
-             onPress={saveEdit}
-             variant="primary"
-          />
+          <BottomSheet.Button onPress={saveEdit}>
+            Salvar
+          </BottomSheet.Button>
 
         </BottomSheet.View>
       </BottomSheet>
@@ -1923,7 +1940,6 @@ export default function PdfEditorTool() {
                   actionSheetRef.current?.dismiss();
                 }
               }}
-              titleStyle={{ color: '#EF4444' }}
               containerStyle={{
                 backgroundColor: 'rgba(239, 68, 68, 0.1)',
                 borderColor: 'rgba(239, 68, 68, 0.2)',

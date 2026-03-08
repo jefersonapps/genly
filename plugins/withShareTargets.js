@@ -53,6 +53,11 @@ module.exports = function withShareTargets(config) {
         name: ".EditPdfActivity",
         label: "Editar PDF",
         mimeType: "application/pdf"
+      },
+      {
+        name: ".ColorPickerActivity",
+        label: "Capturar Cor",
+        mimeType: "image/*"
       }
     ];
 
