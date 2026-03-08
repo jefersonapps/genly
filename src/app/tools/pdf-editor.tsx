@@ -10,42 +10,49 @@ import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight, Crop,
-  Download,
-  Eraser,
-  FilePen,
-  FileText,
-  Image as ImageIcon,
-  ImagePlus,
-  Maximize,
-  RefreshCw,
-  Share2,
-  Trash2,
-  Type,
-  X
+    Brush,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight, Crop,
+    Download,
+    Eraser,
+    FilePen,
+    FileText,
+    Image as ImageIcon,
+    ImagePlus,
+    Maximize,
+    Minus,
+    Pipette,
+    Plus,
+    RefreshCw,
+    Share2,
+    Trash2,
+    Type,
+    X
 } from 'lucide-react-native';
 import { PDFButton, PDFCheckBox, PDFDocument, PDFDropdown, PDFOptionList, PDFRadioGroup, PDFTextField } from 'pdf-lib';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Keyboard,
-  Platform,
-  ScrollView,
-  Text, TextInput, TouchableOpacity,
-  View,
-  useWindowDimensions
+    Keyboard,
+    Platform,
+    ScrollView,
+    Text, TextInput, TouchableOpacity,
+    View,
+    useWindowDimensions
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Pdf from 'react-native-pdf';
 import Animated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  type SharedValue,
+    runOnJS,
+    useAnimatedStyle,
+    useSharedValue,
+    type SharedValue,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { PdfDrawingCanvas } from "@/components/pdf/PdfDrawingCanvas";
+import { PdfEyedropperOverlay } from "@/components/pdf/PdfEyedropperOverlay";
+import { ColorPicker } from "@/components/ui/ColorPicker";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { ToolActions } from "@/components/ui/ToolActions";
 import { exportEditedPdf } from '@/lib/pdfEditor/pdfExportUtils';
@@ -262,8 +269,8 @@ function DraggableAnnotation({
 
   const getBgColor = () => {
     switch (annotation.type) {
-      case 'eraser':
-        return '#FFFFFF';
+      case 'drawing':
+        return 'transparent';
       case 'text':
         return 'transparent';
       case 'image':
@@ -282,7 +289,7 @@ function DraggableAnnotation({
             backgroundColor: getBgColor(),
             borderRadius: annotation.type === 'text' ? 4 : 2,
             overflow: 'visible',
-            zIndex: isSelected ? 30 : 20, // Always above form fields (z-index 10)
+            zIndex: isSelected ? 40 : 30, // Always above form fields (10) AND drawing canvas (25)
           },
           animatedStyle,
         ]}
@@ -317,7 +324,7 @@ function DraggableAnnotation({
           style={{
             position: 'absolute',
             top: 0, left: 0, right: 0, bottom: 0,
-            borderWidth: isSelected ? 2 : (annotation.type === 'eraser' ? 1 : 0),
+            borderWidth: isSelected ? 2 : 0,
             borderColor: isSelected
               ? (annotation.isCropping ? '#3B82F6' : primaryColor)
               : (isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)'),
@@ -790,7 +797,7 @@ export default function PdfEditorTool() {
   const setPagesDimensions = usePdfEditorStore((s) => s.setPagesDimensions);
   const addText = usePdfEditorStore((s) => s.addText);
   const addImage = usePdfEditorStore((s) => s.addImage);
-  const addEraser = usePdfEditorStore((s) => s.addEraser);
+  const addDrawing = usePdfEditorStore((s) => s.addDrawing);
   const updateAnnotation = usePdfEditorStore((s) => s.updateAnnotation);
   const deleteAnnotation = usePdfEditorStore((s) => s.deleteAnnotation);
   const selectAnnotation = usePdfEditorStore((s) => s.selectAnnotation);
@@ -798,7 +805,7 @@ export default function PdfEditorTool() {
   const resetFormFields = usePdfEditorStore((s) => s.resetFormFields);
 
   const [isProcessing, setIsProcessing] = useState(false);
-  const [activeTool, setActiveTool] = useState<'text' | 'image' | 'eraser' | null>(null);
+  const [activeTool, setActiveTool] = useState<'text' | 'image' | 'brush' | 'eraser' | null>(null);
   // Canvas transform shared values
   const scale = useSharedValue(1);
   const translateX = useSharedValue(0);
@@ -867,8 +874,15 @@ export default function PdfEditorTool() {
   // Bottom sheets
   const editSheetRef = useRef<BottomSheetModal>(null);
   const exportSheetRef = useRef<BottomSheetModal>(null);
+  const brushSheetRef = useRef<BottomSheetModal>(null);
   const editSnapPoints = useMemo(() => ['40%'], []);
   const exportSnapPoints = useMemo(() => ['35%'], []);
+  const brushSnapPoints = useMemo(() => ['55%'], []);
+
+  // Brush / Eraser state
+  const [brushColor, setBrushColor] = useState('#000000');
+  const [brushThickness, setBrushThickness] = useState(4);
+  const [eyedropperActive, setEyedropperActive] = useState(false);
 
   // Text editing state
   const [editText, setEditText] = useState('');
@@ -1193,14 +1207,12 @@ export default function PdfEditorTool() {
     }
   }, [selectedId, updateAnnotation]);
 
-  const handleAddEraser = useCallback(() => {
+  // ─── Handle Drawing Complete ────────────────────────
+  const handlePathComplete = useCallback((pathData: string) => {
     if (!pdfUri) return;
-    const centerX = (-translateX.value / scale.value) + (pdfDisplayWidth / scale.value) / 2 - 60;
-    const centerY = (-translateY.value / scale.value) + (pdfDisplayHeight / scale.value) / 2 - 20;
-    addEraser(currentPage, Math.max(0, centerX), Math.max(0, centerY));
-    setActiveTool(null);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  }, [pdfUri, currentPage, addEraser, pdfDisplayWidth, pdfDisplayHeight, translateX, translateY, scale]);
+    const color = activeTool === 'eraser' ? '#FFFFFF' : brushColor;
+    addDrawing(currentPage, pathData, color, brushThickness);
+  }, [pdfUri, currentPage, addDrawing, brushColor, brushThickness, activeTool]);
 
   // ─── Edit Annotation ──────────────────────────────
   const openEditSheet = useCallback((id: string) => {
@@ -1315,7 +1327,7 @@ export default function PdfEditorTool() {
 
   // Pan: 1 finger when zoomed, 2 fingers always
   const panGesture = Gesture.Pan()
-    .minPointers(1)
+    .minPointers((activeTool === 'brush' || activeTool === 'eraser') ? 2 : 1)
     .onStart(() => {
       savedTranslateX.value = translateX.value;
       savedTranslateY.value = translateY.value;
@@ -1360,8 +1372,11 @@ export default function PdfEditorTool() {
 
   // Current page annotations
   const currentAnnotations = annotations.filter((a) => a.page === currentPage);
+  const draggableAnnotations = currentAnnotations.filter((a) => a.type !== 'drawing');
+  const drawingAnnotations = currentAnnotations.filter((a) => a.type === 'drawing');
 
-  // renderBackdrop removed, handled by BottomSheet component
+  // Active drawing color
+  const activeStrokeColor = activeTool === 'eraser' ? '#FFFFFF' : brushColor;
 
   // ─── Empty State ──────────────────────────────────
   if (!pdfUri) {
@@ -1521,8 +1536,8 @@ export default function PdfEditorTool() {
                     );
                   })}
 
-                  {/* Annotations Layer - Rendered Last (Top Layer) */}
-                  {currentAnnotations.map((ann) => (
+                  {/* Annotations Layer (text/image only — drawings are on Skia canvas) */}
+                  {draggableAnnotations.map((ann) => (
                     <DraggableAnnotation
                       key={ann.id}
                       annotation={ann}
@@ -1540,6 +1555,36 @@ export default function PdfEditorTool() {
                     />
                   ))}
                 </View>
+
+                {/* Drawing Canvas Overlay */}
+                {(activeTool === 'brush' || activeTool === 'eraser') && (
+                  <PdfDrawingCanvas
+                    key={`canvas-active-${currentPage}`}
+                    width={pdfDisplayWidth}
+                    height={pdfDisplayHeight}
+                    strokeColor={activeStrokeColor}
+                    strokeWidth={brushThickness}
+                    existingDrawings={drawingAnnotations}
+                    onPathComplete={handlePathComplete}
+                    activeTool={activeTool}
+                    onErase={handleDeleteAnnotation}
+                    canvasScale={scale}
+                  />
+                )}
+
+                {/* Static Drawings Layer (when no drawing tool is active) */}
+                {activeTool !== 'brush' && activeTool !== 'eraser' && drawingAnnotations.length > 0 && (
+                  <PdfDrawingCanvas
+                    key={`canvas-static-${currentPage}`}
+                    width={pdfDisplayWidth}
+                    height={pdfDisplayHeight}
+                    strokeColor={'#000000'}
+                    strokeWidth={3}
+                    existingDrawings={drawingAnnotations}
+                    onPathComplete={() => {}}
+                    interactive={false}
+                  />
+                )}
             </View>
           </Animated.View>
           </View>
@@ -1708,7 +1753,7 @@ export default function PdfEditorTool() {
             );
           }
 
-          // Generic selected view (for eraser)
+          // Generic selected view (for drawings)
           return (
             <View className="flex-row items-center justify-around py-3 px-4">
               <TouchableOpacity
@@ -1738,7 +1783,7 @@ export default function PdfEditorTool() {
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={handleAddText}
-              className="items-center gap-1 px-4 py-2 rounded-2xl"
+              className="items-center gap-1 px-3 py-2 rounded-2xl"
               style={{
                 backgroundColor: activeTool === 'text'
                   ? withOpacity(primaryColor, 0.15)
@@ -1757,7 +1802,7 @@ export default function PdfEditorTool() {
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={handleAddImage}
-              className="items-center gap-1 px-4 py-2 rounded-2xl"
+              className="items-center gap-1 px-3 py-2 rounded-2xl"
               style={{
                 backgroundColor: activeTool === 'image'
                   ? withOpacity(primaryColor, 0.15)
@@ -1775,8 +1820,48 @@ export default function PdfEditorTool() {
 
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={handleAddEraser}
-              className="items-center gap-1 px-4 py-2 rounded-2xl"
+              onPress={() => {
+                if (activeTool === 'brush') {
+                  setActiveTool(null);
+                } else {
+                  setActiveTool('brush');
+                  brushSheetRef.current?.present();
+                }
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              }}
+              onLongPress={() => {
+                if (activeTool === 'brush') {
+                  brushSheetRef.current?.present();
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                }
+              }}
+              className="items-center gap-1 px-3 py-2 rounded-2xl"
+              style={{
+                backgroundColor: activeTool === 'brush'
+                  ? withOpacity(primaryColor, 0.15)
+                  : 'transparent',
+              }}
+            >
+              <Brush size={22} color={activeTool === 'brush' ? primaryColor : (isDark ? '#D4D4D8' : '#52525B')} />
+              <Text
+                className="font-sans-medium text-xs"
+                style={{ color: activeTool === 'brush' ? primaryColor : (isDark ? '#D4D4D8' : '#52525B') }}
+              >
+                Pincel
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                if (activeTool === 'eraser') {
+                  setActiveTool(null);
+                } else {
+                  setActiveTool('eraser');
+                }
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              }}
+              className="items-center gap-1 px-3 py-2 rounded-2xl"
               style={{
                 backgroundColor: activeTool === 'eraser'
                   ? withOpacity(primaryColor, 0.15)
@@ -1795,7 +1880,7 @@ export default function PdfEditorTool() {
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => handleImportPdf()}
-              className="items-center gap-1 px-4 py-2 rounded-2xl"
+              className="items-center gap-1 px-3 py-2 rounded-2xl"
             >
               <Download size={22} color={isDark ? '#D4D4D8' : '#52525B'} />
               <Text className="font-sans-medium text-xs" style={{ color: isDark ? '#D4D4D8' : '#52525B' }}>
@@ -1885,7 +1970,80 @@ export default function PdfEditorTool() {
         </BottomSheet.View>
       </BottomSheet>
 
-      {/* Export Bottom Sheet */}
+      {/* Brush Settings Bottom Sheet */}
+      <BottomSheet
+        sheetRef={brushSheetRef}
+        snapPoints={brushSnapPoints}
+      >
+        <BottomSheet.View>
+          <BottomSheet.Header title="Pincel" />
+
+          {/* Color Picker */}
+          <View className="mb-2">
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="font-sans-medium text-sm text-on-surface-secondary">Cor do Pincel</Text>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => {
+                  brushSheetRef.current?.dismiss();
+                  // Short delay to allow bottom sheet to close before showing overlay
+                  setTimeout(() => setEyedropperActive(true), 300);
+                }}
+                className="h-8 w-8 rounded-full items-center justify-center bg-surface-secondary/50"
+              >
+                <Pipette size={18} color={isDark ? '#D4D4D8' : '#52525B'} />
+              </TouchableOpacity>
+            </View>
+            <ColorPicker
+              selectedColor={brushColor}
+              onSelect={(color) => setBrushColor(color)}
+              isDark={isDark}
+            />
+          </View>
+
+          {/* Thickness control */}
+          <View className="mb-2">
+            <Text className="font-sans-medium text-sm text-on-surface-secondary mb-2">Espessura</Text>
+            <View className="flex-row items-center gap-4">
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setBrushThickness(Math.max(1, brushThickness - 1))}
+                className="h-10 w-10 rounded-full items-center justify-center"
+                style={{ backgroundColor: isDark ? '#27272A' : '#E5E7EB' }}
+              >
+                <Minus size={18} color={isDark ? '#D4D4D8' : '#52525B'} />
+              </TouchableOpacity>
+
+              <View className="flex-1 items-center justify-center">
+                <View
+                  style={{
+                    width: Math.min(brushThickness * 4, 80),
+                    height: Math.min(brushThickness * 4, 80),
+                    borderRadius: 100,
+                    backgroundColor: brushColor,
+                  }}
+                />
+                <Text className="font-sans-bold text-sm text-on-surface mt-2">{brushThickness}px</Text>
+              </View>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setBrushThickness(Math.min(20, brushThickness + 1))}
+                className="h-10 w-10 rounded-full items-center justify-center"
+                style={{ backgroundColor: isDark ? '#27272A' : '#E5E7EB' }}
+              >
+                <Plus size={18} color={isDark ? '#D4D4D8' : '#52525B'} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Done button */}
+          <BottomSheet.Button onPress={() => brushSheetRef.current?.dismiss()}>
+            Concluir
+          </BottomSheet.Button>
+
+        </BottomSheet.View>
+      </BottomSheet>
       <BottomSheet
         sheetRef={exportSheetRef}
         snapPoints={exportSnapPoints}
@@ -1955,6 +2113,24 @@ export default function PdfEditorTool() {
         visible={isProcessing}
         title="Processando..."
       />
+      {/* Overlay - Eyedropper */}
+      {eyedropperActive && pdfUri && (
+        <PdfEyedropperOverlay
+          pdfUri={pdfUri}
+          page={currentPage}
+          onColorPicked={(color) => {
+            setBrushColor(color);
+            setEyedropperActive(false);
+            // Re-open the settings sheet
+            setTimeout(() => brushSheetRef.current?.present(), 300);
+          }}
+          onCancel={() => {
+            setEyedropperActive(false);
+            setTimeout(() => brushSheetRef.current?.present(), 300);
+          }}
+        />
+      )}
+
     </View>
   );
 }

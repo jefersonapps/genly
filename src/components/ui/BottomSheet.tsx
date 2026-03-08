@@ -144,12 +144,14 @@ interface BottomSheetButtonProps extends React.ComponentProps<typeof Button> {
     className?: string;
 }
 
-const BottomSheetPrimaryButton = ({ className, ...props }: BottomSheetButtonProps) => {
+const BottomSheetPrimaryButton = ({ className, children, ...props }: BottomSheetButtonProps) => {
     return (
         <Button 
             className={`w-full ${className || ''}`}
             {...props}
-        />
+        >
+            {typeof children === 'string' ? <Button.Text>{children}</Button.Text> : children}
+        </Button>
     );
 }
 BottomSheet.Button = BottomSheetPrimaryButton;

@@ -1,22 +1,25 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import {
-  clip, endPath,
-  PDFBool,
-  PDFCheckBox,
-  PDFDict,
-  PDFDocument,
-  PDFDropdown,
-  PDFName,
-  PDFOptionList,
-  PDFRadioGroup,
-  PDFTextField,
-  popGraphicsState,
-  pushGraphicsState,
-  rectangle,
-  rgb,
-  rotateDegrees,
-  StandardFonts,
-  translate
+    clip, endPath,
+    LineCapStyle,
+    LineJoinStyle,
+    PDFBool,
+    PDFCheckBox,
+    PDFDict,
+    PDFDocument,
+    PDFDropdown,
+    PDFName,
+    PDFOptionList,
+    PDFRadioGroup,
+    PDFTextField,
+    popGraphicsState,
+    pushGraphicsState,
+    rectangle,
+    rgb,
+    rotateDegrees,
+    setLineJoin,
+    StandardFonts,
+    translate,
 } from 'pdf-lib';
 import type { Annotation, FormField } from './usePdfEditorStore';
 
@@ -297,14 +300,35 @@ export async function exportEditedPdf(
           break;
         }
 
-        case 'eraser': {
-          page.drawRectangle({
-            x: annX,
-            y: annY,
-            width: annW,
-            height: annH,
-            color: rgb(1, 1, 1),
-          });
+        case 'drawing': {
+          if (!annotation.pathData) break;
+          
+          const strokeRgb = hexToRgb(annotation.strokeColor || '#000000');
+          // borderWidth is scaled by the `scale` parameter in drawSvgPath,
+          // so we don't multiply by 's' here.
+          const lineW = annotation.strokeWidth;
+
+          try {
+            // Skia path previews use "round" line joins. drawSvgPath doesn't natively expose LineJoinStyle,
+            // so we push the graphics state manually to set it before drawing the path.
+            page.pushOperators(
+              pushGraphicsState(),
+              setLineJoin(LineJoinStyle.Round)
+            );
+
+            page.drawSvgPath(annotation.pathData, {
+              x: 0,
+              y: pdfH, // Start from top-left. drawSvgPath flips the Y axis automatically.
+              scale: s,
+              borderColor: rgb(strokeRgb.r, strokeRgb.g, strokeRgb.b),
+              borderWidth: lineW,
+              borderLineCap: LineCapStyle.Round,
+            });
+
+            page.pushOperators(popGraphicsState());
+          } catch (pathErr) {
+            console.warn('[PDF Export] Failed to draw SVG path:', pathErr);
+          }
           break;
         }
       }

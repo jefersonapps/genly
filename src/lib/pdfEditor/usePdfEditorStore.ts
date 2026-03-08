@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 // ─── Types ────────────────────────────────────────────
-export type AnnotationType = 'text' | 'image' | 'eraser';
+export type AnnotationType = 'text' | 'image' | 'drawing';
 
 export interface FormField {
   id: string;
@@ -44,6 +44,10 @@ export interface Annotation {
   cropX: number;        // image offset X within crop window
   cropY: number;        // image offset Y within crop window
   cropScale: number;    // image scale relative to annotation size (1 = fit)
+  // Drawing-specific fields
+  pathData: string;     // serialized SVG path string from Skia
+  strokeColor: string;  // hex color of the brush stroke
+  strokeWidth: number;  // brush thickness in display px
 }
 
 interface PdfEditorState {
@@ -69,7 +73,7 @@ interface PdfEditorState {
   // Actions - Annotations
   addText: (page: number, x: number, y: number) => string;
   addImage: (page: number, x: number, y: number, width: number, height: number, uri: string, origW: number, origH: number) => string;
-  addEraser: (page: number, x: number, y: number) => string;
+  addDrawing: (page: number, pathData: string, strokeColor: string, strokeWidth: number) => string;
   updateAnnotation: (id: string, updates: Partial<Omit<Annotation, 'id' | 'type' | 'page'>>) => void;
   toggleCropping: (id: string) => void;
   deleteAnnotation: (id: string) => void;
@@ -84,7 +88,6 @@ interface PdfEditorState {
 // ─── Defaults ─────────────────────────────────────────
 const DEFAULT_TEXT_WIDTH = 200;
 const DEFAULT_TEXT_HEIGHT = 40;
-const DEFAULT_ERASER_SIZE = 120;
 const DEFAULT_FONT_SIZE = 16;
 const DEFAULT_FONT_COLOR = '#000000';
 
@@ -128,6 +131,7 @@ export const usePdfEditorStore = create<PdfEditorState>((set, get) => ({
       fontColor: DEFAULT_FONT_COLOR,
       originalWidth: 0, originalHeight: 0,
       isCropping: false, cropX: 0, cropY: 0, cropScale: 1,
+      pathData: '', strokeColor: '', strokeWidth: 0,
     };
     set((s) => ({ annotations: [...s.annotations, annotation], selectedId: id }));
     return id;
@@ -144,26 +148,27 @@ export const usePdfEditorStore = create<PdfEditorState>((set, get) => ({
       fontColor: '',
       originalWidth: origW, originalHeight: origH,
       isCropping: false, cropX: 0, cropY: 0, cropScale: 1,
+      pathData: '', strokeColor: '', strokeWidth: 0,
     };
     set((s) => ({ annotations: [...s.annotations, annotation], selectedId: id }));
     return id;
   },
 
-  addEraser: (page, x, y) => {
+  addDrawing: (page, pathData, strokeColor, strokeWidth) => {
     const id = generateId();
     const annotation: Annotation = {
-      id, page, type: 'eraser',
-      x, y,
-      width: DEFAULT_ERASER_SIZE,
-      height: DEFAULT_ERASER_SIZE / 3,
+      id, page, type: 'drawing',
+      x: 0, y: 0,
+      width: 0, height: 0,
       rotation: 0,
       content: '',
       fontSize: 0,
       fontColor: '',
       originalWidth: 0, originalHeight: 0,
       isCropping: false, cropX: 0, cropY: 0, cropScale: 1,
+      pathData, strokeColor, strokeWidth,
     };
-    set((s) => ({ annotations: [...s.annotations, annotation], selectedId: id }));
+    set((s) => ({ annotations: [...s.annotations, annotation] }));
     return id;
   },
 
