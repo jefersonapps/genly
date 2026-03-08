@@ -18,25 +18,25 @@ import { useFont } from '@shopify/react-native-skia';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
-    ChevronLeft,
-    Download,
-    Expand, Maximize,
-    Network,
-    Palette,
-    Plus,
-    Settings,
-    Share2,
-    Sparkles,
-    Trash2, Type
+  ChevronLeft,
+  Download,
+  Expand, Maximize,
+  Network,
+  Palette,
+  Plus,
+  Settings,
+  Share2,
+  Sparkles,
+  Trash2, Type
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator, Platform,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-    useWindowDimensions
+  ActivityIndicator, Platform,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  useWindowDimensions
 } from "react-native";
 
 import { createTask, getGroupByName, getTaskById, updateTask } from '@/services/taskService';
@@ -44,7 +44,76 @@ import { shadows } from '@/theme/shadows';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import { GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
+ 
+// ─── Inline Editor Component ──────────────────────────
+const InlineNodeEditor = ({ 
+  node, text, onTextChange, onSave, transform, isDark 
+}: { 
+  node: MindMapNode; 
+  text: string; 
+  onTextChange: (t: string) => void; 
+  onSave: () => void; 
+  transform: { translateX: any; translateY: any; scale: any };
+  isDark: boolean;
+}) => {
+  // Simple version of the logic in MindMapCanvas
+  const getTextColor = () => {
+    if (node.color) return '#FFFFFF'; // Simplified
+    if (node.depth === 0) return '#FFFFFF';
+    return isDark ? '#E5E7EB' : '#1F2937';
+  };
+  const textColor = getTextColor();
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const s = transform.scale.value;
+    return {
+      position: 'absolute',
+      left: transform.translateX.value + node.x * s,
+      top: transform.translateY.value + node.y * s,
+      width: node.width * s,
+      height: node.height * s,
+      zIndex: 9999,
+      justifyContent: 'center',
+    };
+  });
+
+  const animatedTextStyle = useAnimatedStyle(() => {
+    const s = transform.scale.value;
+    return {
+      fontSize: 13 * s,
+      paddingHorizontal: 16 * s,
+      paddingVertical: 10 * s,
+    };
+  });
+
+  return (
+    <Animated.View style={animatedStyle} pointerEvents="auto">
+      <AnimatedTextInput
+        value={text}
+        onChangeText={onTextChange}
+        autoFocus
+        multiline
+        onBlur={onSave}
+        placeholderTextColor={isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'}
+        style={[
+          {
+            flex: 1,
+            color: textColor,
+            fontFamily: 'Montserrat-SemiBold',
+            textAlign: 'left',
+            textAlignVertical: 'center',
+            backgroundColor: 'transparent',
+          },
+          animatedTextStyle
+        ]}
+      />
+    </Animated.View>
+  );
+};
 
 export default function MindMapScreen() {
   const insets = useSafeAreaInsets();
@@ -294,21 +363,35 @@ export default function MindMapScreen() {
   }, [layoutNodes, selectedId, select]);
 
   const handleNodeTap = useCallback((id: string) => {
+    if (isEditTopicVisible && selectedId && selectedId !== id) {
+      if (editText.trim()) updateNodeTitle(selectedId, editText.trim());
+      setIsEditTopicVisible(false);
+    }
     select(id);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [select]);
+  }, [isEditTopicVisible, selectedId, editText, updateNodeTitle, select]);
 
   const handleDoubleTap = useCallback((id: string) => {
     openEditSheet(id);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }, [openEditSheet]);
 
-  const handleBackgroundTap = useCallback(() => { select(null); }, [select]);
+  const handleBackgroundTap = useCallback(() => { 
+    if (isEditTopicVisible && selectedId) {
+      if (editText.trim()) updateNodeTitle(selectedId, editText.trim());
+      setIsEditTopicVisible(false);
+    }
+    select(null); 
+  }, [isEditTopicVisible, selectedId, editText, updateNodeTitle, select]);
 
   const handleDragStart = useCallback((id: string) => {
+    if (isEditTopicVisible && selectedId && selectedId !== id) {
+      if (editText.trim()) updateNodeTitle(selectedId, editText.trim());
+      setIsEditTopicVisible(false);
+    }
     select(id);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-  }, [select]);
+  }, [isEditTopicVisible, selectedId, editText, updateNodeTitle, select]);
 
   const handleDragEnd = useCallback((id: string, absX: number, absY: number) => {
     pinNodePosition(id, absX, absY);
@@ -345,7 +428,9 @@ export default function MindMapScreen() {
     useMapGestures(layoutNodes, callbacks);
 
   const saveEdit = useCallback(() => {
-    if (selectedId && editText.trim()) updateNodeTitle(selectedId, editText.trim());
+    if (selectedId && editText.trim()) {
+      updateNodeTitle(selectedId, editText.trim());
+    }
     setIsEditTopicVisible(false);
   }, [selectedId, editText, updateNodeTitle]);
 
@@ -647,26 +732,41 @@ export default function MindMapScreen() {
           </TouchableOpacity>
         </View>
       </View>
+ 
+      <View className="flex-1 relative">
+        <GestureDetector gesture={gesture}>
+          <View className="flex-1 overflow-hidden">
+            <MindMapCanvas
+              nodes={layoutNodes}
+              selectedId={selectedId}
+              editingId={isEditTopicVisible ? selectedId : null}
+              translateX={transform.translateX}
+              translateY={transform.translateY}
+              scale={transform.scale}
+              primaryColor={primaryColor}
+              isDark={isDark}
+              dragState={dragState}
+              resizeState={resizeState}
+              childDirsMap={childDirsMap}
+              hiddenNodes={hiddenNodes}
+              canvasBgColor={canvasBgColor}
+              bgPattern={bgPattern}
+            />
+          </View>
+        </GestureDetector>
 
-      <GestureDetector gesture={gesture}>
-        <View className="flex-1 overflow-hidden">
-          <MindMapCanvas
-            nodes={layoutNodes}
-            selectedId={selectedId}
-            translateX={transform.translateX}
-            translateY={transform.translateY}
-            scale={transform.scale}
-            primaryColor={primaryColor}
-            isDark={isDark}
-            dragState={dragState}
-            resizeState={resizeState}
-            childDirsMap={childDirsMap}
-            hiddenNodes={hiddenNodes}
-            canvasBgColor={canvasBgColor}
-            bgPattern={bgPattern}
+        {/* Inline Editor Overlay */}
+        {isEditTopicVisible && selectedNode && (
+          <InlineNodeEditor
+              node={selectedNode}
+              text={editText}
+              onTextChange={setEditText}
+              onSave={saveEdit}
+              transform={transform}
+              isDark={isDark}
           />
-        </View>
-      </GestureDetector>
+        )}
+      </View>
 
       {/* FABs */}
       <View className="absolute right-5 flex-col gap-3 items-center" style={[{ bottom: Math.max(insets.bottom, 16) + 16 }]}>
@@ -798,49 +898,7 @@ export default function MindMapScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Edit Overlay */}
-      {isEditTopicVisible && (
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          className="absolute inset-0 justify-end z-[100]"
-          style={[{ backgroundColor: 'rgba(0,0,0,0.6)' }]}
-        >
-          <TouchableOpacity 
-            style={{ flex: 1 }} 
-            activeOpacity={1} 
-            onPress={() => setIsEditTopicVisible(false)} 
-          />
-          <View className="p-6 gap-4 rounded-t-3xl" style={{ backgroundColor: isDark ? '#18181b' : '#f4f4f5', paddingBottom: Math.max(insets.bottom, 24) }}>
-            <Text className="font-sans-bold text-xl text-on-surface">Editar Tópico</Text>
-            <TextInput
-              value={editText}
-              onChangeText={setEditText}
-              placeholder="Título do tópico..."
-              placeholderTextColor={isDark ? '#71717A' : '#A1A1AA'}
-              autoFocus
-              style={[
-                {
-                  borderWidth: 1, borderRadius: 14, padding: 16, fontSize: 16,
-                  backgroundColor: isDark ? '#27272A' : '#FFFFFF',
-                  borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-                  color: isDark ? '#FAFAFA' : '#18181B',
-                  fontFamily: 'Montserrat-Regular'
-                },
-              ]}
-              onSubmitEditing={saveEdit}
-              returnKeyType="done"
-            />
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={saveEdit}
-              className="rounded-2xl py-4 items-center justify-center"
-              style={{ backgroundColor: primaryColor }}
-            >
-              <Text className="font-sans-bold text-white text-base">Salvar</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      )}
+      {/* Edit Overlay removed - replaced by InlineNodeEditor */}
 
       {/* AI Generation Overlay (Not a Modal to fix Android keyboard) */}
       {isAiModalVisible && (

@@ -4,6 +4,11 @@ import { useDialog } from '@/providers/DialogProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 import { withOpacity } from '@/utils/colors';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import {
+  Canvas,
+  Skia,
+  Path as SkiaPath
+} from '@shopify/react-native-skia';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
@@ -97,6 +102,7 @@ interface DraggableAnnotationProps {
   primaryColor: string;
   onUpdate: (id: string, updates: Partial<Annotation>) => void;
   activeTool: 'text' | 'image' | 'brush' | 'eraser' | null;
+  index: number;
 }
 
 const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
@@ -118,6 +124,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
     primaryColor,
     onUpdate,
     activeTool,
+    index,
   } = props;
   // ── ALL position in shared values to avoid React/Reanimated mixing ──
   const baseX = useSharedValue(annotation.x);
@@ -473,7 +480,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
             backgroundColor: getBgColor(),
             borderRadius: annotation.type === 'text' ? 4 : 2,
             overflow: 'visible',
-            zIndex: isSelected ? 40 : 30, // Always above form fields (10) AND drawing canvas (25)
+            zIndex: (isSelected ? 1000 : 1) + index, 
           },
           animatedStyle,
         ]}
@@ -488,6 +495,14 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
                 value={annotation.content}
                 onChangeText={(text) => onTextChange(annotation.id, text)}
                 multiline
+                scrollEnabled={false}
+                onContentSizeChange={(e) => {
+                  const newHeight = Math.max(40, e.nativeEvent.contentSize.height + 16); // Plus some padding
+                  if (Math.abs(newHeight - resizeH.value) > 2) {
+                    resizeH.value = newHeight;
+                    onUpdate(annotation.id, { height: newHeight });
+                  }
+                }}
                 onBlur={() => onTextBlur?.(annotation.id)}
                 style={{
                   fontSize: annotation.fontSize,
@@ -496,6 +511,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
                   padding: 0,
                   margin: 0,
                   textAlignVertical: 'center',
+                  minHeight: 40,
                 }}
               />
             ) : (
@@ -1019,6 +1035,37 @@ function FormFieldItem({
     </Animated.View>
   );
 }
+
+const StaticDrawing = React.memo(({ annotation, zIndex }: { annotation: Annotation; zIndex: number }) => {
+  const path = useMemo(() => {
+    if (!annotation.pathData) return null;
+    try {
+      return Skia.Path.MakeFromSVGString(annotation.pathData);
+    } catch {
+      return null;
+    }
+  }, [annotation.pathData]);
+
+  if (!path) return null;
+
+  return (
+    <View 
+      pointerEvents="none" 
+      style={[StyleSheet.absoluteFill, { zIndex }]}
+    >
+      <Canvas style={{ flex: 1 }}>
+        <SkiaPath
+          path={path}
+          color={annotation.strokeColor || '#000000'}
+          style="stroke"
+          strokeWidth={annotation.strokeWidth || 3}
+          strokeCap="round"
+          strokeJoin="round"
+        />
+      </Canvas>
+    </View>
+  );
+});
 
 // ─── Main Screen ──────────────────────────────────────
 export default function PdfEditorTool() {
@@ -1718,9 +1765,9 @@ export default function PdfEditorTool() {
   }));
 
   // Current page annotations
-  const currentAnnotations = annotations.filter((a) => a.page === currentPage);
-  const draggableAnnotations = currentAnnotations.filter((a) => a.type !== 'drawing');
-  const drawingAnnotations = currentAnnotations.filter((a) => a.type === 'drawing');
+  const currentAnnotations = useMemo(() => 
+    annotations.filter((a) => a.page === currentPage),
+  [annotations, currentPage]);
 
   // Active drawing color
   const activeStrokeColor = activeTool === 'eraser' ? '#FFFFFF' : brushColor;
@@ -1907,32 +1954,44 @@ export default function PdfEditorTool() {
                     );
                   })}
 
-                  {/* Annotations Layer (text/image only — drawings are on Skia canvas) */}
-                  {draggableAnnotations.map((ann) => (
-                    <DraggableAnnotation
-                      key={ann.id}
-                      annotation={ann}
-                      isSelected={selectedId === ann.id}
-                      canvasScale={scale}
-                      isEditingText={editingTextId === ann.id}
-                      onTextChange={handleInlineTextChange}
-                      onTextBlur={handleInlineTextBlur}
-                      onSelect={handleSelect}
-                      onDragEnd={handleDragEnd}
-                      onResizeEnd={handleResizeEnd}
-                      onRotateEnd={handleRotateEnd}
-                      onDoubleTap={openTextEdit}
-                      onToggleCrop={handleToggleCrop}
-                      onLongPress={handleLongPress}
-                      isDark={isDark}
-                      primaryColor={primaryColor}
-                      onUpdate={updateAnnotation}
-                      activeTool={activeTool}
-                    />
-                  ))}
+                  {/* Annotations Layer (Unified chronological order) */}
+                  {currentAnnotations.map((ann, index) => {
+                    if (ann.type === 'drawing') {
+                      return (
+                        <StaticDrawing 
+                          key={ann.id} 
+                          annotation={ann} 
+                          zIndex={index + 1}
+                        />
+                      );
+                    }
+                    return (
+                      <DraggableAnnotation
+                        key={ann.id}
+                        annotation={ann}
+                        index={index + 1}
+                        isSelected={selectedId === ann.id}
+                        canvasScale={scale}
+                        isEditingText={editingTextId === ann.id}
+                        onTextChange={handleInlineTextChange}
+                        onTextBlur={handleInlineTextBlur}
+                        onSelect={handleSelect}
+                        onDragEnd={handleDragEnd}
+                        onResizeEnd={handleResizeEnd}
+                        onRotateEnd={handleRotateEnd}
+                        onDoubleTap={openTextEdit}
+                        onToggleCrop={handleToggleCrop}
+                        onLongPress={handleLongPress}
+                        isDark={isDark}
+                        primaryColor={primaryColor}
+                        onUpdate={updateAnnotation}
+                        activeTool={activeTool}
+                      />
+                    );
+                  })}
                 </View>
 
-                {/* Drawing Canvas Overlay */}
+                {/* Active Drawing Canvas (On Top) */}
                 {(activeTool === 'brush' || activeTool === 'eraser') && (
                   <PdfDrawingCanvas
                     key={`canvas-active-${currentPage}`}
@@ -1940,25 +1999,11 @@ export default function PdfEditorTool() {
                     height={pdfDisplayHeight}
                     strokeColor={activeStrokeColor}
                     strokeWidth={brushThickness}
-                    existingDrawings={drawingAnnotations}
+                    existingDrawings={[]} // Only current strokes here, static ones are interleaved below
                     onPathComplete={handlePathComplete}
                     activeTool={activeTool}
                     onErase={handleDeleteAnnotation}
                     canvasScale={scale}
-                  />
-                )}
-
-                {/* Static Drawings Layer (when no drawing tool is active) */}
-                {activeTool !== 'brush' && activeTool !== 'eraser' && drawingAnnotations.length > 0 && (
-                  <PdfDrawingCanvas
-                    key={`canvas-static-${currentPage}`}
-                    width={pdfDisplayWidth}
-                    height={pdfDisplayHeight}
-                    strokeColor={'#000000'}
-                    strokeWidth={3}
-                    existingDrawings={drawingAnnotations}
-                    onPathComplete={() => {}}
-                    interactive={false}
                   />
                 )}
             </View>

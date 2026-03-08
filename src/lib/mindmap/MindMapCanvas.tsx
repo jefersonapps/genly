@@ -1,13 +1,13 @@
 import {
-  Canvas,
-  Group,
-  Path,
-  Picture,
-  Rect,
-  Skia,
-  Text as SkiaText,
-  useFont,
-  type SkFont
+    Canvas,
+    Group,
+    Path,
+    Picture,
+    Rect,
+    Skia,
+    Text as SkiaText,
+    useFont,
+    type SkFont
 } from '@shopify/react-native-skia';
 import React, { useMemo } from 'react';
 import { useWindowDimensions } from 'react-native';
@@ -423,14 +423,18 @@ const NodeShell = React.memo(function NodeShell({
 // Positions recompute via useDerivedValue when live size changes
 // ---------------------------------------------------------------------------
 const NodeText = React.memo(function NodeText({
-  node, isDark, resizeState, font,
+  node, isDark, resizeState, font, isEditing,
 }: {
   node: MindMapNode;
   isDark: boolean;
   resizeState: ResizeState;
   font: SkFont;
+  isEditing?: boolean;
 }) {
   const textColor = getNodeTextColor(node.depth, isDark, node.color);
+
+  // If we are editing this node inline, hide the Skia text to avoid overlap with TextInput
+  const textOpacity = useDerivedValue(() => isEditing ? 0 : 1);
 
   /**
    * Compute wrapped lines + Y positions as a derived value (worklet).
@@ -522,11 +526,11 @@ const NodeText = React.memo(function NodeText({
 
   return (
     <>
-      <SkiaText x={x0} y={y0} text={t0} font={font} color={textColor} />
-      <SkiaText x={x0} y={y1} text={t1} font={font} color={textColor} opacity={op1} />
-      <SkiaText x={x0} y={y2} text={t2} font={font} color={textColor} opacity={op2} />
-      <SkiaText x={x0} y={y3} text={t3} font={font} color={textColor} opacity={op3} />
-      <SkiaText x={x0} y={y4} text={t4} font={font} color={textColor} opacity={op4} />
+      <SkiaText x={x0} y={y0} text={t0} font={font} color={textColor} opacity={textOpacity} />
+      <SkiaText x={x0} y={y1} text={t1} font={font} color={textColor} opacity={useDerivedValue(() => op1.value * textOpacity.value)} />
+      <SkiaText x={x0} y={y2} text={t2} font={font} color={textColor} opacity={useDerivedValue(() => op2.value * textOpacity.value)} />
+      <SkiaText x={x0} y={y3} text={t3} font={font} color={textColor} opacity={useDerivedValue(() => op3.value * textOpacity.value)} />
+      <SkiaText x={x0} y={y4} text={t4} font={font} color={textColor} opacity={useDerivedValue(() => op4.value * textOpacity.value)} />
     </>
   );
 });
@@ -535,12 +539,13 @@ const NodeText = React.memo(function NodeText({
 // NodeItem
 // ---------------------------------------------------------------------------
 const NodeItem = React.memo(function NodeItem({
-  node, isSelected,
+  node, isSelected, isEditing,
   primaryColor, isDark, dragState, resizeState, font,
   childDirs, collapsedDirs,
 }: {
   node: MindMapNode;
   isSelected: boolean;
+  isEditing: boolean;
   primaryColor: string;
   isDark: boolean;
   dragState: DragState;
@@ -570,6 +575,7 @@ const NodeItem = React.memo(function NodeItem({
         <NodeText
           node={node} isDark={isDark}
           resizeState={resizeState} font={font}
+          isEditing={isEditing}
         />
       )}
     </Group>
@@ -580,11 +586,12 @@ const NodeItem = React.memo(function NodeItem({
 // NodeLayer
 // ---------------------------------------------------------------------------
 const NodeLayer = React.memo(function NodeLayer({
-  nodes, selectedId, primaryColor, isDark, dragState, resizeState, font,
+  nodes, selectedId, editingId, primaryColor, isDark, dragState, resizeState, font,
   childDirsMap, hiddenNodes,
 }: {
   nodes: MindMapNode[];
   selectedId: string | null;
+  editingId: string | null;
   primaryColor: string;
   isDark: boolean;
   dragState: DragState;
@@ -608,6 +615,7 @@ const NodeLayer = React.memo(function NodeLayer({
           <NodeItem
             key={node.id} node={node}
             isSelected={node.id === selectedId}
+            isEditing={node.id === editingId}
             primaryColor={primaryColor} isDark={isDark}
             dragState={dragState} resizeState={resizeState}
             font={font}
@@ -629,6 +637,7 @@ export interface MindMapCanvasProps {
   translateX: SharedValue<number>;
   translateY: SharedValue<number>;
   scale: SharedValue<number>;
+  editingId?: string | null;
   primaryColor: string;
   isDark: boolean;
   dragState: DragState;
@@ -640,7 +649,7 @@ export interface MindMapCanvasProps {
 }
 
 export const MindMapCanvas = React.memo(function MindMapCanvas({
-  nodes, selectedId,
+  nodes, selectedId, editingId,
   translateX, translateY, scale,
   primaryColor, isDark,
   dragState, resizeState,
@@ -671,7 +680,7 @@ export const MindMapCanvas = React.memo(function MindMapCanvas({
       <Group transform={mapTransform}>
         <EdgeLayer nodes={nodes} isDark={isBgDark} dragState={dragState} resizeState={resizeState} hiddenNodes={hiddenNodes} />
         <NodeLayer
-          nodes={nodes} selectedId={selectedId}
+          nodes={nodes} selectedId={selectedId} editingId={editingId ?? null}
           primaryColor={primaryColor} isDark={isBgDark}
           dragState={dragState} resizeState={resizeState}
           font={font}
