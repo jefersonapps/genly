@@ -256,29 +256,20 @@ export async function exportEditedPdf(
               img = await pdfDoc.embedJpg(`data:image/jpeg;base64,${imgBase64}`);
             }
 
-            // "Cover" mode: scale image to FILL annotation bounds, clip overflow
-            const imgW = img.width;
-            const imgH = img.height;
-            const imgAspect = imgW / imgH;
-            const annAspect = annW / annH;
+            // Corrected Manual drawing:
+            // 1. Scale internal offsets and original dimensions by 's' (pointsPerPx)
+            const drawW = (annotation.originalWidth * (annotation.cropScaleX || 1)) * s;
+            const drawH = (annotation.originalHeight * (annotation.cropScaleY || 1)) * s;
+            
+            // 2. Map X directly (left offset)
+            const drawX = annX + (annotation.cropX || 0) * s;
+            
+            // 3. Map Y: PDF origin is bottom-left. 
+            // annY is bottom of box, so top of box is (annY + annH).
+            // Subtract the top-offset (cropY) and the image's height to get its bottom-left Y.
+            const drawY = (annY + annH) - (annotation.cropY || 0) * s - drawH;
 
-            let drawW: number, drawH: number, drawX: number, drawY: number;
-
-            if (imgAspect > annAspect) {
-              // Image is wider than annotation — scale by height, overflow width
-              drawH = annH;
-              drawW = annH * imgAspect;
-              drawX = annX - (drawW - annW) / 2; // center horizontally
-              drawY = annY;
-            } else {
-              // Image is taller than annotation — scale by width, overflow height
-              drawW = annW;
-              drawH = annW / imgAspect;
-              drawX = annX;
-              drawY = annY - (drawH - annH) / 2; // center vertically
-            }
-
-            // Clip to annotation bounds then draw the larger image
+            // Clip to annotation bounds then draw the projected image
             page.pushOperators(
               pushGraphicsState(),
               rectangle(annX, annY, annW, annH),

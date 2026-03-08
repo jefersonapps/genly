@@ -43,7 +43,8 @@ export interface Annotation {
   isCropping: boolean;
   cropX: number;        // image offset X within crop window
   cropY: number;        // image offset Y within crop window
-  cropScale: number;    // image scale relative to annotation size (1 = fit)
+  cropScaleX: number;   // image scale X relative to annotation size
+  cropScaleY: number;   // image scale Y relative to annotation size
   // Drawing-specific fields
   pathData: string;     // serialized SVG path string from Skia
   strokeColor: string;  // hex color of the brush stroke
@@ -190,7 +191,7 @@ export const usePdfEditorStore = create<PdfEditorState>((set, get) => ({
       fontSize: DEFAULT_FONT_SIZE,
       fontColor: DEFAULT_FONT_COLOR,
       originalWidth: 0, originalHeight: 0,
-      isCropping: false, cropX: 0, cropY: 0, cropScale: 1,
+      isCropping: false, cropX: 0, cropY: 0, cropScaleX: 1, cropScaleY: 1,
       pathData: '', strokeColor: '', strokeWidth: 0,
     };
     set((s) => ({ annotations: [...s.annotations, annotation], selectedId: id }));
@@ -209,8 +210,9 @@ export const usePdfEditorStore = create<PdfEditorState>((set, get) => ({
       fontColor: '',
       originalWidth: origW, originalHeight: origH,
       isCropping: false, cropX: 0, cropY: 0,
-      // Initialize cropScale so that originalWidth * cropScale = width (fits the box)
-      cropScale: origW > 0 ? (width / origW) : 1,
+      // Initialize scales so that originalWidth * cropScale = width (fits the box)
+      cropScaleX: origW > 0 ? (width / origW) : 1,
+      cropScaleY: origH > 0 ? (height / origH) : 1,
       pathData: '', strokeColor: '', strokeWidth: 0,
     };
     set((s) => ({ annotations: [...s.annotations, annotation], selectedId: id }));
@@ -229,7 +231,7 @@ export const usePdfEditorStore = create<PdfEditorState>((set, get) => ({
       fontSize: 0,
       fontColor: '',
       originalWidth: 0, originalHeight: 0,
-      isCropping: false, cropX: 0, cropY: 0, cropScale: 1,
+      isCropping: false, cropX: 0, cropY: 0, cropScaleX: 1, cropScaleY: 1,
       pathData, strokeColor, strokeWidth,
     };
     set((s) => ({ annotations: [...s.annotations, annotation] }));

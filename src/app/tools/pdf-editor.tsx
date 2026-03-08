@@ -96,6 +96,7 @@ interface DraggableAnnotationProps {
   isDark: boolean;
   primaryColor: string;
   onUpdate: (id: string, updates: Partial<Annotation>) => void;
+  activeTool: 'text' | 'image' | 'brush' | 'eraser' | null;
 }
 
 const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
@@ -116,6 +117,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
     isDark,
     primaryColor,
     onUpdate,
+    activeTool,
   } = props;
   // ── ALL position in shared values to avoid React/Reanimated mixing ──
   const baseX = useSharedValue(annotation.x);
@@ -129,16 +131,18 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
 
   const cropX = useSharedValue(annotation.cropX || 0);
   const cropY = useSharedValue(annotation.cropY || 0);
-  const cropScale = useSharedValue(annotation.cropScale || 1);
+  const cropScaleX = useSharedValue(annotation.cropScaleX || 1);
+  const cropScaleY = useSharedValue(annotation.cropScaleY || 1);
 
   // Capture values at start of gesture to avoid jitter from state updates
   const startW = useSharedValue(0);
   const startH = useSharedValue(0);
   const startOX = useSharedValue(0);
   const startOY = useSharedValue(0);
-  const startScale = useSharedValue(1);
   const startCX = useSharedValue(0);
   const startCY = useSharedValue(0);
+  const startScaleX = useSharedValue(1);
+  const startScaleY = useSharedValue(1);
 
   const inputRef = React.useRef<TextInput>(null);
 
@@ -152,15 +156,15 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
   }));
 
   const imageStyle = useAnimatedStyle(() => ({
-    width: annotation.originalWidth * cropScale.value,
-    height: annotation.originalHeight * cropScale.value,
+    width: annotation.originalWidth * cropScaleX.value,
+    height: annotation.originalHeight * cropScaleY.value,
     left: cropX.value,
     top: cropY.value,
   }));
 
   const cropBgStyle = useAnimatedStyle(() => ({
-    width: annotation.originalWidth * cropScale.value,
-    height: annotation.originalHeight * cropScale.value,
+    width: annotation.originalWidth * cropScaleX.value,
+    height: annotation.originalHeight * cropScaleY.value,
     left: cropX.value,
     top: cropY.value,
     opacity: 0.3,
@@ -194,11 +198,13 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
   React.useEffect(() => {
     cropX.value = annotation.cropX || 0;
     cropY.value = annotation.cropY || 0;
-    cropScale.value = annotation.cropScale || 1;
-  }, [annotation.cropX, annotation.cropY, annotation.cropScale]);
+    cropScaleX.value = annotation.cropScaleX || 1;
+    cropScaleY.value = annotation.cropScaleY || 1;
+  }, [annotation.cropX, annotation.cropY, annotation.cropScaleX, annotation.cropScaleY]);
 
   // ── Drag ──
   const dragGesture = Gesture.Pan()
+    .enabled(activeTool !== 'brush' && activeTool !== 'eraser')
     .minDistance(2)
     .onStart(() => {
       'worklet';
@@ -240,6 +246,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
 
   // ── Tap ──
   const tapGesture = Gesture.Tap()
+    .enabled(activeTool !== 'brush' && activeTool !== 'eraser')
     .maxDuration(300)
     .onEnd(() => {
       'worklet';
@@ -249,6 +256,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
 
   // ── Double tap ──
   const doubleTapGesture = Gesture.Tap()
+    .enabled(activeTool !== 'brush' && activeTool !== 'eraser')
     .numberOfTaps(2)
     .maxDuration(350)
     .onEnd(() => {
@@ -263,6 +271,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
 
   // ── Long press ──
   const longPressGesture = Gesture.LongPress()
+    .enabled(activeTool !== 'brush' && activeTool !== 'eraser')
     .minDuration(500)
     .onStart(() => {
       'worklet';
@@ -273,8 +282,9 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
   // ── Resize (8 points) ──
 
 
-  const createResizeGesture = (edgeX: 0 | 0.5 | 1, edgeY: 0 | 0.5 | 1) => {
+  const createResizeGesture = (edgeX: number, edgeY: number) => {
     return Gesture.Pan()
+      .enabled(activeTool !== 'brush' && activeTool !== 'eraser')
       .minDistance(2)
       .hitSlop(20)
       .onStart(() => {
@@ -283,13 +293,20 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
         startH.value = resizeH.value;
         startOX.value = offsetX.value;
         startOY.value = offsetY.value;
-        startScale.value = cropScale.value;
+        startScaleX.value = cropScaleX.value;
+        startScaleY.value = cropScaleY.value;
         startCX.value = cropX.value;
         startCY.value = cropY.value;
       })
       .onUpdate((e) => {
         'worklet';
-        const isFree = annotation.isCropping || annotation.type !== 'image' || annotation.originalWidth <= 0;
+        // "isFree" means we can change width/height independently.
+        // We want this when:
+        // 1. We're in crop mode (always free)
+        // 2. We're using a side handle (edgeX === 0.5 or edgeY === 0.5) 
+        // 3. It's not an image (text boxes are always freeish)
+        const isSideHandle = edgeX === 0.5 || edgeY === 0.5;
+        const isFree = annotation.isCropping || isSideHandle || annotation.type !== 'image' || annotation.originalWidth <= 0;
         const startAspect = startH.value / startW.value;
 
         // 1. Convert screen delta to local space (agnostic of zoom and rotation)
@@ -309,10 +326,10 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
           if (edgeY === 1) newH = startH.value + ldy;
           else if (edgeY === 0) newH = startH.value - ldy;
 
-          newW = Math.max(40, newW);
-          newH = Math.max(20, newH);
+          newW = Math.max(20, newW);
+          newH = Math.max(10, newH);
         } else {
-          // Aspect Ratio Locked... (omitted for brevity in chunk, but I'll include it)
+          // Aspect Ratio Locked for corners...
           const dirX = (edgeX === 1) ? 1 : (edgeX === 0 ? -1 : 0);
           const dirY = (edgeY === 1) ? 1 : (edgeY === 0 ? -1 : 0);
 
@@ -329,9 +346,9 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
             newH = newW * startAspect;
           }
 
-          if (newW < 40 || newH < 20) {
-            const scaleW = 40 / startW.value;
-            const scaleH = 20 / startH.value;
+          if (newW < 20 || newH < 10) {
+            const scaleW = 20 / startW.value;
+            const scaleH = 10 / startH.value;
             const minScale = Math.max(scaleW, scaleH);
             newW = startW.value * minScale;
             newH = startH.value * minScale;
@@ -357,11 +374,17 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
           cropX.value = startCX.value - localChange.x;
           cropY.value = startCY.value - localChange.y;
         } else {
-          // Regular scaling: scales the content to match the new size
-          const scaleFactor = newW / startW.value;
-          cropScale.value = startScale.value * scaleFactor;
-          cropX.value = startCX.value * scaleFactor;
-          cropY.value = startCY.value * scaleFactor;
+          // Regular scaling or stretching in Scale mode
+          const scaleFactorX = newW / startW.value;
+          const scaleFactorY = newH / startH.value;
+          
+          // If it was a proportional scale (corner), both factors are the same.
+          // If it was a side handle, only one changed.
+          // We update the internal crop parameters so the image stretches/scales relative to its content.
+          cropScaleX.value = startScaleX.value * scaleFactorX;
+          cropScaleY.value = startScaleY.value * scaleFactorY;
+          cropX.value = startCX.value * scaleFactorX;
+          cropY.value = startCY.value * scaleFactorY;
         }
 
         offsetX.value = nextOX;
@@ -383,7 +406,8 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
           y: finalY,
           cropX: cropX.value,
           cropY: cropY.value,
-          cropScale: cropScale.value,
+          cropScaleX: cropScaleX.value,
+          cropScaleY: cropScaleY.value,
         });
         runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
       });
@@ -401,6 +425,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
   // ── Rotation (top-center handle) ──
   const startRotation = useSharedValue(0);
   const rotateGesture = Gesture.Pan()
+    .enabled(activeTool !== 'brush' && activeTool !== 'eraser')
     .minDistance(2)
     .hitSlop(15)
     .onStart(() => {
@@ -493,7 +518,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
             <Animated.Image
               source={{ uri: annotation.content }}
               style={[{ position: 'absolute' }, imageStyle]}
-              resizeMode="cover"
+              resizeMode="stretch"
             />
           </View>
         )}
@@ -545,10 +570,9 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
           </>
         )}
 
-        {/* Selected Controls (hide when cropping — handles above are used instead) */}
+        {/* Selected Controls (Scale mode) */}
         {isSelected && !annotation.isCropping && (
           <>
-            {/* Rotation stalk and handle */}
             {/* Rotation stalk and handle */}
             <View
               pointerEvents="box-none"
@@ -575,46 +599,36 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
               <View style={{ width: 2, height: 18, backgroundColor: primaryColor }} />
             </View>
 
-            {/* Corner resize handles */}
-            {/* Top Left */}
+            {/* Corner resize handles (Proportional) */}
             <GestureDetector gesture={resizeTL}>
-              <Animated.View 
-                className="absolute w-4 h-4 rounded-full bg-white z-[60]" 
-                style={[{ 
-                  top: -8, left: -8, 
-                  borderWidth: 1.5, borderColor: primaryColor 
-                }, shadows.sm]} 
-              />
+              <Animated.View className="absolute w-4 h-4 rounded-full bg-white z-[60]" style={[{ top: -8, left: -8, borderWidth: 1.5, borderColor: primaryColor }, shadows.sm]} />
             </GestureDetector>
-            {/* Top Right */}
             <GestureDetector gesture={resizeTR}>
-              <Animated.View 
-                className="absolute w-4 h-4 rounded-full bg-white z-[60]" 
-                style={[{ 
-                    top: -8, right: -8, 
-                    borderWidth: 1.5, borderColor: primaryColor 
-                }, shadows.sm]} 
-              />
+              <Animated.View className="absolute w-4 h-4 rounded-full bg-white z-[60]" style={[{ top: -8, right: -8, borderWidth: 1.5, borderColor: primaryColor }, shadows.sm]} />
             </GestureDetector>
-            {/* Bottom Left */}
             <GestureDetector gesture={resizeBL}>
-              <Animated.View 
-                className="absolute w-4 h-4 rounded-full bg-white z-[60]" 
-                style={[{ 
-                    bottom: -8, left: -8, 
-                    borderWidth: 1.5, borderColor: primaryColor 
-                }, shadows.sm]} 
-              />
+              <Animated.View className="absolute w-4 h-4 rounded-full bg-white z-[60]" style={[{ bottom: -8, left: -8, borderWidth: 1.5, borderColor: primaryColor }, shadows.sm]} />
             </GestureDetector>
-            {/* Bottom Right */}
             <GestureDetector gesture={resizeGesture}>
-                <Animated.View 
-                    className="absolute w-4 h-4 rounded-full bg-white z-[60]" 
-                    style={[{ 
-                        bottom: -8, right: -8, 
-                        borderWidth: 1.5, borderColor: primaryColor 
-                    }, shadows.sm]} 
-                />
+                <Animated.View className="absolute w-4 h-4 rounded-full bg-white z-[60]" style={[{ bottom: -8, right: -8, borderWidth: 1.5, borderColor: primaryColor }, shadows.sm]} />
+            </GestureDetector>
+
+            {/* Intermediate handles (Non-Proportional Stretching) */}
+            {/* Top Center */}
+            <GestureDetector gesture={resizeTC}>
+              <Animated.View className="absolute w-3 h-3 bg-white border border-dashed z-[60]" style={[{ top: -6, left: '50%', marginLeft: -6, borderColor: primaryColor }, shadows.sm]} />
+            </GestureDetector>
+            {/* Bottom Center */}
+            <GestureDetector gesture={resizeBC}>
+              <Animated.View className="absolute w-3 h-3 bg-white border border-dashed z-[60]" style={[{ bottom: -6, left: '50%', marginLeft: -6, borderColor: primaryColor }, shadows.sm]} />
+            </GestureDetector>
+            {/* Mid Left */}
+            <GestureDetector gesture={resizeML}>
+              <Animated.View className="absolute w-3 h-3 bg-white border border-dashed z-[60]" style={[{ top: '50%', left: -6, marginTop: -6, borderColor: primaryColor }, shadows.sm]} />
+            </GestureDetector>
+            {/* Mid Right */}
+            <GestureDetector gesture={resizeMR}>
+              <Animated.View className="absolute w-3 h-3 bg-white border border-dashed z-[60]" style={[{ top: '50%', right: -6, marginTop: -6, borderColor: primaryColor }, shadows.sm]} />
             </GestureDetector>
           </>
         )}
@@ -1913,6 +1927,7 @@ export default function PdfEditorTool() {
                       isDark={isDark}
                       primaryColor={primaryColor}
                       onUpdate={updateAnnotation}
+                      activeTool={activeTool}
                     />
                   ))}
                 </View>
