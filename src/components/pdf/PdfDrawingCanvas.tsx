@@ -56,6 +56,11 @@ export function PdfDrawingCanvas({
   
   // Caching erased IDs for the current gesture to avoid bridge flooding
   const erasedIdsInGesture = useSharedValue<string[]>([]);
+
+  // Clear local paths if external state (like Undo/Redo) changes the drawings array
+  useEffect(() => {
+    setLocalPaths((prev) => prev.length > 0 ? [] : prev);
+  }, [existingDrawings]);
   
   // Pre-calculated hit paths for eraser performance (on UI thread)
   const hitPaths = useSharedValue<{ id: string; hitPath: ReturnType<typeof Skia.Path.Make> }[]>([]);

@@ -50,6 +50,11 @@ export interface Annotation {
   strokeWidth: number;  // brush thickness in display px
 }
 
+export interface EditorSnapshot {
+  annotations: Annotation[];
+  formFields: FormField[];
+}
+
 interface PdfEditorState {
   // PDF state
   pdfUri: string | null;
@@ -62,6 +67,15 @@ interface PdfEditorState {
   annotations: Annotation[];
   formFields: FormField[];
   selectedId: string | null;
+
+  // History Stack
+  past: EditorSnapshot[];
+  future: EditorSnapshot[];
+
+  // Actions - History
+  undo: () => void;
+  redo: () => void;
+  saveHistory: () => void;
 
   // Actions - PDF
   setPdf: (uri: string, fileName: string, pageCount: number, formFields?: FormField[]) => void;
@@ -94,6 +108,8 @@ const DEFAULT_FONT_COLOR = '#000000';
 let _idCounter = 0;
 const generateId = () => `ann_${Date.now()}_${++_idCounter}`;
 
+const MAX_HISTORY = 50;
+
 // ─── Store ────────────────────────────────────────────
 export const usePdfEditorStore = create<PdfEditorState>((set, get) => ({
   pdfUri: null,
@@ -106,8 +122,51 @@ export const usePdfEditorStore = create<PdfEditorState>((set, get) => ({
   formFields: [],
   selectedId: null,
 
+  past: [],
+  future: [],
+
+  saveHistory: () => {
+    const { annotations, formFields, past } = get();
+    // Only save if there's actual content (optional optimization: deep compare last past item)
+    const newPast = [...past, { annotations: [...annotations], formFields: [...formFields] }];
+    if (newPast.length > MAX_HISTORY) newPast.shift();
+    set({ past: newPast, future: [] }); // Any new action invalidates future
+  },
+
+  undo: () => {
+    const { past, future, annotations, formFields } = get();
+    if (past.length === 0) return;
+
+    const previous = past[past.length - 1];
+    const newPast = past.slice(0, past.length - 1);
+    
+    set({
+      past: newPast,
+      future: [...future, { annotations: [...annotations], formFields: [...formFields] }],
+      annotations: previous.annotations,
+      formFields: previous.formFields,
+      selectedId: null, // Clear selection on undo to avoid ghost handles
+    });
+  },
+
+  redo: () => {
+    const { past, future, annotations, formFields } = get();
+    if (future.length === 0) return;
+
+    const next = future[future.length - 1];
+    const newFuture = future.slice(0, future.length - 1);
+
+    set({
+      past: [...past, { annotations: [...annotations], formFields: [...formFields] }],
+      future: newFuture,
+      annotations: next.annotations,
+      formFields: next.formFields,
+      selectedId: null,
+    });
+  },
+
   setPdf: (uri, fileName, pageCount, formFields = []) =>
-    set({ pdfUri: uri, pdfFileName: fileName, pageCount, currentPage: 0, annotations: [], formFields, selectedId: null, pagesDimensions: [] }),
+    set({ pdfUri: uri, pdfFileName: fileName, pageCount, currentPage: 0, annotations: [], formFields, selectedId: null, pagesDimensions: [], past: [], future: [] }),
 
   setPageCount: (count) => set({ pageCount: count }),
 
@@ -116,9 +175,10 @@ export const usePdfEditorStore = create<PdfEditorState>((set, get) => ({
   setPagesDimensions: (dims) => set({ pagesDimensions: dims }),
 
   reset: () =>
-    set({ pdfUri: null, pdfFileName: '', pageCount: 0, currentPage: 0, annotations: [], formFields: [], selectedId: null, pagesDimensions: [] }),
+    set({ pdfUri: null, pdfFileName: '', pageCount: 0, currentPage: 0, annotations: [], formFields: [], selectedId: null, pagesDimensions: [], past: [], future: [] }),
 
   addText: (page, x, y) => {
+    get().saveHistory();
     const id = generateId();
     const annotation: Annotation = {
       id, page, type: 'text',
@@ -138,6 +198,7 @@ export const usePdfEditorStore = create<PdfEditorState>((set, get) => ({
   },
 
   addImage: (page, x, y, width, height, uri, origW, origH) => {
+    get().saveHistory();
     const id = generateId();
     const annotation: Annotation = {
       id, page, type: 'image',
@@ -155,6 +216,7 @@ export const usePdfEditorStore = create<PdfEditorState>((set, get) => ({
   },
 
   addDrawing: (page, pathData, strokeColor, strokeWidth) => {
+    get().saveHistory();
     const id = generateId();
     const annotation: Annotation = {
       id, page, type: 'drawing',
@@ -172,42 +234,55 @@ export const usePdfEditorStore = create<PdfEditorState>((set, get) => ({
     return id;
   },
 
-  updateAnnotation: (id, updates) =>
+  updateAnnotation: (id, updates) => {
+    get().saveHistory();
     set((s) => ({
       annotations: s.annotations.map((a) =>
         a.id === id ? { ...a, ...updates } : a
       ),
-    })),
+    }));
+  },
 
-  toggleCropping: (id) =>
+  toggleCropping: (id) => {
+    get().saveHistory();
     set((s) => ({
       annotations: s.annotations.map((a) =>
         a.id === id ? { ...a, isCropping: !a.isCropping } : a
       ),
-    })),
+    }));
+  },
 
-  deleteAnnotation: (id) =>
+  deleteAnnotation: (id) => {
+    get().saveHistory();
     set((s) => ({
       annotations: s.annotations.filter((a) => a.id !== id),
       selectedId: s.selectedId === id ? null : s.selectedId,
-    })),
+    }));
+  },
 
   selectAnnotation: (id) => set({ selectedId: id }),
 
-  setFormFields: (fields) => set({ formFields: fields }),
+  setFormFields: (fields) => {
+    // Only clear history if we are completely resetting form fields on load, not if this is a generic setter
+    set({ formFields: fields });
+  },
 
-  updateFormField: (name, value) =>
+  updateFormField: (name, value) => {
+    get().saveHistory();
     set((s) => ({
       formFields: s.formFields.map((f) =>
         f.name === name ? { ...f, value } : f
       ),
-    })),
+    }));
+  },
 
-  resetFormFields: () =>
+  resetFormFields: () => {
+    get().saveHistory();
     set((s) => ({
       formFields: s.formFields.map((f) => ({
         ...f,
         value: f.type === 'checkbox' || f.type === 'radio' ? false : (f.type === 'listbox' ? [] : '')
       })),
-    })),
+    }));
+  },
 }));
