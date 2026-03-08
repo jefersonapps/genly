@@ -2,6 +2,7 @@ import { DatabaseProvider } from "@/providers/DatabaseProvider";
 import { DialogProvider } from "@/providers/DialogProvider";
 import { ThemeProvider, useTheme } from "@/providers/ThemeProvider";
 import { getSetting } from "@/services/settingsService";
+import { withOpacity } from "@/utils/colors";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { useFonts } from "expo-font";
 import * as LocalAuthentication from "expo-local-authentication";
@@ -220,14 +221,14 @@ function RootLayoutNav() {
       <View className="flex-1 items-center justify-center bg-surface">
          <StatusBar style={resolvedTheme === "dark" ? "light" : "dark"} />
          <View className="items-center p-8 bg-surface-secondary rounded-[3rem] border border-border mx-6">
-            <View className="h-20 w-20 rounded-full items-center justify-center mb-6" style={{ backgroundColor: primaryColor + '20' }}>
+            <View className="h-20 w-20 rounded-full items-center justify-center mb-6" style={{ backgroundColor: withOpacity(primaryColor, 0.12) }}>
                <LockKeyhole size={40} color={primaryColor} />
             </View>
             <Text className="font-sans-bold text-2xl text-on-surface mb-2 text-center">App Bloqueado</Text>
             <Text className="font-sans text-on-surface-secondary mb-8 text-center px-4 leading-relaxed">Use sua biometria para acessar o Genly</Text>
             
             <TouchableOpacity 
-                activeOpacity={0.7}
+                activeOpacity={0.8}
                 onPress={authenticate}
                 className="px-8 py-4 rounded-full"
                 style={{ backgroundColor: primaryColor }}

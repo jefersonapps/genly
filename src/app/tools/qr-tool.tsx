@@ -1,3 +1,4 @@
+import BottomSheet from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
 import { ColorPicker } from "@/components/ui/ColorPicker";
 import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
@@ -6,11 +7,7 @@ import { useKeyboard } from "@/hooks/useKeyboard";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { withOpacity } from "@/utils/colors";
-import {
-  BottomSheetBackdrop,
-  BottomSheetModal,
-  BottomSheetView
-} from "@gorhom/bottom-sheet";
+import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import BarcodeScanning from "@react-native-ml-kit/barcode-scanning";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Clipboard from "expo-clipboard";
@@ -22,32 +19,30 @@ import * as MediaLibrary from "expo-media-library";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import {
-  Camera,
-  Check,
-  ChevronLeft,
-  Copy,
-  Download,
-  ExternalLink,
-  FilePlus2,
-  Image as ImageIcon,
-  QrCode,
-  ScanLine,
-  Share2,
-  Wifi,
-  X
+    Camera,
+    Check,
+    ChevronLeft,
+    Copy,
+    Download,
+    ExternalLink,
+    FilePlus2,
+    Image as ImageIcon,
+    QrCode,
+    ScanLine,
+    Share2,
+    Wifi,
+    X
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Animated, PermissionsAndroid,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  ToastAndroid,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Animated, PermissionsAndroid,
+    Platform, ScrollView,
+    Text,
+    TextInput,
+    ToastAndroid,
+    TouchableOpacity,
+    View
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -237,17 +232,7 @@ export default function QrToolScreen() {
     }
   };
 
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.5}
-      />
-    ),
-    []
-  );
+  // renderBackdrop removed, handled by BottomSheet component
 
   // Safety check for navigation context readiness
   // (Moved here to ensure all Hooks render unconditionally above)
@@ -356,6 +341,7 @@ export default function QrToolScreen() {
       {/* Header */}
       <View className="flex-row items-center justify-between px-4 py-2 border-b border-outline/10">
         <TouchableOpacity
+          activeOpacity={0.8}
           onPress={() => router.back()}
           className="h-10 w-10 items-center justify-center rounded-full bg-surface-secondary/50"
         >
@@ -373,8 +359,8 @@ export default function QrToolScreen() {
           className="bg-surface-secondary h-12 rounded-full p-1 flex-row relative"
         >
           <Animated.View 
+            className="absolute top-1 bottom-1 rounded-full"
             style={[
-              styles.tabIndicator, 
               { 
                 left: tabIndicatorLeft,
                 width: containerWidth > 0 ? (containerWidth - 14) / 2 : 0,
@@ -387,12 +373,14 @@ export default function QrToolScreen() {
             ]} 
           />
           <TouchableOpacity 
+            activeOpacity={0.8}
             className="flex-1 items-center justify-center z-10"
             onPress={() => switchTab("create")}
           >
             <Text className={`font-sans-bold ${activeTab === "create" ? "text-on-surface" : "text-on-surface-secondary text-sm"}`}>Criar</Text>
           </TouchableOpacity>
           <TouchableOpacity 
+            activeOpacity={0.8}
             className="flex-1 items-center justify-center z-10"
             onPress={() => switchTab("read")}
           >
@@ -535,7 +523,7 @@ export default function QrToolScreen() {
                             </Text>
                             <Text className="font-sans text-xs text-on-surface-secondary uppercase tracking-widest mt-0.5">Resultado da Leitura</Text>
                         </View>
-                        <TouchableOpacity onPress={() => setScanResult(null)} className="h-10 w-10 items-center justify-center rounded-full bg-surface/50">
+                        <TouchableOpacity activeOpacity={0.8} onPress={() => setScanResult(null)} className="h-10 w-10 items-center justify-center rounded-full bg-surface/50">
                             <X size={20} color={isDark ? "#FFF" : "#000"} />
                         </TouchableOpacity>
                     </View>
@@ -550,6 +538,7 @@ export default function QrToolScreen() {
                                 <Text className="font-sans text-xs text-on-surface-secondary mb-1">Senha</Text>
                                 <Text className="font-sans-bold text-lg text-on-surface">{scanResult.wifiData.password || "Sem senha"}</Text>
                                 <TouchableOpacity 
+                                    activeOpacity={0.8}
                                     onPress={() => handleCopy(scanResult.wifiData?.password || "")}
                                     className="absolute right-4 top-4 h-10 w-10 items-center justify-center rounded-xl bg-primary/10"
                                 >
@@ -580,6 +569,7 @@ export default function QrToolScreen() {
                             </Button>
                         )}
                         <TouchableOpacity 
+                            activeOpacity={0.8}
                             style={{ borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)", borderWidth: 1 }}
                             onPress={() => handleCopy(scanResult.data)}
                             className="w-full h-14 bg-surface-secondary rounded-2xl items-center justify-center flex-row"
@@ -597,7 +587,7 @@ export default function QrToolScreen() {
 
       {/* Camera Scanning Overlay */}
       {isScanning && (
-        <View style={StyleSheet.absoluteFill} className="bg-black z-50">
+        <View className="absolute inset-0 bg-black z-50">
           {!permission?.granted ? (
             <View className="flex-1 items-center justify-center p-6 bg-surface">
               <Camera size={48} color={primaryColor} />
@@ -606,14 +596,14 @@ export default function QrToolScreen() {
               <Button onPress={requestPermission} className="w-full">
                 <Button.Text>Conceder Permissão</Button.Text>
               </Button>
-              <TouchableOpacity onPress={() => setIsScanning(false)} className="mt-6">
+              <TouchableOpacity activeOpacity={0.8} onPress={() => setIsScanning(false)} className="mt-6">
                 <Text className="font-sans-bold text-on-surface-secondary">Cancelar</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <View className="flex-1">
               <CameraView
-                style={StyleSheet.absoluteFill}
+                className="absolute inset-0"
                 onBarcodeScanned={handleBarcodeScanned}
                 barcodeScannerSettings={{
                   barcodeTypes: ["qr"],
@@ -639,6 +629,7 @@ export default function QrToolScreen() {
 
               {/* Close Button */}
               <TouchableOpacity
+                activeOpacity={0.8}
                 onPress={() => setIsScanning(false)}
                 className="absolute top-12 right-6 h-12 w-12 items-center justify-center rounded-full bg-black/50"
               >
@@ -649,41 +640,26 @@ export default function QrToolScreen() {
         </View>
       )}
 
-      <BottomSheetModal
-        ref={bottomSheetModalRef}
-        index={0}
+      <BottomSheet
+        sheetRef={bottomSheetModalRef}
         snapPoints={snapPoints}
-        backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: isDark ? '#18181b' : '#f4f4f5' }}
-        handleIndicatorStyle={{ backgroundColor: isDark ? '#52525b' : '#d4d4d8' }}
       >
-        <BottomSheetView 
-          className="p-6 gap-6"
-          style={{ paddingBottom: Math.max(insets.bottom, 24) }}
-        >
-          <Text className="font-sans-bold text-xl text-on-surface">
-            O que deseja fazer?
-          </Text>
+        <BottomSheet.View>
+          <BottomSheet.Header title="O que deseja fazer?" />
 
-          <View className="gap-3">
-             <Text className="font-sans-semibold text-sm text-on-surface-secondary px-1 uppercase tracking-wider">Nota</Text>
-             <Button 
-                variant="ghost"
-                onPress={handleCreateNote}
-                className="flex-row items-center p-4 bg-surface-secondary rounded-2xl border border-border"
-                style={{ borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)", borderWidth: 1 }}
-              >
-                <View className="h-10 w-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: withOpacity(primaryColor, 0.1) }}>
-                  <FilePlus2 size={20} color={primaryColor} />
-                </View>
-                <Button.Text className="flex-1 text-left">Adicionar à Nova Nota</Button.Text>
-              </Button>
-          </View>
+          <Text className="font-sans-semibold text-sm text-on-surface-secondary px-1 uppercase tracking-wider mt-2 -mb-2">Nota</Text>
+          <BottomSheet.ItemGroup>
+            <BottomSheet.Item
+              icon={<FilePlus2 size={20} color={primaryColor} />}
+              iconBackgroundColor={withOpacity(primaryColor, 0.08)}
+              title="Adicionar à Nova Nota"
+              onPress={handleCreateNote}
+            />
+          </BottomSheet.ItemGroup>
 
-          <View className="gap-3">
-            <Text className="font-sans-semibold text-sm text-on-surface-secondary px-1 uppercase tracking-wider">Arquivo</Text>
-            <View className="flex-row gap-3">
-              <Button 
+          <Text className="font-sans-semibold text-sm text-on-surface-secondary px-1 uppercase tracking-wider mt-2 -mb-2">Arquivo</Text>
+          <View className="flex-row gap-3">
+             <Button
                 variant="ghost"
                 onPress={() => {
                   bottomSheetModalRef.current?.dismiss();
@@ -695,7 +671,7 @@ export default function QrToolScreen() {
                 <Download size={18} color={primaryColor} />
                 <Button.Text className="ml-2">Galeria</Button.Text>
               </Button>
-              <Button 
+              <Button
                 variant="ghost"
                 onPress={() => {
                   bottomSheetModalRef.current?.dismiss();
@@ -707,19 +683,11 @@ export default function QrToolScreen() {
                 <Share2 size={18} color={primaryColor} />
                 <Button.Text className="ml-2">Compartilhar</Button.Text>
               </Button>
-            </View>
           </View>
-        </BottomSheetView>
-      </BottomSheetModal>
+        </BottomSheet.View>
+      </BottomSheet>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  tabIndicator: {
-    position: "absolute",
-    top: 5,
-    bottom: 5,
-    borderRadius: 999,
-  }
-});
+

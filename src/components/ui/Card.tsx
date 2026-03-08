@@ -1,6 +1,7 @@
+import { shadows } from "@/theme/shadows";
+import { clsx } from "clsx";
 import React from "react";
 import { View, type ViewProps } from "react-native";
-import { clsx } from "clsx";
 
 interface CardProps extends ViewProps {
   variant?: "elevated" | "flat";
@@ -17,9 +18,13 @@ export function Card({
       className={clsx(
         "rounded-2xl p-4",
         variant === "flat" && "bg-surface-secondary",
-        variant === "elevated" && "bg-surface shadow-sm shadow-black/5",
+        variant === "elevated" && "bg-surface",
         className,
       )}
+      style={[
+        variant === "elevated" && shadows.sm,
+        props.style
+      ]}
       {...props}
     >
       {children}

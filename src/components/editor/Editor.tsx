@@ -2,36 +2,35 @@ import { Button } from "@/components/ui/Button";
 import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
 import { useTheme } from "@/providers/ThemeProvider";
 import {
-    Bold,
-    CheckSquare,
-    Code,
-    FileCode,
-    Heading1,
-    Heading2,
-    Heading3,
-    Italic,
-    List,
-    ListOrdered,
-    Quote,
-    Strikethrough,
-    Underline,
+  Bold,
+  CheckSquare,
+  Code,
+  FileCode,
+  Heading1,
+  Heading2,
+  Heading3,
+  Italic,
+  List,
+  ListOrdered,
+  Quote,
+  Strikethrough,
+  Underline,
 } from "lucide-react-native";
 import React, {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useRef,
-    useState,
-    type ReactNode,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
 } from "react";
 import {
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Platform,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 
@@ -169,9 +168,9 @@ function ToolbarButton({
     <TouchableOpacity
       onPress={onPress}
       disabled={isBlocking}
-      activeOpacity={0.6}
+      activeOpacity={0.8}
+      className="w-[38px] h-[38px] rounded-[10px] items-center justify-center"
       style={[
-        styles.toolbarBtn,
         isActive && { backgroundColor: activeBg },
         isBlocking && { opacity: 0.3 },
       ]}
@@ -276,16 +275,16 @@ function EditorHeader({
 
   return (
     <View
+      className="flex-row items-center justify-between px-4 py-3 border-b"
       style={[
-        styles.header,
         { borderBottomColor: colors.border, backgroundColor: colors.surface },
       ]}
     >
-      <View style={styles.headerLeft}>
+      <View className="flex-row items-center flex-1">
         <Button variant="icon" onPress={onBack} className="mr-1">
           <Button.Icon icon={<ArrowLeft size={24} color={colors.text} />} />
         </Button>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>
+        <Text className="font-sans-bold text-xl ml-1" style={[{ color: colors.text }]}>
           {headerTitle}
         </Text>
       </View>
@@ -298,7 +297,7 @@ function EditorHeader({
 function EditorTitleInput({ placeholder = "Título" }: { placeholder?: string }) {
   const { title, setTitle, colors } = useEditorContext();
   return (
-    <View style={{ paddingHorizontal: 20, paddingTop: 10 }}>
+    <View className="px-5 pt-2.5">
       <TextInput
         placeholder={placeholder}
         placeholderTextColor={colors.placeholder}
@@ -306,7 +305,8 @@ function EditorTitleInput({ placeholder = "Título" }: { placeholder?: string })
         onChangeText={setTitle}
         multiline
         scrollEnabled={false}
-        style={[styles.titleInput, { color: colors.text, marginBottom: 8 }]}
+        className="font-sans-extrabold text-[26px] mb-2"
+        style={[{ color: colors.text }]}
       />
     </View>
   );
@@ -323,17 +323,16 @@ function EditorToolbar({ extraLeft, extraRight }: { extraLeft?: ReactNode; extra
 
   return (
     <View
+      className="py-1.5 border-b"
       style={{
         backgroundColor: colors.surface,
-        borderBottomWidth: 1,
         borderBottomColor: colors.border,
-        paddingVertical: 6,
       }}
     >
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.toolbarRow}
+        className="flex-row items-center px-1 pb-1.5 gap-0.5"
         keyboardShouldPersistTaps="always"
       >
         {extraLeft}
@@ -367,7 +366,7 @@ function EditorToolbar({ extraLeft, extraRight }: { extraLeft?: ReactNode; extra
           activeBg={safeAccent + "20"}
         />
 
-        <View style={[styles.separator, { backgroundColor: colors.surfaceTertiary }]} />
+        <View className="w-px h-[22px] mx-1.5 self-center" style={[{ backgroundColor: colors.surfaceTertiary }]} />
 
         <ToolbarButton
           icon={<Heading1 size={18} color={getIconColor(stylesState?.h1?.isActive)} />}
@@ -391,7 +390,7 @@ function EditorToolbar({ extraLeft, extraRight }: { extraLeft?: ReactNode; extra
           activeBg={safeAccent + "20"}
         />
 
-        <View style={[styles.separator, { backgroundColor: colors.surfaceTertiary }]} />
+        <View className="w-px h-[22px] mx-1.5 self-center" style={[{ backgroundColor: colors.surfaceTertiary }]} />
 
         <ToolbarButton
           icon={<List size={18} color={getIconColor(stylesState?.unorderedList?.isActive)} />}
@@ -415,7 +414,7 @@ function EditorToolbar({ extraLeft, extraRight }: { extraLeft?: ReactNode; extra
           activeBg={safeAccent + "20"}
         />
 
-        <View style={[styles.separator, { backgroundColor: colors.surfaceTertiary }]} />
+        <View className="w-px h-[22px] mx-1.5 self-center" style={[{ backgroundColor: colors.surfaceTertiary }]} />
 
         <ToolbarButton
           icon={<Quote size={18} color={getIconColor(stylesState?.blockQuote?.isActive)} />}
@@ -467,7 +466,7 @@ function EditorContent({
       style={{ flex: 1 }}
       keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
     >
-      <View style={{ flex: 1, paddingHorizontal: 20 }}>
+      <View className="flex-1 px-5">
         <View style={{ flex: 1 }}>
           {dataLoaded && (
             <EnrichedTextInput
@@ -540,42 +539,8 @@ export const Editor = Object.assign(EditorRoot, {
   Toolbar: EditorToolbar,
   Content: EditorContent,
 });
-
+ 
 // Re-exports
 export { wrapHtml };
 export type { EditorStylesState };
 
-// ─── Styles ──────────────────────────────────────
-const styles = StyleSheet.create({
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  headerLeft: { flexDirection: "row", alignItems: "center", flex: 1 },
-  headerTitle: { fontWeight: "700", fontSize: 20, marginLeft: 4 },
-  titleInput: { fontWeight: "800", fontSize: 26, marginBottom: 4 },
-  toolbarRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 4,
-    gap: 2,
-    paddingBottom: 6,
-  },
-  toolbarBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  separator: {
-    width: 1,
-    height: 22,
-    marginHorizontal: 6,
-    alignSelf: "center" as const,
-  },
-});

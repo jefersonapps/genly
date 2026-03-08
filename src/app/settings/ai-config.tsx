@@ -14,7 +14,7 @@ import React, { useEffect, useState } from "react";
 import {
   Platform,
   ScrollView,
-  StyleSheet, Text,
+  Text,
   TextInput,
   TouchableOpacity,
   View
@@ -92,20 +92,15 @@ export default function AIConfigScreen() {
 
   return (
     <View
+      className="flex-1"
       style={{
-        flex: 1,
         backgroundColor: colors.surface,
         paddingTop: insets.top,
       }}
     >
       <View
+        className="flex-row items-center justify-between px-5 py-3 border-b"
         style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          paddingHorizontal: 20,
-          paddingVertical: 12,
-          borderBottomWidth: 1,
           borderBottomColor: colors.border,
         }}
       >
@@ -113,9 +108,8 @@ export default function AIConfigScreen() {
           <Button.Icon icon={<ArrowLeft size={24} color={colors.text} />} />
         </Button>
         <Text
+          className="text-lg font-sans-bold"
           style={{
-            fontSize: 18,
-            fontWeight: "bold",
             color: colors.text,
           }}
         >
@@ -139,24 +133,20 @@ export default function AIConfigScreen() {
         <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 50 }}>
           <View>
             <View
+              className="flex-row items-center mb-5 p-4 rounded-xl"
               style={{
-                flexDirection: "row",
-                alignItems: "center",
-                marginBottom: 20,
                 backgroundColor: colors.surfaceSecondary,
-                padding: 16,
-                borderRadius: 12,
               }}
             >
-              <Info size={24} color={colors.primary} style={{ marginRight: 12 }} />
-              <Text style={{ flex: 1, color: colors.textSecondary, fontSize: 14 }}>
+              <Info size={24} color={colors.primary} className="mr-3" />
+              <Text className="flex-1 text-sm font-sans" style={{ color: colors.textSecondary }}>
                 Configure as chaves e modelos para habilitar a IA no editor.
                 Digite o nome exato do modelo (sem espaços).
               </Text>
             </View>
 
             {/* Model Selection */}
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            <Text className="text-base font-sans-semibold mb-3" style={{ color: colors.text }}>
               Modelo Ativo
             </Text>
             <View
@@ -168,9 +158,9 @@ export default function AIConfigScreen() {
             >
               <TouchableOpacity
                 onPress={() => setActiveModel("gemini")}
-                activeOpacity={0.7}
+                activeOpacity={0.8}
+                className="flex-1 p-4 rounded-xl border-2 items-center justify-center relative"
                 style={[
-                  styles.modelCard,
                   {
                     backgroundColor: colors.surfaceSecondary,
                     borderColor:
@@ -183,16 +173,15 @@ export default function AIConfigScreen() {
                   color={activeModel === "gemini" ? colors.primary : colors.textSecondary}
                 />
                 <Text
+                  className="mt-2 font-sans-semibold"
                   style={{
-                    marginTop: 8,
-                    fontWeight: "600",
                     color: activeModel === "gemini" ? colors.primary : colors.text,
                   }}
                 >
                   Google Gemini
                 </Text>
                 {activeModel === "gemini" && (
-                   <View style={[styles.checkBadge, { backgroundColor: colors.primary }]}>
+                   <View className="absolute top-2 right-2 w-5 h-5 rounded-full items-center justify-center" style={[{ backgroundColor: colors.primary }]}>
                        <Check size={12} color={colors.surface === "#FFFFFF" || colors.surface === "#FFF" ? "#FFFFFF" : "#000000"} />
                    </View>
                 )}
@@ -200,9 +189,9 @@ export default function AIConfigScreen() {
 
               <TouchableOpacity
                 onPress={() => setActiveModel("openai")}
-                activeOpacity={0.7}
+                activeOpacity={0.8}
+                className="flex-1 p-4 rounded-xl border-2 items-center justify-center relative"
                 style={[
-                  styles.modelCard,
                   {
                     backgroundColor: colors.surfaceSecondary,
                     borderColor:
@@ -215,16 +204,15 @@ export default function AIConfigScreen() {
                   color={activeModel === "openai" ? colors.primary : colors.textSecondary}
                 />
                 <Text
+                  className="mt-2 font-sans-semibold"
                   style={{
-                    marginTop: 8,
-                    fontWeight: "600",
                     color: activeModel === "openai" ? colors.primary : colors.text,
                   }}
                 >
                   OpenAI GPT
                 </Text>
                 {activeModel === "openai" && (
-                   <View style={[styles.checkBadge, { backgroundColor: colors.primary }]}>
+                   <View className="absolute top-2 right-2 w-5 h-5 rounded-full items-center justify-center" style={[{ backgroundColor: colors.primary }]}>
                        <Check size={12} color={colors.surface === "#FFFFFF" || colors.surface === "#FFF" ? "#FFFFFF" : "#000000"} />
                    </View>
                 )}
@@ -232,30 +220,30 @@ export default function AIConfigScreen() {
             </View>
 
             {/* Gemini Config */}
-            <View style={{ marginBottom: 24 }}>
-              <View style={styles.labelRow}>
-                <Text style={[styles.label, { color: colors.text }]}>
+            <View className="mb-6">
+              <View className="flex-row justify-between items-center mb-2">
+                <Text className="text-sm font-sans-medium" style={[{ color: colors.text }]}>
                   Chave API Gemini
                 </Text>
                 <TouchableOpacity
+                  activeOpacity={0.8}
                   onPress={() =>
                     openBrowserAsync("https://aistudio.google.com/app/apikey")
                   }
                 >
-                  <Text style={{ color: colors.primary, fontSize: 12 }}>
+                  <Text className="text-xs font-sans" style={{ color: colors.primary }}>
                     Obter chave
                   </Text>
                 </TouchableOpacity>
               </View>
               <View
-                style={[
-                  styles.inputContainer,
-                  { backgroundColor: colors.inputBg, borderColor: colors.border },
-                ]}
+                className="flex-row items-center border rounded-xl px-3 h-12"
+                style={[{ backgroundColor: colors.inputBg, borderColor: colors.border }]}
               >
                 <KeyRound size={18} color={colors.textSecondary} />
                 <TextInput
-                  style={[styles.input, { color: colors.text }]}
+                  className="flex-1 ml-2.5 text-base font-sans"
+                  style={[{ color: colors.text }]}
                   placeholder="Cole sua chave aqui..."
                   placeholderTextColor={colors.textSecondary}
                   value={geminiKey}
@@ -265,20 +253,19 @@ export default function AIConfigScreen() {
                 />
               </View>
 
-              <View style={styles.labelRow}>
-                <Text style={[styles.label, { color: colors.text, marginTop: 12 }]}>
+              <View className="flex-row justify-between items-center mb-2">
+                <Text className="text-sm font-sans-medium mt-3" style={[{ color: colors.text }]}>
                   Modelo
                 </Text>
               </View>
               <View
-                style={[
-                  styles.inputContainer,
-                  { backgroundColor: colors.inputBg, borderColor: colors.border },
-                ]}
+                className="flex-row items-center border rounded-xl px-3 h-12"
+                style={[{ backgroundColor: colors.inputBg, borderColor: colors.border }]}
               >
                 <Bot size={18} color={colors.textSecondary} />
                 <TextInput
-                  style={[styles.input, { color: colors.text }]}
+                  className="flex-1 ml-2.5 text-base font-sans"
+                  style={[{ color: colors.text }]}
                   placeholder="Nome do modelo..."
                   placeholderTextColor={colors.textSecondary}
                   value={geminiModel}
@@ -294,30 +281,30 @@ export default function AIConfigScreen() {
             </View>
 
             {/* OpenAI Config */}
-            <View style={{ marginBottom: 24 }}>
-              <View style={styles.labelRow}>
-                <Text style={[styles.label, { color: colors.text }]}>
+            <View className="mb-6">
+              <View className="flex-row justify-between items-center mb-2">
+                <Text className="text-sm font-sans-medium" style={[{ color: colors.text }]}>
                   Chave API OpenAI
                 </Text>
                 <TouchableOpacity
+                  activeOpacity={0.8}
                   onPress={() =>
                     openBrowserAsync("https://platform.openai.com/api-keys")
                   }
                 >
-                  <Text style={{ color: colors.primary, fontSize: 12 }}>
+                  <Text className="text-xs font-sans" style={{ color: colors.primary }}>
                     Obter chave
                   </Text>
                 </TouchableOpacity>
               </View>
               <View
-                style={[
-                  styles.inputContainer,
-                  { backgroundColor: colors.inputBg, borderColor: colors.border },
-                ]}
+                className="flex-row items-center border rounded-xl px-3 h-12"
+                style={[{ backgroundColor: colors.inputBg, borderColor: colors.border }]}
               >
                 <KeyRound size={18} color={colors.textSecondary} />
                 <TextInput
-                  style={[styles.input, { color: colors.text }]}
+                  className="flex-1 ml-2.5 text-base font-sans"
+                  style={[{ color: colors.text }]}
                   placeholder="Cole sua chave aqui..."
                   placeholderTextColor={colors.textSecondary}
                   value={openaiKey}
@@ -327,20 +314,19 @@ export default function AIConfigScreen() {
                 />
               </View>
 
-              <View style={styles.labelRow}>
-                 <Text style={[styles.label, { color: colors.text, marginTop: 12 }]}>
+              <View className="flex-row justify-between items-center mb-2">
+                 <Text className="text-sm font-sans-medium mt-3" style={[{ color: colors.text }]}>
                   Modelo
                 </Text>
               </View>
               <View
-                style={[
-                  styles.inputContainer,
-                  { backgroundColor: colors.inputBg, borderColor: colors.border },
-                ]}
+                className="flex-row items-center border rounded-xl px-3 h-12"
+                style={[{ backgroundColor: colors.inputBg, borderColor: colors.border }]}
               >
                 <Bot size={18} color={colors.textSecondary} />
                 <TextInput
-                  style={[styles.input, { color: colors.text }]}
+                  className="flex-1 ml-2.5 text-base font-sans"
+                  style={[{ color: colors.text }]}
                   placeholder="Nome do modelo..."
                   placeholderTextColor={colors.textSecondary}
                   value={openaiModel}
@@ -357,52 +343,3 @@ export default function AIConfigScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 12,
-  },
-  modelCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  labelRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 48,
-  },
-  input: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: 16,
-  },
-});

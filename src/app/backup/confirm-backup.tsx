@@ -3,19 +3,21 @@ import { useTheme } from "@/providers/ThemeProvider";
 import { importBackup, validateBackupFile, type BackupPreview } from "@/services/backupService";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
-  AlertTriangle,
-  Calendar,
-  CheckCircle2,
-  FileText,
-  Image,
-  Settings,
-  XCircle,
+    AlertTriangle,
+    Calendar,
+    CheckCircle2,
+    CreditCard,
+    FileText,
+    Folder,
+    Image,
+    Settings,
+    XCircle,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Text,
-  View,
+    ActivityIndicator,
+    Text,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -163,13 +165,33 @@ export default function ConfirmBackupScreen() {
               </Text>
             </View>
 
-            <View className="flex-row items-center">
+            <View className="flex-row items-center mb-4">
               <Settings size={18} color={iconColor} />
               <Text className="font-sans text-on-surface-secondary ml-3 flex-1">
                 Configurações
               </Text>
               <Text className="font-sans-bold text-on-surface">
                 {preview.settingsCount}
+              </Text>
+            </View>
+
+            <View className="flex-row items-center mb-4">
+              <Folder size={18} color={iconColor} />
+              <Text className="font-sans text-on-surface-secondary ml-3 flex-1">
+                Pastas
+              </Text>
+              <Text className="font-sans-bold text-on-surface">
+                {preview.groupCount}
+              </Text>
+            </View>
+
+            <View className="flex-row items-center">
+              <CreditCard size={18} color={iconColor} />
+              <Text className="font-sans text-on-surface-secondary ml-3 flex-1">
+                Finanças
+              </Text>
+              <Text className="font-sans-bold text-on-surface">
+                {preview.transactionCount}
               </Text>
             </View>
           </View>

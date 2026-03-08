@@ -1,18 +1,26 @@
+import { TaskCard } from "@/components/task/TaskCard";
 import { Button } from "@/components/ui/Button";
+import { ColorPicker } from "@/components/ui/ColorPicker";
+import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
 import type { Task } from "@/db/schema";
+import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
-import { bulkUpdateTasksGroup, createGroup, getAllTasks, getGroupById, updateGroup } from "@/services/taskService";
-import { stripMarkdown, truncateText } from "@/utils/markdown";
+import { bulkUpdateTasksGroup, createGroup, getAllTasks, getGroupById, getGroupByName, updateGroup } from "@/services/taskService";
+import { shadows } from "@/theme/shadows";
+import { adjustColor } from "@/utils/colors";
 import clsx from "clsx";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
     ArrowLeft,
     Check,
-    Search
+    Plus,
+    Search,
+    X
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
-    FlatList, Text,
+    FlatList, Platform,
+    Text,
     TextInput,
     TouchableOpacity,
     View
@@ -27,11 +35,16 @@ export default function GroupEditorScreen() {
     const router = useRouter();
     const { id } = useLocalSearchParams();
     const { primaryColor, resolvedTheme } = useTheme();
+    const dialog = useDialog();
     const isDark = resolvedTheme === 'dark';
     const isEditing = !!id;
 
     const [name, setName] = useState("");
     const [emoji, setEmoji] = useState("📁");
+    const [customEmojis, setCustomEmojis] = useState<string[]>([]);
+    const [isEmojiModalVisible, setIsEmojiModalVisible] = useState(false);
+    const [newEmojiInput, setNewEmojiInput] = useState("");
+    const emojiInputRef = useRef<TextInput>(null);
     const [color, setColor] = useState("#6366f1");
     const [tasks, setTasks] = useState<Task[]>([]);
     const [selectedTasks, setSelectedTasks] = useState<Set<number>>(new Set());
@@ -75,6 +88,19 @@ export default function GroupEditorScreen() {
         if (!name.trim()) return;
         setSaving(true);
         try {
+            // Check for duplicate name
+            const existingGroup = await getGroupByName(name.trim());
+            if (existingGroup && (!isEditing || existingGroup.id !== Number(id))) {
+                setSaving(false);
+                dialog.show({
+                    title: "Nome já existe",
+                    description: `Já existe um grupo chamado "${name.trim()}". Por favor, escolha um nome diferente.`,
+                    variant: "warning",
+                    buttons: [{ text: "Entendido", variant: "default" }]
+                });
+                return;
+            }
+
             let groupId: number;
             if (isEditing) {
                 groupId = Number(id);
@@ -107,6 +133,28 @@ export default function GroupEditorScreen() {
         t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         t.content?.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    const isEmoji = (str: string) => {
+        const char = Array.from(str)[0];
+        if (!char) return false;
+        // Check if it's an emoji or symbolic character
+        // Using a more compatible regex property for emojis
+        return /\p{Emoji_Presentation}|\p{Emoji_Component}|\p{Extended_Pictographic}/u.test(char);
+    };
+
+    const getContrastColor = (hex: string) => {
+        // Simple brightness calculation (YIQ)
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        // If background is light, darken text. If dark, lighten text.
+        return brightness > 128 ? adjustColor(hex, -120) : adjustColor(hex, 120);
+    };
+
+    const iconStyle = {
+        color: !isEmoji(emoji) ? getContrastColor(color) : undefined
+    };
 
     return (
         <View className="flex-1 bg-surface" style={{ paddingTop: insets.top }}>
@@ -141,10 +189,10 @@ export default function GroupEditorScreen() {
                         {/* Name & Icon Section */}
                         <View className="flex-row items-center mb-10 gap-6">
                              <View 
-                                className="w-24 h-24 rounded-[2rem] items-center justify-center shadow-lg border-4 border-white/20"
-                                style={{ backgroundColor: color }}
+                                className="w-24 h-24 rounded-[2rem] items-center justify-center border-4 border-white/20"
+                                style={[{ backgroundColor: color }, shadows.lg]}
                              >
-                                <Text className="text-5xl">{emoji}</Text>
+                                <Text className="text-5xl" style={iconStyle}>{emoji}</Text>
                              </View>
                              <View className="flex-1">
                                 <Text className="font-sans text-xs text-on-surface-secondary uppercase tracking-[0.2em] mb-2 px-1">Nome do Grupo</Text>
@@ -153,7 +201,18 @@ export default function GroupEditorScreen() {
                                     placeholderTextColor={isDark ? "#71717a" : "#a1a1aa"}
                                     value={name}
                                     onChangeText={setName}
-                                    className="font-sans-bold text-2xl text-on-surface p-1"
+                                    className="font-sans-bold"
+                                    style={{ 
+                                        color: isDark ? "#FAFAFA" : "#18181B",
+                                        paddingVertical: 0,
+                                        paddingHorizontal: 0,
+                                        height: 32,
+                                        fontSize: 24,
+                                        lineHeight: 32,
+                                        includeFontPadding: false,
+                                        textAlignVertical: "center",
+                                        marginLeft: 2,
+                                    }}
                                     autoFocus
                                 />
                              </View>
@@ -161,9 +220,10 @@ export default function GroupEditorScreen() {
 
                         {/* Emoji Selection */}
                         <Text className="font-sans text-xs text-on-surface-secondary uppercase tracking-[0.2em] mb-4 px-1">Ícone</Text>
-                        <View className="flex-row flex-wrap gap-3 mb-8">
-                            {PRESET_EMOJIS.map(e => (
+                        <View className="flex-row flex-wrap gap-3 mb-8 justify-center">
+                            {[...PRESET_EMOJIS, ...customEmojis].map(e => (
                                 <TouchableOpacity 
+                                    activeOpacity={0.8}
                                     key={e}
                                     onPress={() => setEmoji(e)}
                                     className={clsx(
@@ -172,73 +232,145 @@ export default function GroupEditorScreen() {
                                     )}
                                     style={emoji === e ? { borderColor: primaryColor } : {}}
                                 >
-                                    <Text className="text-2xl">{e}</Text>
+                                    <Text className="text-2xl" style={!isEmoji(e) ? { color: isDark ? '#FFF' : '#000' } : {}}>{e}</Text>
                                 </TouchableOpacity>
                             ))}
+                            
+                            <TouchableOpacity 
+                                activeOpacity={0.8}
+                                onPress={() => setIsEmojiModalVisible(true)}
+                                className="w-12 h-12 items-center justify-center rounded-2xl border-2 border-dashed border-on-surface/20 bg-surface-secondary"
+                            >
+                                <Plus size={24} color={isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)"} />
+                            </TouchableOpacity>
                         </View>
 
                         {/* Color Selection */}
                         <Text className="font-sans text-xs text-on-surface-secondary uppercase tracking-[0.2em] mb-4 px-1">Cor</Text>
-                        <View className="flex-row flex-wrap gap-4 mb-10">
-                            {PRESET_COLORS.map(c => (
-                                <TouchableOpacity 
-                                    key={c}
-                                    onPress={() => setColor(c)}
-                                    className={clsx(
-                                        "w-10 h-10 rounded-full border-4 items-center justify-center",
-                                        color === c ? "border-on-surface/20" : "border-transparent"
-                                    )}
-                                    style={{ backgroundColor: c }}
-                                >
-                                    {color === c && <View className="w-3 h-3 rounded-full bg-white" />}
-                                </TouchableOpacity>
-                            ))}
+                        <View className="mb-10">
+                            <ColorPicker
+                                selectedColor={color}
+                                onSelect={setColor}
+                                isDark={isDark}
+                                colors={PRESET_COLORS}
+                            />
                         </View>
 
                         {/* Task Selection Header */}
                         <View className="flex-row items-center justify-between mb-4 px-1">
-                            <Text className="font-sans text-xs text-on-surface-secondary uppercase tracking-[0.2em]">Adicionar Tarefas</Text>
+                            <Text className="font-sans text-xs text-on-surface-secondary uppercase tracking-[0.2em]">Adicionar Notas</Text>
                             <Text className="font-sans text-xs text-primary" style={{ color: primaryColor }}>{selectedTasks.size} selecionadas</Text>
                         </View>
                         
-                        <View className="flex-row items-center bg-surface-secondary rounded-2xl px-4 py-3 mb-4 border border-border">
-                            <Search size={18} color="#71717a" />
+                        <View 
+                            className="flex-row items-center h-12 bg-surface-secondary rounded-2xl px-4 mb-4"
+                            style={{ 
+                                borderWidth: 1, 
+                                borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)" 
+                            }}
+                        >
+                            <Search size={20} color={isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)"} />
                             <TextInput
-                                placeholder="Buscar tarefas..."
-                                placeholderTextColor="#71717a"
+                                placeholder="Buscar notas..."
+                                placeholderTextColor={isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)"}
                                 value={searchQuery}
                                 onChangeText={setSearchQuery}
-                                className="flex-1 ml-3 font-sans text-on-surface"
+                                className="flex-1 ml-3 font-sans text-base text-on-surface"
                             />
                         </View>
                     </View>
                 }
                 renderItem={({ item }) => (
-                    <TouchableOpacity 
-                        onPress={() => toggleTaskSelection(item.id)}
-                        activeOpacity={0.7}
-                        className={clsx(
-                            "flex-row items-center p-4 rounded-3xl mb-3 border",
-                            selectedTasks.has(item.id) ? "bg-primary/10 border-primary/30" : "bg-surface-secondary border-transparent"
-                        )}
-                        style={selectedTasks.has(item.id) ? { borderColor: primaryColor + '40', backgroundColor: primaryColor + '10' } : {}}
-                    >
-                        <View 
-                            className={clsx(
-                                "w-6 h-6 rounded-lg border-2 items-center justify-center mr-4",
-                                selectedTasks.has(item.id) ? "bg-primary border-primary" : "border-border"
-                            )}
-                            style={selectedTasks.has(item.id) ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}}
-                        >
-                            {selectedTasks.has(item.id) && <Check size={14} color="#FFF" />}
-                        </View>
-                        <View className="flex-1">
-                            <Text className="font-sans-bold text-on-surface" numberOfLines={1}>{item.title}</Text>
-                            {item.content && <Text className="font-sans text-xs text-on-surface-secondary mt-0.5" numberOfLines={1}>{truncateText(stripMarkdown(item.content), 80)}</Text>}
-                        </View>
-                    </TouchableOpacity>
+                    <View className="mb-1">
+                        <TaskCard
+                            task={item}
+                            selectionMode={true}
+                            isSelected={selectedTasks.has(item.id)}
+                            onSelect={() => toggleTaskSelection(item.id)}
+                            onPress={() => router.push(`/task/${item.id}`)}
+                        />
+                    </View>
                 )}
             />
+
+            {/* Custom Emoji Bottom Sheet Overlay */}
+            {isEmojiModalVisible && (
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    className="absolute inset-0 justify-end z-[100]"
+                    style={[{ backgroundColor: 'rgba(0,0,0,0.6)' }]}
+                >
+                    <TouchableOpacity 
+                        style={{ flex: 1 }} 
+                        activeOpacity={1} 
+                        onPress={() => setIsEmojiModalVisible(false)} 
+                    />
+                    <View 
+                        className="p-6 gap-4 rounded-t-3xl" 
+                        style={{ backgroundColor: isDark ? '#18181b' : '#f4f4f5', paddingBottom: Math.max(insets.bottom, 24) }}
+                    >
+                        <View className="flex-row items-center justify-between mb-2">
+                            <Text className="font-sans-bold text-xl text-on-surface">Adicionar Ícone</Text>
+                            <TouchableOpacity onPress={() => setIsEmojiModalVisible(false)} className="p-2 -mr-2">
+                                <X size={24} color={isDark ? '#FFF' : '#000'} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <Text className="font-sans text-sm text-on-surface-secondary mb-1">
+                            Digite ou cole um emoji, letra ou símbolo do teclado
+                        </Text>
+
+                        <View 
+                            className="bg-surface rounded-2xl p-4 my-2 items-center justify-center border"
+                            style={{ 
+                                backgroundColor: isDark ? '#27272a' : '#FFFFFF',
+                                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' 
+                            }}
+                        >
+                            <TextInput
+                                ref={emojiInputRef}
+                                value={newEmojiInput}
+                                onChangeText={(text) => {
+                                    if (text.length > 0) {
+                                        const chars = Array.from(text);
+                                        setNewEmojiInput(chars[chars.length - 1]);
+                                    } else {
+                                        setNewEmojiInput("");
+                                    }
+                                }}
+                                placeholder="😀"
+                                placeholderTextColor={isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)"}
+                                className="text-5xl text-center w-full"
+                                style={{ 
+                                    color: isDark ? '#FAFAFA' : '#18181B',
+                                    height: 64,
+                                    paddingVertical: 0,
+                                    includeFontPadding: false,
+                                    textAlignVertical: 'center'
+                                }}
+                                autoFocus
+                            />
+                        </View>
+
+                        <Button
+                            rounded="full"
+                            size="lg"
+                            className="mt-2"
+                            onPress={() => {
+                                if (newEmojiInput.trim()) {
+                                    setCustomEmojis(prev => [...prev, newEmojiInput.trim()]);
+                                    setEmoji(newEmojiInput.trim());
+                                    setNewEmojiInput("");
+                                    setIsEmojiModalVisible(false);
+                                }
+                            }}
+                            disabled={!newEmojiInput.trim()}
+                        >
+                            <Button.Text>Confirmar</Button.Text>
+                        </Button>
+                    </View>
+                </KeyboardAvoidingView>
+            )}
         </View>
     );
 }

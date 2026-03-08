@@ -1,5 +1,6 @@
 import { TaskCard } from "@/components/task/TaskCard";
 import { Avatar } from "@/components/ui/Avatar";
+import BottomSheet from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
 import { CardGradient } from "@/components/ui/CardGradient";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -13,9 +14,10 @@ import { ScreenContext } from "@/providers/ScreenProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { getSetting } from "@/services/settingsService";
 import { completeTask, deleteGroup, deleteTask, getAllGroups, getAllTasks, getMediaForTask, uncompleteTask } from "@/services/taskService";
+import { shadows } from "@/theme/shadows";
 import { adjustColor, withOpacity } from "@/utils/colors";
 import { getGreeting } from "@/utils/date";
-import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
+import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { FlashList } from "@shopify/flash-list";
 import { BlurView } from "expo-blur";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -23,14 +25,14 @@ import { Bell, CalendarDays, Clock, Edit3, FolderPlus, Plus, Search, Trash2 } fr
 import React, { useCallback, useContext, useEffect, useLayoutEffect, useState } from "react";
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, {
-  Extrapolation,
-  interpolate,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withSpring,
-  withTiming
+    Extrapolation,
+    interpolate,
+    useAnimatedScrollHandler,
+    useAnimatedStyle,
+    useSharedValue,
+    withDelay,
+    withSpring,
+    withTiming
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -259,17 +261,7 @@ export default function HomeScreen() {
     });
   };
 
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.5}
-      />
-    ),
-    []
-  );
+  // renderBackdrop removed, handled by BottomSheet component
 
   const filteredTasks = tasks.filter(
     (t) => {
@@ -342,7 +334,7 @@ export default function HomeScreen() {
                          <ScrollView ref={groupsScrollRef} horizontal showsHorizontalScrollIndicator={false} className="pl-6 overflow-visible">
                             {/* "All" Group Card */}
                             <TouchableOpacity 
-                                activeOpacity={0.7}
+                                activeOpacity={0.8}
                                 onPress={() => setSelectedGroupId(null)}
                                 onLayout={(e) => {
                                     groupCardLayouts.current['geral'] = {
@@ -393,10 +385,11 @@ export default function HomeScreen() {
                                             />
                                         </Animated.View>
                                         <Animated.View 
-                                            className="h-[140px] w-28 rounded-2xl shadow-xl border border-white/20 z-20 overflow-hidden" 
+                                            className="h-[140px] w-28 rounded-2xl border border-white/20 z-20 overflow-hidden" 
                                             style={[
                                                 centerCardStyle,
-                                                { backgroundColor: withOpacity(GERAL_CARD_THEME.colors.secondary, isDark ? 0.85 : 0.95) }
+                                                { backgroundColor: withOpacity(GERAL_CARD_THEME.colors.secondary, isDark ? 0.85 : 0.95) },
+                                                shadows.xl
                                             ]}
                                         >
                                             <BlurView 
@@ -420,7 +413,7 @@ export default function HomeScreen() {
                                         {/* FAB Container (No Glow) */}
                                         <View className="items-center justify-center relative w-12 h-12">
                                             <TouchableOpacity 
-                                                activeOpacity={0.7}
+                                                activeOpacity={0.8} 
                                                 className="rounded-full w-12 h-12 items-center justify-center"
                                                 style={{
                                                     backgroundColor: primaryColor,
@@ -438,7 +431,7 @@ export default function HomeScreen() {
                             {groups.map((group, index) => (
                                 <TouchableOpacity 
                                     key={group.id}
-                                    activeOpacity={0.7}
+                                    activeOpacity={0.8} 
                                     onPress={() => setSelectedGroupId(group.id)}
                                     onLongPress={() => handleLongPressGroup(group)}
                                     onLayout={(e) => {
@@ -491,10 +484,11 @@ export default function HomeScreen() {
                                                 />
                                             </Animated.View>
                                             <Animated.View 
-                                                className="h-[140px] w-28 rounded-2xl shadow-xl border border-white/20 items-center justify-center z-20 overflow-hidden" 
+                                                className="h-[140px] w-28 rounded-2xl border border-white/20 items-center justify-center z-20 overflow-hidden" 
                                                 style={[
                                                     centerCardStyle,
-                                                    { backgroundColor: group.color ? `${group.color}${isDark ? 'cc' : 'FF'}` : (isDark ? '#6366f1cc' : '#6366f1FF') }
+                                                    { backgroundColor: group.color ? `${group.color}${isDark ? 'cc' : 'FF'}` : (isDark ? '#6366f1cc' : '#6366f1FF') },
+                                                    shadows.xl
                                                 ]}
                                             >
                                                 <BlurView 
@@ -522,7 +516,7 @@ export default function HomeScreen() {
                                              {/* FAB Container (No Glow) */}
                                             <View className="items-center justify-center relative w-12 h-12">
                                                 <TouchableOpacity 
-                                                    activeOpacity={0.7}
+                                                    activeOpacity={0.8}
                                                     className="rounded-full w-12 h-12 items-center justify-center"
                                                     style={{
                                                         backgroundColor: primaryColor,
@@ -547,11 +541,11 @@ export default function HomeScreen() {
                             ))}
 
                             <TouchableOpacity 
-                                activeOpacity={0.7}
+                                activeOpacity={0.8}
                                 onPress={handleCreateGroup}
                                 className="mr-10 h-72 w-56 rounded-[3rem] bg-surface-secondary border border-dashed border-border p-6 items-center justify-center"
                             >
-                                <View className="h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: primaryColor + '15' }}>
+                                <View className="h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: withOpacity(primaryColor, 0.08) }}>
                                     <FolderPlus size={32} color={primaryColor} />
                                 </View>
                                 <Text className="mt-4 font-sans-bold text-base text-on-surface">Novo Grupo</Text>
@@ -712,18 +706,11 @@ export default function HomeScreen() {
             />
     </View>
 
-      <BottomSheetModal
-        ref={bottomSheetModalRef}
-        index={0}
+      <BottomSheet
+        sheetRef={bottomSheetModalRef}
         snapPoints={snapPoints}
-        backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: resolvedTheme === 'dark' ? '#18181b' : '#f4f4f5' }}
-        handleIndicatorStyle={{ backgroundColor: resolvedTheme === 'dark' ? '#52525b' : '#d4d4d8' }}
       >
-        <BottomSheetView 
-          className="p-6 gap-4"
-          style={{ paddingBottom: insets.bottom + 24 }}
-        >
+        <BottomSheet.View>
           <View className="flex-row items-center gap-4 mb-2">
             <View className="relative h-12 w-10 items-center justify-center">
               {/* Glassmorphic mini preview */}
@@ -752,25 +739,22 @@ export default function HomeScreen() {
             </Text>
           </View>
           
-          <Button 
-            variant="ghost"
-            onPress={handleEditGroup}
-            className="flex-row items-center p-4 bg-surface-secondary rounded-2xl border border-border"
-          >
-            <Button.Icon icon={<Edit3 size={20} color={resolvedTheme === 'dark' ? '#FFF' : '#000'} />} />
-            <Button.Text className="ml-4">Editar Grupo</Button.Text>
-          </Button>
-          
-          <Button 
-            variant="ghost"
-            onPress={handleDeleteGroup}
-            className="flex-row items-center p-4 bg-red-500/10 rounded-2xl border border-red-500/20"
-          >
-            <Button.Icon icon={<Trash2 size={20} color="#ef4444" />} />
-            <Button.Text style={{ color: '#ef4444' }} className="ml-4">Excluir Grupo</Button.Text>
-          </Button>
-        </BottomSheetView>
-      </BottomSheetModal>
+          <BottomSheet.ItemGroup>
+            <BottomSheet.Item
+              icon={<Edit3 size={20} color={resolvedTheme === 'dark' ? '#FFF' : '#000'} />}
+              title="Editar Grupo"
+              onPress={handleEditGroup}
+            />
+            <BottomSheet.Separator />
+            <BottomSheet.Item
+              icon={<Trash2 size={20} color="#ef4444" />}
+              iconBackgroundColor="rgba(239, 68, 68, 0.1)"
+              title="Excluir Grupo"
+              onPress={handleDeleteGroup}
+            />
+          </BottomSheet.ItemGroup>
+        </BottomSheet.View>
+      </BottomSheet>
 
       {isReady && (
         <TabHeader

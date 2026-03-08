@@ -1,12 +1,14 @@
 "use dom";
 
 import React, { useEffect, useRef, useState } from "react";
+import "../../global.css";
 // Import local katex for bundling as a fallback, but we'll try to use global too
 import { KatexCSS } from "../../lib/katex/katex-assets";
 import { KatexFontFaces } from "../../lib/katex/katex-fonts";
 import katex from "../../lib/katex/katex.min.js";
 
 export interface KatexDomProps {
+  dom?: { matchContents?: boolean; style?: { width?: string | number; height?: string | number } };
   expression: string;
   isDark: boolean;
   equationStyle: {
@@ -20,7 +22,6 @@ export interface KatexDomProps {
     borderStyle: "solid" | "dashed" | "dotted";
     containerMode: "full" | "bare" | "transparent";
   };
-  style?: React.CSSProperties;
 }
 
 export default function KatexDom({ expression, isDark, equationStyle }: KatexDomProps) {

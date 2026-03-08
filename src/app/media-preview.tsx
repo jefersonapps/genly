@@ -11,6 +11,7 @@ import { MediaPreview } from "@/components/task/MediaPreview";
 import { Button } from "@/components/ui/Button";
 import { TransparencyGrid } from "@/components/ui/TransparencyGrid";
 import { useTheme } from "@/providers/ThemeProvider";
+import { shadows } from "@/theme/shadows";
 import ReactNativeBlobUtil from 'react-native-blob-util';
 
 const CarouselItem = React.memo(({ item, width, height, onOpenDocument }: { item: { uri: string; type: string; thumbnailUri?: string }, width: number, height: number, onOpenDocument: (uri: string) => void }) => {
@@ -34,7 +35,8 @@ const CarouselItem = React.memo(({ item, width, height, onOpenDocument }: { item
                     <Button 
                         onPress={() => onOpenDocument(item.uri)}
                         variant="filled"
-                        className="px-8 py-4 rounded-full flex-row items-center gap-2 shadow-lg"
+                        className="px-8 py-4 rounded-full flex-row items-center gap-2"
+                        style={shadows.lg}
                     >
                         <ExternalLink size={20} color="#FFF" />
                         <Button.Text>Abrir Documento</Button.Text>

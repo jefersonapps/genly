@@ -1,4 +1,5 @@
 import { useTheme } from "@/providers/ThemeProvider";
+import { shadows } from "@/theme/shadows";
 import React from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 
@@ -19,7 +20,7 @@ export function LoadingOverlay({
 
   return (
     <View className="absolute z-[100] inset-0 items-center justify-center bg-black/60">
-      <View className="bg-surface rounded-2xl p-6 border border-border shadow-2xl items-center mx-6">
+      <View className="bg-surface rounded-2xl p-6 border border-border items-center mx-6" style={shadows['2xl']}>
         <ActivityIndicator size="large" color={primaryColor} />
         <Text className="mt-4 font-sans-semibold text-on-surface text-center text-lg">
           {title}

@@ -1,6 +1,9 @@
-import { Check } from "lucide-react-native";
-import React from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { shadows } from "@/theme/shadows";
+import { Check, Plus, X } from "lucide-react-native";
+import React, { useMemo, useState } from "react";
+import { Modal, Text, TouchableOpacity, View } from "react-native";
+import { runOnJS } from 'react-native-reanimated';
+import ReanimatedColorPicker, { HueSlider, OpacitySlider, Panel1, Preview } from 'reanimated-color-picker';
 
 export const PRESET_COLORS = [
   "#000000",
@@ -28,77 +31,121 @@ export function ColorPicker({
   colors = PRESET_COLORS,
   isDark
 }: ColorPickerProps) {
+  const [showModal, setShowModal] = useState(false);
+  const [sessionCustomColors, setSessionCustomColors] = useState<string[]>([]);
+
+  const handleColorComplete = (colorObj: { hex: string }) => {
+    const newColor = colorObj.hex;
+    onSelect(newColor);
+    if (!colors.includes(newColor) && !sessionCustomColors.includes(newColor)) {
+      setSessionCustomColors([...sessionCustomColors, newColor]);
+    }
+  };
+
+  const allColors = useMemo(() => {
+    const combined = [...colors, ...sessionCustomColors];
+    if (selectedColor && !combined.some(c => c.toLowerCase() === selectedColor.toLowerCase())) {
+      combined.push(selectedColor);
+    }
+    return combined;
+  }, [colors, sessionCustomColors, selectedColor]);
+
   return (
-    <View 
-      style={[
-        styles.colorGrid, 
-        { 
+    <View>
+      <View 
+        className="flex-row flex-wrap gap-3 p-4 rounded-[20px] justify-center border"
+        style={{ 
           backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)",
-          borderWidth: 1,
           borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"
-        }
-      ]}
-    >
-      {colors.map((color) => {
-        const isSelected = selectedColor.toLowerCase() === color.toLowerCase();
-        // Determine border/check color for visibility
-        const isWhite = color.toLowerCase() === "#ffffff" || color.toLowerCase() === "#fff";
-        
-        return (
-          <TouchableOpacity
-            key={color}
-            activeOpacity={0.7}
-            onPress={() => onSelect(color)}
-            style={[
-              styles.colorSwatch,
-              { backgroundColor: color },
-              isSelected && { 
-                borderColor: isDark ? "#FFF" : "#000", 
-                borderWidth: 2 
-              },
-            ]}
+        }}
+      >
+        {allColors.map((color) => {
+          const isSelected = selectedColor.toLowerCase() === color.toLowerCase();
+          // Determine border/check color for visibility
+          const isWhite = color.toLowerCase() === "#ffffff" || color.toLowerCase() === "#fff";
+          
+          return (
+            <TouchableOpacity
+              key={color}
+              activeOpacity={0.8}
+              onPress={() => onSelect(color)}
+              className="w-11 h-11 rounded-full items-center justify-center"
+              style={[
+                { backgroundColor: color },
+                shadows.sm,
+                isSelected && { 
+                  borderColor: isDark ? "#FFF" : "#000", 
+                  borderWidth: 2 
+                },
+              ]}
+            >
+              {isSelected && (
+                 <View style={shadows.sm}>
+                   <Check 
+                      size={14} 
+                      color={isWhite ? "#000" : "#FFF"} 
+                  />
+                 </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+
+        {/* Add custom color button */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setShowModal(true)}
+          className="w-11 h-11 rounded-full items-center justify-center border-2 border-dashed"
+          style={{
+            borderColor: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)",
+          }}
+        >
+          <Plus size={20} color={isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)"} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Reanimated Color Picker Modal */}
+      <Modal visible={showModal} transparent animationType="slide">
+        <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View 
+            className="p-6 rounded-t-[32px] gap-6"
+            style={{ backgroundColor: isDark ? '#171717' : '#FFFFFF', paddingBottom: 40 }}
           >
-            {isSelected && (
-               <View style={styles.colorCheck}>
-                 <Check 
-                    size={14} 
-                    color={isWhite ? "#000" : "#FFF"} 
-                />
-               </View>
-            )}
-          </TouchableOpacity>
-        );
-      })}
+            <View className="flex-row justify-between items-center mb-2">
+              <Text className="font-sans-bold text-lg" style={{ color: isDark ? '#FFF' : '#000' }}>
+                Cor Personalizada
+              </Text>
+              <TouchableOpacity onPress={() => setShowModal(false)} className="p-2">
+                <X size={24} color={isDark ? '#FFF' : '#000'} />
+              </TouchableOpacity>
+            </View>
+
+            <ReanimatedColorPicker 
+              style={{ width: '100%', gap: 16 }} 
+              value={selectedColor || '#208AEF'} 
+              onComplete={(color) => {
+                'worklet';
+                runOnJS(handleColorComplete)(color);
+              }}
+            >
+              <Preview hideInitialColor />
+              <Panel1 />
+              <HueSlider />
+              <OpacitySlider />
+            </ReanimatedColorPicker>
+            
+            <TouchableOpacity 
+              onPress={() => setShowModal(false)}
+              className="mt-4 py-4 rounded-full items-center justify-center"
+              style={{ backgroundColor: isDark ? '#FFF' : '#000' }}
+            >
+              <Text className="font-sans-bold text-base" style={{ color: isDark ? '#000' : '#FFF' }}>
+                Concluir
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  colorGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    padding: 16,
-    borderRadius: 20,
-    justifyContent: 'flex-start'
-  },
-  colorSwatch: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  colorCheck: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
-    elevation: 2,
-  }
-});

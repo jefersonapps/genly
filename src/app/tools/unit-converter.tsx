@@ -1,6 +1,7 @@
 import { Dropdown } from "@/components/ui/Dropdown";
 import { CATEGORIES, Category, convertUnit, UNITS } from "@/lib/unitConverterUtils";
 import { useTheme } from "@/providers/ThemeProvider";
+import { shadows } from "@/theme/shadows";
 import { useRouter } from "expo-router";
 import { ArrowDownUp, ChevronDown, ChevronLeft } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
@@ -84,6 +85,7 @@ export default function UnitConverterScreen() {
       {/* Header */}
       <View className="flex-row items-center justify-between px-4 py-2 border-b border-outline/10">
         <TouchableOpacity
+          activeOpacity={0.8}
           onPress={() => router.back()}
           className="h-10 w-10 items-center justify-center rounded-full bg-surface-secondary/50"
         >
@@ -99,7 +101,8 @@ export default function UnitConverterScreen() {
         <View className="py-2 mt-2">
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
                 {CATEGORIES.map(c => (
-                    <TouchableOpacity 
+                    <TouchableOpacity
+                        activeOpacity={0.8}
                         key={c}
                         onPress={() => handleCategoryChange(c)}
                         style={{ backgroundColor: category === c ? primaryColor : (isDark ? "#2A2A2A" : "#F0F0F0") }}
@@ -141,7 +144,7 @@ export default function UnitConverterScreen() {
 
                     <Dropdown>
                         <Dropdown.Trigger>
-                            <TouchableOpacity className="flex-row items-center justify-between rounded-xl px-3 py-2 bg-surface-secondary ml-4">
+                            <TouchableOpacity activeOpacity={0.8} className="flex-row items-center justify-between rounded-xl px-3 py-2 bg-surface-secondary ml-4">
                                 <Text className="font-sans-medium text-sm text-on-surface mr-2 max-w-[100px]" numberOfLines={1}>
                                     {fromUnit?.symbol || fromUnit?.name}
                                 </Text>
@@ -169,10 +172,10 @@ export default function UnitConverterScreen() {
             {/* Swap Button */}
             <View className="items-center -my-3 z-10">
                 <TouchableOpacity 
-                    onPress={handleSwap}
                     activeOpacity={0.8}
-                    className="h-10 w-10 items-center justify-center rounded-full shadow-sm"
-                    style={{ backgroundColor: isDark ? "#2A2A2A" : "#FFFFFF", borderWidth: 1, borderColor: isDark ? "#444" : "#E5E5E5" }}
+                    onPress={handleSwap}
+                    className="h-10 w-10 items-center justify-center rounded-full"
+                    style={[{ backgroundColor: isDark ? "#2A2A2A" : "#FFFFFF", borderWidth: 1, borderColor: isDark ? "#444" : "#E5E5E5" }, shadows.sm]}
                 >
                     <ArrowDownUp size={18} color={primaryColor} />
                 </TouchableOpacity>
@@ -193,7 +196,7 @@ export default function UnitConverterScreen() {
 
                     <Dropdown>
                         <Dropdown.Trigger>
-                            <TouchableOpacity className="flex-row items-center justify-between rounded-xl px-3 py-2 bg-surface-secondary ml-4">
+                            <TouchableOpacity activeOpacity={0.8} className="flex-row items-center justify-between rounded-xl px-3 py-2 bg-surface-secondary ml-4">
                                 <Text className="font-sans-medium text-sm text-on-surface mr-2 max-w-[100px]" numberOfLines={1}>
                                     {toUnit?.symbol || toUnit?.name}
                                 </Text>

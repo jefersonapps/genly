@@ -28,8 +28,8 @@ export const CardGradient = ({ color, colors: providedColors, style, className, 
   }, [color, providedColors]);
 
   return (
-    <View style={[{ flex: 1, overflow: 'hidden' }, style]} className={className}>
-      <Svg height="100%" width="100%" style={{ position: 'absolute', top: 0, left: 0 }}>
+    <View className={`flex-1 overflow-hidden ${className}`} style={style}>
+      <Svg height="100%" width="100%" className="absolute inset-0">
         <Defs>
           <LinearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
             {/* If it doesn't have a solid background (e.g. library cards), use transparency to mimic the old blurred circles */}

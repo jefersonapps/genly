@@ -2,7 +2,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { unzip, zip } from "react-native-zip-archive";
 import { db } from "../db/client";
-import { media as mediaTable, settings, tasks, transactions, type Media, type Setting, type Task, type Transaction } from "../db/schema";
+import { groups, media as mediaTable, settings, tasks, transactions, type Group, type Media, type Setting, type Task, type Transaction } from "../db/schema";
 import { copyFile, ensureDir, ensureDirectories, getCacheDir, getMediaDir, writeBase64ToFile } from "../utils/file";
 
 // Helper to strip 'file://' prefix for native libraries that expect raw paths
@@ -18,6 +18,7 @@ interface BackupMetadata {
   }>;
   settings: Setting[];
   transactions?: Transaction[];
+  groups?: Group[];
 }
 
 // Legacy structure for version 1 (JSON with base64)
@@ -49,6 +50,7 @@ export async function exportBackup(): Promise<string> {
   const allMedia = await db.select().from(mediaTable).all();
   const allSettings = await db.select().from(settings).all();
   const allTransactions = await db.select().from(transactions).all();
+  const allGroups = await db.select().from(groups).all();
 
   const tasksWithMedia = allTasks.map((task) => {
     const taskMedia = allMedia.filter((m) => m.taskId === task.id);
@@ -61,6 +63,7 @@ export async function exportBackup(): Promise<string> {
     tasks: tasksWithMedia,
     settings: allSettings,
     transactions: allTransactions,
+    groups: allGroups,
   };
 
   const timestamp = Date.now();
@@ -129,6 +132,8 @@ export interface BackupPreview {
   taskCount: number;
   mediaCount: number;
   settingsCount: number;
+  groupCount: number;
+  transactionCount: number;
 }
 
 /** Validate a backup file (zip or json) and return a preview */
@@ -154,6 +159,8 @@ export async function validateBackupFile(fileUri: string): Promise<BackupPreview
         taskCount: metadata.tasks.length,
         mediaCount,
         settingsCount: metadata.settings.length,
+        groupCount: metadata.groups?.length || 0,
+        transactionCount: metadata.transactions?.length || 0,
       };
     } finally {
       await FileSystem.deleteAsync(tempUnzipDir, { idempotent: true });
@@ -173,6 +180,8 @@ export async function validateBackupFile(fileUri: string): Promise<BackupPreview
       taskCount: backup.tasks.length,
       mediaCount,
       settingsCount: backup.settings.length,
+      groupCount: 0,
+      transactionCount: 0,
     };
   }
 }
@@ -222,8 +231,22 @@ async function restoreData(metadata: BackupMetadata, mediaSourceDir: string) {
   // Clear existing data
   await db.delete(mediaTable);
   await db.delete(tasks);
+  await db.delete(groups);
   await db.delete(settings);
   await db.delete(transactions);
+
+  // Restore groups (if present)
+  if (metadata.groups && metadata.groups.length > 0) {
+    for (const g of metadata.groups) {
+      await db.insert(groups).values({
+        id: g.id,
+        name: g.name,
+        emoji: g.emoji,
+        color: g.color,
+        createdAt: g.createdAt,
+      });
+    }
+  }
 
   // Restore settings
   for (const setting of metadata.settings) {
@@ -243,6 +266,7 @@ async function restoreData(metadata: BackupMetadata, mediaSourceDir: string) {
       deliveryTime: task.deliveryTime,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
+      completed: task.completed,
     }).returning();
 
     if (!insertedTask) continue;

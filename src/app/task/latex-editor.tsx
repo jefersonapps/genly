@@ -1,6 +1,6 @@
+import BottomSheet from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
-import { ColorPickerModal } from "@/components/ui/ColorPickerModal";
-import { Dropdown } from "@/components/ui/Dropdown";
+import { ColorPicker } from "@/components/ui/ColorPicker";
 import KatexDom from "@/components/ui/KatexDom";
 import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
 import { CaptureResult, LatexCaptureView } from "@/components/ui/LatexCaptureView";
@@ -11,13 +11,15 @@ import { useTheme } from "@/providers/ThemeProvider";
 import { latexStateService } from "@/services/latexStateService";
 import { getSetting, setSetting } from "@/services/settingsService";
 import { addMedia, createTask } from "@/services/taskService";
+import { withOpacity } from "@/utils/colors";
 import { DEFAULT_LATEX_STYLE, LatexStyle } from "@/utils/latexCapture";
+import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import * as MediaLibrary from "expo-media-library";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ExpoSharing from "expo-sharing";
-import { ArrowLeft, Download, Share2 } from "lucide-react-native";
+import { ArrowLeft, Download, FileText, Palette, Share2 } from "lucide-react-native";
 import React, { useMemo, useRef, useState } from "react";
-import { Keyboard, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Keyboard, Platform, Text, TouchableOpacity, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -58,9 +60,17 @@ export default function LatexEditorRoute() {
     previewOnly?: boolean;
   } | null>(null);
   const [latexSaving, setLatexSaving] = useState(false);
-  const [colorPickerTarget, setColorPickerTarget] = useState<keyof LatexStyle | null>(null);
+  const [activeColorKey, setActiveColorKey] = useState<keyof LatexStyle>("textColor");
   const [blurSignal, setBlurSignal] = useState(0);
   const [isStyleLoaded, setIsStyleLoaded] = useState(!!params.style);
+
+  const colorSheetRef = useRef<BottomSheetModal>(null);
+  const colorSnapPoints = useMemo(() => ["45%"], []);
+  
+  const exportSheetRef = useRef<BottomSheetModal>(null);
+  const exportSnapPoints = useMemo(() => ["45%"], []);
+
+  // renderBackdrop removed, handled by BottomSheet component
 
   const exportFormatRef = useRef<"share-png" | "save-png" | null>(null);
 
@@ -127,20 +137,39 @@ export default function LatexEditorRoute() {
   }
   const safeAccent = getContrastSafeColor(primaryColor, isDark);
 
-  const saveLatex = () => {
-    if (!latexInput.trim()) return;
+  const saveLatex = (forceNewTask = false) => {
+    if (!latexInput.trim()) {
+      dialog.show({
+        title: "Campo Vazio",
+        description: "Por favor, digite alguma equação LaTeX antes de salvar.",
+        variant: "warning"
+      });
+      return;
+    }
     setLatexSaving(true);
-    setCaptureRequest({ latex: latexInput, style: latexStyle, isDark, previewOnly: false });
+    setCaptureRequest({ 
+      latex: latexInput, 
+      style: latexStyle, 
+      isDark, 
+      previewOnly: false,
+      // Pass a custom flag inside style or use a separate ref if needed, 
+      // but easiest is to check a local state or just modify handleCaptureComplete
+    });
+    // We'll use a temporary ref to detect if we should force new task
+    forceNewTaskRef.current = forceNewTask;
   };
+
+  const forceNewTaskRef = useRef(false);
 
   const handleCaptureComplete = async (result: CaptureResult) => {
     const styleJson = JSON.stringify(latexStyle);
     if (!result.pngUri) {
       setLatexSaving(false);
+      forceNewTaskRef.current = false;
       return;
     }
 
-    if (params.mode === 'createTask') {
+    if (params.mode === 'createTask' || forceNewTaskRef.current) {
       try {
         const newTask = await createTask("Equação LaTeX", "");
         await addMedia(newTask.id, result.pngUri, "latex", latexInput, styleJson);
@@ -152,8 +181,10 @@ export default function LatexEditorRoute() {
       } catch (err) {
         console.error("Failed to create task from latex tool:", err);
         setLatexSaving(false);
+        forceNewTaskRef.current = false;
         dialog.show({ title: "Erro", description: "Falha ao criar nota automática." });
       }
+      forceNewTaskRef.current = false;
       return;
     }
 
@@ -181,7 +212,14 @@ export default function LatexEditorRoute() {
   };
 
   const handleExportLatex = (format: "share-png" | "save-png") => {
-    if (!latexInput.trim()) return;
+    if (!latexInput.trim()) {
+      dialog.show({
+        title: "Campo Vazio",
+        description: "Por favor, digite alguma equação LaTeX antes de exportar.",
+        variant: "warning"
+      });
+      return;
+    }
 
     if (format === "share-png" && latexStyle.containerMode === "transparent") {
       dialog.show({
@@ -265,65 +303,78 @@ export default function LatexEditorRoute() {
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.surface }]}>
+    <View className="flex-1" style={[{ backgroundColor: colors.surface }]}>
       <KeyboardAvoidingView 
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1, paddingTop: insets.top }}
+        className="flex-1"
+        style={[{ paddingTop: insets.top }]}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
-        <View style={{ flex: 1 }}>
+        <View className="flex-1">
           {/* Header */}
-          <View style={[styles.header, { borderBottomColor: colors.border }]}>
-            <View style={styles.headerLeft}>
+          <View 
+            className="flex-row items-center justify-between px-4 py-3 border-b"
+            style={[{ borderBottomColor: colors.border }]}
+          >
+            <View className="flex-row items-center">
               <Button variant="icon" onPress={() => router.back()} className="mr-1">
                 <Button.Icon icon={<ArrowLeft size={24} color={colors.text} />} />
               </Button>
-              <Text style={[styles.headerTitle, { color: colors.text }]}>
+              <Text className="font-sans-bold text-lg ml-2" style={[{ color: colors.text }]}>
                 {editingLatexIndex !== null ? "Editar Equação" : "Nova Equação"}
               </Text>
             </View>
 
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <Dropdown>
-                <Dropdown.Trigger>
-                  <TouchableOpacity style={[styles.toolbarBtn, { backgroundColor: colors.surfaceSecondary }]}>
-                    <Share2 size={18} color={colors.textSecondary} />
-                  </TouchableOpacity>
-                </Dropdown.Trigger>
-                <Dropdown.Content width={180} direction="bottom" align="end">
-                  <Dropdown.Item label="Compartilhar..." icon={Share2} onPress={() => handleExportLatex("share-png")} />
-                  <Dropdown.Item label="Salvar na Galeria" icon={Download} onPress={() => handleExportLatex("save-png")} />
-                </Dropdown.Content>
-              </Dropdown>
+            <View className="flex-row gap-2">
+              <TouchableOpacity 
+                activeOpacity={0.8} 
+                onPress={() => {
+                  handleDismiss();
+                  exportSheetRef.current?.present();
+                }}
+                className="w-10 h-10 rounded-full items-center justify-center"
+                style={[{ backgroundColor: colors.surfaceSecondary }]}
+              >
+                <Share2 size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
 
-              <Button rounded="full" onPress={saveLatex} loading={latexSaving}>
-                <Button.Text>{editingLatexIndex !== null ? "Salvar" : "Adicionar"}</Button.Text>
-              </Button>
+              {(params.mode !== 'createTask' || editingLatexIndex !== null) && (
+                <Button rounded="full" onPress={() => saveLatex()} loading={latexSaving}>
+                  <Button.Text>{editingLatexIndex !== null ? "Salvar" : "Adicionar"}</Button.Text>
+                </Button>
+              )}
             </View>
           </View>
 
           {!isStyleLoaded ? null : (
             <View style={{ flex: 1 }}>
               {/* Fixed Section: Preview and Code Editor */}
-              <View style={{ borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.surface }}>
+              <View 
+                className="border-b"
+                style={[{ borderBottomColor: colors.border, backgroundColor: colors.surface }]}
+              >
                 {/* Preview */}
-                <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 }}>
-                  <Text style={[styles.controlLabel, { color: colors.textSecondary, marginTop: 4 }]}>Pré-visualização</Text>
-                  <View style={[styles.previewContainer, { borderColor: colors.border, height: 160, marginBottom: 0 }]}>
+                <View className="px-5 pt-2 pb-3">
+                  <Text className="text-[13px] font-sans-bold mt-1 mb-2 uppercase tracking-widest" style={[{ color: colors.textSecondary }]}>Pré-visualização</Text>
+                  <View 
+                    className="h-40 rounded-xl border mb-0 overflow-hidden"
+                    style={[{ borderColor: colors.border }]}
+                  >
                     <KatexDom
+                      dom={{ style: { width: "100%", height: 160 } }}
                       expression={latexInput}
                       isDark={isDark}
                       equationStyle={latexStyle}
-                      style={{ width: "100%", height: "100%" }}
                     />
                   </View>
                 </View>
-
+ 
                 {/* Ace Editor Wrapper */}
-                <View style={{ paddingHorizontal: 20, paddingBottom: 16 }}>
-                  <Text style={[styles.controlLabel, { color: colors.textSecondary, marginTop: 0 }]}>Código LaTeX</Text>
+                <View className="px-5 pb-4">
+                  <Text className="text-[13px] font-sans-bold mt-0 mb-2 uppercase tracking-widest" style={[{ color: colors.textSecondary }]}>Código LaTeX</Text>
                   <View 
-                    style={{ height: 100, width: "100%", borderRadius: 12, borderWidth: 1, borderColor: colors.border, overflow: "hidden" }}
+                    className="h-32 w-full rounded-xl border overflow-hidden"
+                    style={[{ borderColor: colors.border }]}
                     onStartShouldSetResponderCapture={() => {
                       setParentScrollEnabled(false);
                       return false;
@@ -332,6 +383,7 @@ export default function LatexEditorRoute() {
                     onResponderTerminate={() => setParentScrollEnabled(true)}
                   >
                     <LatexEditorDOM
+                      dom={{ style: { width: "100%", height: 128 } }}
                       initialContent={latexInput}
                       onChange={setLatexInput}
                       isDark={isDark}
@@ -342,41 +394,63 @@ export default function LatexEditorRoute() {
               </View>
 
               <ScrollView 
-                style={styles.content} 
+                className="flex-1 px-5"
                 contentContainerStyle={{ paddingBottom: insets.bottom + 40, paddingTop: 16 }}
                 showsVerticalScrollIndicator={false}
                 scrollEnabled={parentScrollEnabled}
                 keyboardShouldPersistTaps="handled"
               >
                 <TouchableOpacity activeOpacity={1} onPress={handleDismiss}>
-                  {/* Color Pickers */}
-                  <Text style={[styles.controlLabel, { color: colors.textSecondary, marginTop: 0 }]}>Cores</Text>
-                  <View style={styles.colorRow}>
+                  {/* Color Selection Header */}
+                  <Text className="text-[13px] font-sans-bold mt-0 mb-3 uppercase tracking-widest" style={[{ color: colors.textSecondary }]}>Cores</Text>
+                  
+                  {/* Modern Active Target Selectors */}
+                  <View className="flex-row justify-between mb-4">
                     {([
                       { key: "textColor" as const, label: "Texto" },
                       { key: "backgroundColor" as const, label: "Fundo" },
                       { key: "outerColor" as const, label: "Externa" },
                       { key: "borderColor" as const, label: "Borda" },
-                    ]).map(({ key, label }) => (
-                      <TouchableOpacity
-                        key={key}
-                        onPress={() => {
-                          handleDismiss();
-                          setColorPickerTarget(key);
-                        }}
-                        style={styles.colorItem}
-                      >
-                        <View style={[
-                          styles.colorSwatch,
-                          { backgroundColor: latexStyle[key] as string, borderColor: colors.border }
-                        ]} />
-                        <Text style={[styles.colorItemLabel, { color: colors.textSecondary }]}>{label}</Text>
-                      </TouchableOpacity>
-                    ))}
+                    ]).map(({ key, label }) => {
+                      const isActive = activeColorKey === key;
+                      return (
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          key={key}
+                          onPress={() => {
+                            handleDismiss();
+                            setActiveColorKey(key);
+                            colorSheetRef.current?.present();
+                          }}
+                          className="items-center gap-1.5"
+                        >
+                          <View 
+                            className="w-12 h-12 rounded-xl border-2 items-center justify-center"
+                            style={[
+                              { 
+                                backgroundColor: latexStyle[key] as string, 
+                                borderColor: isActive ? safeAccent : colors.border 
+                              }
+                            ]} 
+                          >
+                             {isActive && (
+                               <View className="w-1.5 h-1.5 rounded-full bg-white shadow-sm" style={{ backgroundColor: luminance(latexStyle[key] as string) > 0.5 ? '#000' : '#FFF' }} />
+                             )}
+                          </View>
+                          <Text 
+                            className="text-[11px] font-sans-semibold" 
+                            style={[{ color: isActive ? safeAccent : colors.textSecondary }]}
+                          >
+                            {label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
 
+
                   {/* Sliders */}
-                  <View style={styles.sliderSection}>
+                  <View className="gap-3">
                     <RangeControl
                       label="Largura borda"
                       value={latexStyle.borderWidth}
@@ -407,21 +481,22 @@ export default function LatexEditorRoute() {
                   </View>
 
                   {/* Container Toggle */}
-                  <Text style={[styles.controlLabel, { color: colors.textSecondary }]}>Modo do Container</Text>
-                  <View style={styles.themeRow}>
+                  <Text className="text-[13px] font-sans-bold mt-4 mb-2 uppercase tracking-widest" style={[{ color: colors.textSecondary }]}>Modo do Container</Text>
+                  <View className="flex-row gap-2 mt-1">
                     {(['full', 'bare', 'transparent'] as const).map((mode) => (
                       <TouchableOpacity
+                        activeOpacity={0.8}
                         key={mode}
                         onPress={() => setLatexStyle((s) => ({ ...s, containerMode: mode }))}
+                        className="flex-1 h-11 rounded-xl border items-center justify-center"
                         style={[
-                          styles.themeBtn,
                           {
                             backgroundColor: latexStyle.containerMode === mode ? safeAccent + "20" : colors.surfaceTertiary,
                             borderColor: latexStyle.containerMode === mode ? safeAccent : "transparent",
                           },
                         ]}
                       >
-                        <Text style={[styles.themeBtnText, { color: latexStyle.containerMode === mode ? safeAccent : colors.text }]}>
+                        <Text className="text-[13px] font-sans-semibold" style={[{ color: latexStyle.containerMode === mode ? safeAccent : colors.text }]}>
                           {mode === 'full' ? "Padrão" : mode === 'bare' ? "Simples" : "Transparente"}
                         </Text>
                       </TouchableOpacity>
@@ -429,21 +504,22 @@ export default function LatexEditorRoute() {
                   </View>
 
                   {/* Border Style */}
-                  <Text style={[styles.controlLabel, { color: colors.textSecondary }]}>Estilo linha</Text>
-                  <View style={styles.themeRow}>
+                  <Text className="text-[13px] font-sans-bold mt-4 mb-2 uppercase tracking-widest" style={[{ color: colors.textSecondary }]}>Estilo linha</Text>
+                  <View className="flex-row gap-2 mt-1">
                     {(["solid", "dashed", "dotted"] as const).map((bs) => (
                       <TouchableOpacity
+                        activeOpacity={0.8}
                         key={bs}
                         onPress={() => setLatexStyle((s) => ({ ...s, borderStyle: bs }))}
+                        className="flex-1 h-11 rounded-xl border items-center justify-center"
                         style={[
-                          styles.themeBtn,
                           {
                             backgroundColor: latexStyle.borderStyle === bs ? safeAccent + "20" : colors.surfaceTertiary,
                             borderColor: latexStyle.borderStyle === bs ? safeAccent : "transparent",
                           },
                         ]}
                       >
-                        <Text style={[styles.themeBtnText, { color: latexStyle.borderStyle === bs ? safeAccent : colors.text }]}>
+                        <Text className="text-[13px] font-sans-semibold" style={[{ color: latexStyle.borderStyle === bs ? safeAccent : colors.text }]}>
                           {bs === "solid" ? "Sólida" : bs === "dashed" ? "Tracejada" : "Pontilhada"}
                         </Text>
                       </TouchableOpacity>
@@ -469,48 +545,75 @@ export default function LatexEditorRoute() {
         onCaptureError={handleCaptureError}
       />
 
-      {/* Color Picker Modal */}
-      <ColorPickerModal
-        visible={colorPickerTarget !== null}
-        title={
-          colorPickerTarget === "textColor" ? "Cor do texto" :
-          colorPickerTarget === "backgroundColor" ? "Cor de fundo" :
-          colorPickerTarget === "outerColor" ? "Cor externa" : "Cor da borda"
-        }
-        currentColor={colorPickerTarget ? (latexStyle[colorPickerTarget] as string) : "#000"}
-        onSelect={(color) => {
-          if (colorPickerTarget) setLatexStyle((s) => ({ ...s, [colorPickerTarget]: color }));
-          setColorPickerTarget(null);
-        }}
-        onClose={() => setColorPickerTarget(null)}
-        isDark={isDark}
-      />
+      {/* Color Picker Bottom Sheet */}
+      <BottomSheet
+        sheetRef={colorSheetRef}
+        snapPoints={colorSnapPoints}
+      >
+        <BottomSheet.View>
+          <View className="flex-row items-center gap-3 mb-1">
+            <View className="h-10 w-10 rounded-full items-center justify-center" style={{ backgroundColor: `${safeAccent}15` }}>
+              <Palette size={20} color={safeAccent} />
+            </View>
+            <View>
+              <Text className="font-sans-bold text-xl" style={{ color: colors.text }}>
+                {activeColorKey === "textColor" ? "Cor do Texto" :
+                 activeColorKey === "backgroundColor" ? "Cor de Fundo" :
+                 activeColorKey === "outerColor" ? "Cor Externa" : "Cor da Borda"}
+              </Text>
+              <Text className="font-sans text-xs" style={{ color: colors.textSecondary }}>Personalize sua equação com uma cor exclusiva</Text>
+            </View>
+          </View>
+
+          <ColorPicker
+            selectedColor={latexStyle[activeColorKey] as string}
+            onSelect={(color) => setLatexStyle(s => ({ ...s, [activeColorKey]: color }))}
+            isDark={isDark}
+          />
+        </BottomSheet.View>
+      </BottomSheet>
+
+      {/* Export Options Bottom Sheet */}
+      <BottomSheet
+        sheetRef={exportSheetRef}
+        snapPoints={exportSnapPoints}
+      >
+        <BottomSheet.View>
+          <BottomSheet.Header title="Opções" />
+          
+          <BottomSheet.ItemGroup>
+            <BottomSheet.Item
+              icon={<FileText size={20} color={primaryColor} />}
+              iconBackgroundColor={withOpacity(primaryColor, 0.08)}
+              title="Nova Nota"
+              onPress={() => {
+                exportSheetRef.current?.dismiss();
+                saveLatex(true);
+              }}
+            />
+            <BottomSheet.Separator />
+            <BottomSheet.Item
+              icon={<Share2 size={20} color={primaryColor} />}
+              iconBackgroundColor={withOpacity(primaryColor, 0.08)}
+              title="Compartilhar Imagem"
+              onPress={() => {
+                exportSheetRef.current?.dismiss();
+                handleExportLatex("share-png");
+              }}
+            />
+            <BottomSheet.Separator />
+            <BottomSheet.Item
+              icon={<Download size={20} color={primaryColor} />}
+              iconBackgroundColor={withOpacity(primaryColor, 0.08)}
+              title="Salvar na Galeria"
+              onPress={() => {
+                exportSheetRef.current?.dismiss();
+                handleExportLatex("save-png");
+              }}
+            />
+          </BottomSheet.ItemGroup>
+        </BottomSheet.View>
+      </BottomSheet>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  headerLeft: { flexDirection: "row", alignItems: "center" },
-  headerTitle: { fontWeight: "700", fontSize: 18, marginLeft: 8 },
-  content: { flex: 1, paddingHorizontal: 20 },
-  controlLabel: { fontSize: 13, fontWeight: "700", marginTop: 16, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 },
-  previewContainer: { height: 200, borderRadius: 12, borderWidth: 1, overflow: "hidden", marginBottom: 8 },
-  colorRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
-  colorItem: { alignItems: "center", gap: 6 },
-  colorSwatch: { width: 48, height: 48, borderRadius: 12, borderWidth: 2 },
-  colorItemLabel: { fontSize: 11, fontWeight: "600" },
-  sliderSection: { gap: 12 },
-  themeRow: { flexDirection: "row", gap: 8, marginTop: 4 },
-  themeBtn: { flex: 1, height: 44, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-  themeBtnText: { fontSize: 13, fontWeight: "600" },
-  toolbarBtn: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-});

@@ -11,6 +11,7 @@ interface ToolActionsProps {
 interface ToolActionButtonProps {
   onPress: () => void;
   icon: React.ReactNode;
+  color?: string; // Specific color for the icon background
   title: string;
   description: string;
   className?: string;
@@ -32,19 +33,26 @@ function ToolActions({ children, className, style }: ToolActionsProps) {
   );
 }
 
-function ToolActionButton({ onPress, icon, title, description, className, style }: ToolActionButtonProps) {
+function ToolActionButton({ onPress, icon, color, title, description, className, style }: ToolActionButtonProps) {
   const context = React.useContext(ToolActionsContext);
   if (!context) throw new Error("ToolActionButton must be used within ToolActions");
 
   const { primaryColor, isDark } = context;
+  const { withOpacity } = require("@/utils/colors");
+  
+  const iconBackgroundColor = color ? withOpacity(color, 0.1) : withOpacity(primaryColor, 0.1);
 
   return (
     <TouchableOpacity
       onPress={onPress}
+      activeOpacity={0.8}
       className={`w-full flex-row items-center p-5 bg-surface-secondary rounded-2xl border border-border ${className || ""}`}
       style={style}
     >
-      <View className="h-12 w-12 rounded-full items-center justify-center bg-primary/10 mr-4">
+      <View 
+        style={{ backgroundColor: iconBackgroundColor }}
+        className="h-12 w-12 rounded-full items-center justify-center mr-4"
+      >
         {icon}
       </View>
       <View className="flex-1">

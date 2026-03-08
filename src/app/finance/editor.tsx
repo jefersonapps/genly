@@ -5,28 +5,27 @@ import { useKeyboard } from "@/hooks/useKeyboard";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import {
-  createTransaction,
-  getTransactionById,
-  updateTransaction,
-  type TransactionType,
+    createTransaction,
+    getTransactionById,
+    updateTransaction,
+    type TransactionType,
 } from "@/services/financeService";
 import {
-  extractCentsFromInput,
-  formatBRL,
-  formatBRLInput,
+    extractCentsFromInput,
+    formatBRL,
+    formatBRLInput,
 } from "@/utils/currency";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Check, TrendingDown, TrendingUp } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Platform,
+    ScrollView,
+    Switch,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -143,8 +142,8 @@ export default function TransactionEditor() {
 
   return (
     <KeyboardAvoidingView
+      className="flex-1"
       style={[
-        styles.root,
         { paddingTop: insets.top, backgroundColor: colors.surface },
         flexToggle ? { flexGrow: 1 } : { flex: 1 }
       ]}
@@ -152,18 +151,18 @@ export default function TransactionEditor() {
     >
       {/* Header */}
       <View
+        className="flex-row items-center justify-between px-4 py-3 border-b"
         style={[
-          styles.header,
           { borderBottomColor: colors.border, backgroundColor: colors.surface },
         ]}
       >
-        <View style={styles.headerLeft}>
+        <View className="flex-row items-center flex-1">
           <Button variant="icon" onPress={() => router.back()} className="mr-1">
             <Button.Icon
               icon={<ArrowLeft size={24} color={colors.text} />}
             />
           </Button>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>
+          <Text className="font-sans-bold text-xl ml-1" style={[{ color: colors.text }]}>
             {isEditing ? "Editar Transação" : "Nova Transação"}
           </Text>
         </View>
@@ -175,17 +174,17 @@ export default function TransactionEditor() {
       </View>
 
       <ScrollView 
-        contentContainerStyle={[styles.content, { paddingBottom: flexToggle ? 40 : 100 }]} 
+        contentContainerStyle={[{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: flexToggle ? 40 : 100 }]} 
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {/* Type Toggle */}
-        <View style={styles.typeRow}>
+        <View className="flex-row gap-3 mb-5">
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => setType("income")}
+            className="flex-1 flex-row items-center justify-center gap-2 py-[14px] rounded-2xl border"
             style={[
-              styles.typeBtn,
               {
                 backgroundColor: isIncome ? "#22C55E18" : colors.surfaceSecondary,
                 borderColor: isIncome ? "#22C55E50" : colors.border,
@@ -194,8 +193,8 @@ export default function TransactionEditor() {
           >
             <TrendingUp size={18} color={isIncome ? "#22C55E" : colors.textSecondary} />
             <Text
+              className="font-sans-bold text-[15px]"
               style={[
-                styles.typeLabel,
                 { color: isIncome ? "#22C55E" : colors.textSecondary },
               ]}
             >
@@ -206,8 +205,8 @@ export default function TransactionEditor() {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => setType("expense")}
+            className="flex-1 flex-row items-center justify-center gap-2 py-[14px] rounded-2xl border"
             style={[
-              styles.typeBtn,
               {
                 backgroundColor: !isIncome ? "#EF444418" : colors.surfaceSecondary,
                 borderColor: !isIncome ? "#EF444450" : colors.border,
@@ -216,8 +215,8 @@ export default function TransactionEditor() {
           >
             <TrendingDown size={18} color={!isIncome ? "#EF4444" : colors.textSecondary} />
             <Text
+              className="font-sans-bold text-[15px]"
               style={[
-                styles.typeLabel,
                 { color: !isIncome ? "#EF4444" : colors.textSecondary },
               ]}
             >
@@ -232,12 +231,13 @@ export default function TransactionEditor() {
           placeholderTextColor={colors.placeholder}
           value={title}
           onChangeText={setTitle}
-          style={[styles.titleInput, { color: colors.text }]}
+          className="font-sans-extrabold text-[26px] mb-5"
+          style={[{ color: colors.text }]}
         />
 
         {/* Amount Section */}
-        <View style={styles.amountSection}>
-          <View style={styles.amountRow}>
+        <View className="mb-5">
+          <View className="mb-3">
             <TextInput
               placeholder="R$ 0,00"
               placeholderTextColor={colors.placeholder}
@@ -245,8 +245,8 @@ export default function TransactionEditor() {
               onChangeText={(t) => setAmountText(formatBRLInput(t))}
               keyboardType="numeric"
               editable={!isAmountUndefined}
+              className="font-sans-bold text-[28px] px-4 py-[14px] rounded-2xl border"
               style={[
-                styles.amountInput,
                 {
                   color: isAmountUndefined ? colors.textSecondary : typeColor,
                   backgroundColor: colors.surfaceSecondary,
@@ -257,8 +257,8 @@ export default function TransactionEditor() {
             />
           </View>
 
-          <View style={styles.undefinedRow}>
-            <Text style={[styles.undefinedLabel, { color: colors.textSecondary }]}>
+          <View className="flex-row items-center justify-between px-1">
+            <Text className="font-sans-semibold text-sm" style={[{ color: colors.textSecondary }]}>
               Valor a definir
             </Text>
             <Switch
@@ -271,8 +271,8 @@ export default function TransactionEditor() {
         </View>
 
         {/* Description */}
-        <View style={[styles.descriptionSection, { borderColor: colors.border }]}>
-          <Text style={[styles.descLabel, { color: colors.textSecondary }]}>
+        <View className="border-t pt-4" style={[{ borderColor: colors.border }]}>
+          <Text className="font-sans-bold text-xs uppercase tracking-widest mb-2" style={[{ color: colors.textSecondary }]}>
             Descrição (opcional)
           </Text>
           <TextInput
@@ -281,8 +281,9 @@ export default function TransactionEditor() {
             value={description}
             onChangeText={setDescription}
             multiline
+            className="font-sans text-base px-4 py-[14px] rounded-2xl border min-h-[120px]"
+            textAlignVertical="top"
             style={[
-              styles.descInput,
               {
                 color: colors.text,
                 backgroundColor: colors.surfaceSecondary,
@@ -295,89 +296,3 @@ export default function TransactionEditor() {
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  headerLeft: { flexDirection: "row", alignItems: "center", flex: 1 },
-  headerTitle: { fontWeight: "700", fontSize: 20, marginLeft: 4 },
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-  },
-  typeRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 20,
-  },
-  typeBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  typeLabel: {
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  titleInput: {
-    fontWeight: "800",
-    fontSize: 26,
-    marginBottom: 20,
-  },
-  amountSection: {
-    marginBottom: 20,
-  },
-  amountRow: {
-    marginBottom: 12,
-  },
-  amountInput: {
-    fontSize: 28,
-    fontWeight: "700",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  undefinedRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 4,
-  },
-  undefinedLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  descriptionSection: {
-    borderTopWidth: 1,
-    paddingTop: 16,
-  },
-  descLabel: {
-    fontSize: 12,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  descInput: {
-    fontSize: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    minHeight: 120,
-    textAlignVertical: "top",
-  },
-});

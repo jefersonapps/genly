@@ -1,13 +1,14 @@
 import { useTheme } from "@/providers/ThemeProvider";
+import { shadows } from "@/theme/shadows";
 import { clsx } from "clsx";
 import type { LucideIcon } from "lucide-react-native";
 import React, { createContext, useContext } from "react";
 import {
-  ActivityIndicator,
-  Text as RNText,
-  TouchableOpacity, type TextProps,
-  type TouchableOpacityProps,
-  type ViewStyle
+    ActivityIndicator,
+    Text as RNText,
+    TouchableOpacity, type TextProps,
+    type TouchableOpacityProps,
+    type ViewStyle
 } from "react-native";
 
 // ─── Types ───────────────────────────────────────
@@ -168,15 +169,13 @@ function ButtonRoot({
     <Ctx.Provider value={ctx}>
       <TouchableOpacity
         disabled={isDisabled}
-        activeOpacity={0.7}
+        activeOpacity={0.8}
         className={clsx(
           "flex-row items-center justify-center gap-2",
           roundedClass,
           // Background
-          variant === "filled" && "shadow-sm",
           variant === "outline" && "border border-border bg-transparent",
           variant === "ghost" && "bg-transparent",
-          variant === "danger" && "shadow-sm",
           variant === "icon" && "bg-surface-secondary",
           // Sizing
           isIcon ? ICON_SIZES[size].container : PADDING[size],
@@ -187,6 +186,7 @@ function ButtonRoot({
         style={[
           variant === "filled" && { backgroundColor: resolvedColor },
           variant === "danger" && { backgroundColor: "#EF4444" },
+          (variant === "filled" || variant === "danger") && shadows.sm,
           style as ViewStyle,
         ]}
         {...props}

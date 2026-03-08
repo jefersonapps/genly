@@ -1,3 +1,4 @@
+import BottomSheet from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
 import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
@@ -6,12 +7,14 @@ import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { aiService, validateFlashcardsJSON } from "@/services/aiService";
 import { createTask, getAllTasks, getGroupByName, getTaskById, updateTask } from "@/services/taskService";
-import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
+import { shadows } from "@/theme/shadows";
+import { withOpacity } from "@/utils/colors";
+import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Check, Download, FileEdit, FilePlus2, FileText, Library, MoreVertical, PlayCircle, Plus, Sparkles, Trash2, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Keyboard, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { FlatList, Keyboard, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -211,11 +214,7 @@ export default function FlashcardsScreen() {
       });
   };
 
-  const renderBackdrop = useCallback((props: any) => (
-      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-  ), []);
-  
-  // Animation state
+  // renderBackdrop removed, handled by BottomSheet component
   const spin = useSharedValue(0);
 
   const flipCard = () => {
@@ -368,8 +367,8 @@ export default function FlashcardsScreen() {
 
                 {cards.length === 0 ? (
                     <View className="items-center justify-center py-10 px-4 mt-8 rounded-3xl bg-surface-secondary border border-outline/10">
-                        <View className="w-20 h-20 rounded-full items-center justify-center mb-6" style={{ backgroundColor: isDark ? `${primaryColor}20` : `${primaryColor}15` }}>
-                            <Library size={40} color={primaryColor} />
+                        <View className="w-20 h-20 rounded-full items-center justify-center mb-6" style={{ backgroundColor: isDark ? '#EC489920' : '#EC489915' }}>
+                            <Library size={40} color="#EC4899" />
                         </View>
                         <Text className="font-sans-bold text-xl text-on-surface text-center mb-2">Comece a Estudar</Text>
                         <Text className="font-sans text-on-surface-secondary text-center px-4 leading-relaxed mb-4">
@@ -388,7 +387,7 @@ export default function FlashcardsScreen() {
                                         <Text className="font-sans-bold text-on-surface mb-1">Verso:</Text>
                                         <Text className="font-sans text-on-surface-secondary">{card.back}</Text>
                                     </View>
-                                    <TouchableOpacity onPress={() => deleteCard(card.id)} className="pl-4 py-2">
+                                    <TouchableOpacity activeOpacity={0.8} onPress={() => deleteCard(card.id)} className="pl-4 py-2">
                                         <Trash2 size={20} color={isDark ? "#555" : "#CCC"} />
                                     </TouchableOpacity>
                                 </View>
@@ -401,7 +400,7 @@ export default function FlashcardsScreen() {
                     onPress={() => setIsAdding(true)}
                     variant="ghost"
                     className="mt-6 border-2 border-dashed h-16"
-                    style={{ borderColor: primaryColor, backgroundColor: isDark ? `${primaryColor}15` : `${primaryColor}10` }}
+                    style={{ borderColor: primaryColor, backgroundColor: isDark ? withOpacity(primaryColor, 0.08) : withOpacity(primaryColor, 0.06) }}
                 >
                     <Button.Icon icon={Plus} color={primaryColor} size={24} />
                     <Button.Text style={{ color: primaryColor }} className="text-lg ml-2">Adicionar Cartão</Button.Text>
@@ -454,7 +453,7 @@ export default function FlashcardsScreen() {
                     rounded="full"
                     onPress={handleAddCard}
                     disabled={!newFront || !newBack}
-                    className="shadow-sm"
+                    style={shadows.sm}
                 >
                     <Button.Text>Salvar Cartão</Button.Text>
                 </Button>
@@ -472,14 +471,15 @@ export default function FlashcardsScreen() {
                          
                          {/* FRONT OF CARD */}
                          <Animated.View 
-                            className="w-full h-full rounded-3xl p-8 items-center justify-center shadow-md bg-surface"
+                            className="w-full h-full rounded-3xl p-8 items-center justify-center bg-surface"
                             style={[
                                 frontAnimatedStyle,
                                 { 
                                     borderWidth: 1, 
                                     borderColor: isDark ? "#333" : "#E5E5E5",
                                     backgroundColor: isDark ? "#1C1C1E" : "#FFF"
-                                }
+                                },
+                                shadows.md,
                             ]}
                          >
                              <Text className="font-sans-medium text-primary mb-4 text-sm uppercase tracking-widest text-center" style={{ color: primaryColor }}>
@@ -495,14 +495,15 @@ export default function FlashcardsScreen() {
 
                          {/* BACK OF CARD */}
                          <Animated.View 
-                            className="w-full h-full rounded-3xl p-8 items-center justify-center shadow-md bg-surface"
+                            className="w-full h-full rounded-3xl p-8 items-center justify-center bg-surface"
                             style={[
                                 backAnimatedStyle,
                                 { 
                                     borderWidth: 1, 
                                     borderColor: primaryColor,
-                                    backgroundColor: isDark ? `${primaryColor}15` : `${primaryColor}10`
-                                }
+                                    backgroundColor: isDark ? withOpacity(primaryColor, 0.08) : withOpacity(primaryColor, 0.06)
+                                },
+                                shadows.md,
                             ]}
                          >
                              <Text className="font-sans-medium text-primary mb-4 text-sm uppercase tracking-widest text-center" style={{ color: primaryColor }}>
@@ -522,7 +523,7 @@ export default function FlashcardsScreen() {
                             size="lg"
                             rounded="full"
                             onPress={handleNextCard}
-                            className="shadow-sm"
+                            style={shadows.sm}
                         >
                             <Button.Text>
                                 {currentIdx < cards.length - 1 ? "Próximo Cartão" : "Finalizar Estudo"}
@@ -536,56 +537,42 @@ export default function FlashcardsScreen() {
       </ScrollView>
 
       {/* Options bottom sheet */}
-      <BottomSheetModal
-        ref={optionsSheetRef}
-        index={0}
+      <BottomSheet
+        sheetRef={optionsSheetRef}
         snapPoints={snapPoints}
-        backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: isDark ? '#18181b' : '#f4f4f5' }}
-        handleIndicatorStyle={{ backgroundColor: isDark ? '#52525b' : '#d4d4d8' }}
       >
-        <BottomSheetView className="p-6 gap-4" style={{ paddingBottom: Math.max(insets.bottom, 24) }}>
-          <Text className="font-sans-bold text-xl text-on-surface mb-2">Opções</Text>
+        <BottomSheet.View>
+          <BottomSheet.Header title="Opções" />
 
-          <Button 
-            variant="ghost"
-            onPress={handleSaveToDatabase}
-            className="flex-row items-center p-4 bg-surface-secondary rounded-2xl border border-border"
-          >
-            <View className="h-10 w-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: 'rgba(59,130,246,0.1)' }}>
-              <Download size={20} color="#3B82F6" />
-            </View>
-            <Button.Text className="flex-1 text-left">Salvar no grupo Flashcards</Button.Text>
-          </Button>
+          <BottomSheet.ItemGroup>
+            <BottomSheet.Item
+              icon={<Download size={20} color="#3B82F6" />}
+              iconBackgroundColor="rgba(59,130,246,0.1)"
+              title="Salvar no grupo Flashcards"
+              onPress={handleSaveToDatabase}
+            />
+            <BottomSheet.Separator />
+            <BottomSheet.Item
+              icon={<FilePlus2 size={20} color="#3B82F6" />}
+              iconBackgroundColor="rgba(59,130,246,0.1)"
+              title="Adicionar a uma nota existente"
+              onPress={() => {
+                 optionsSheetRef.current?.dismiss();
+                 loadNotes();
+                 setShowNoteSelector(true);
+              }}
+            />
+            <BottomSheet.Separator />
+            <BottomSheet.Item
+              icon={<FileEdit size={20} color="#3B82F6" />}
+              iconBackgroundColor="rgba(59,130,246,0.1)"
+              title="Criar uma nova nota com os cartões"
+              onPress={handleCreateNoteFromCards}
+            />
+          </BottomSheet.ItemGroup>
 
-          <Button 
-            variant="ghost"
-            onPress={() => {
-               optionsSheetRef.current?.dismiss();
-               loadNotes();
-               setShowNoteSelector(true);
-            }}
-            className="flex-row items-center p-4 bg-surface-secondary rounded-2xl border border-border mt-2"
-          >
-            <View className="h-10 w-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: 'rgba(59,130,246,0.1)' }}>
-              <FilePlus2 size={20} color="#3B82F6" />
-            </View>
-            <Button.Text className="flex-1 text-left">Adicionar a uma nota existente</Button.Text>
-          </Button>
-
-          <Button 
-            variant="ghost"
-            onPress={handleCreateNoteFromCards}
-            className="flex-row items-center p-4 bg-surface-secondary rounded-2xl border border-border mt-2"
-          >
-            <View className="h-10 w-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: 'rgba(59,130,246,0.1)' }}>
-              <FileEdit size={20} color="#3B82F6" />
-            </View>
-            <Button.Text className="flex-1 text-left">Criar uma nova nota com os cartões</Button.Text>
-          </Button>
-
-        </BottomSheetView>
-      </BottomSheetModal>
+        </BottomSheet.View>
+      </BottomSheet>
 
       {/* Note Selector Modal */}
       <Modal visible={showNoteSelector} transparent animationType="slide">
@@ -593,7 +580,7 @@ export default function FlashcardsScreen() {
            <View className="bg-surface rounded-t-3xl pt-6 h-[80%]" style={{ paddingBottom: Math.max(insets.bottom, 24) }}>
              <View className="px-6 mb-4 flex-row justify-between items-center">
                 <Text className="font-sans-bold text-xl text-on-surface">Selecionar Nota</Text>
-                <TouchableOpacity onPress={() => setShowNoteSelector(false)} className="p-2 -mr-2">
+                <TouchableOpacity activeOpacity={0.8} onPress={() => setShowNoteSelector(false)} className="p-2 -mr-2">
                    <Text className="font-sans-medium text-primary">Cancelar</Text>
                 </TouchableOpacity>
              </View>
@@ -603,7 +590,7 @@ export default function FlashcardsScreen() {
                contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}
                ItemSeparatorComponent={() => <View className="h-px bg-border/50 my-2" />}
                renderItem={({ item }) => (
-                  <TouchableOpacity onPress={() => handleAppendToNote(item.id)} className="py-3 flex-row items-center">
+                  <TouchableOpacity activeOpacity={0.8} onPress={() => handleAppendToNote(item.id)} className="py-3 flex-row items-center">
                      <FileText size={20} color={isDark ? '#D4D4D8' : '#52525B'} className="mr-3" />
                      <View className="flex-1">
                         <Text className="font-sans-medium text-base text-on-surface" numberOfLines={1}>{item.title}</Text>
@@ -621,7 +608,7 @@ export default function FlashcardsScreen() {
 
       {/* AI Generation Overlay (Not a Modal to fix Android keyboard) */}
       {isAiModalVisible && (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end', zIndex: 100 }]}>
+        <View className="absolute inset-0 z-[100] justify-end" style={[{ backgroundColor: 'rgba(0,0,0,0.6)' }]}>
           <TouchableOpacity 
             style={{ flex: 1 }} 
             activeOpacity={1} 
@@ -629,7 +616,7 @@ export default function FlashcardsScreen() {
           />
           <View className="p-6 gap-4 rounded-t-3xl" style={{ backgroundColor: isDark ? '#18181b' : '#f4f4f5', paddingBottom: Math.max(insets.bottom, 24) }}>
             <View className="flex-row items-center gap-3 mb-1">
-              <View className="h-10 w-10 rounded-full items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+              <View className="h-10 w-10 rounded-full items-center justify-center" style={{ backgroundColor: withOpacity(primaryColor, 0.08) }}>
                 <Sparkles size={20} color={primaryColor} />
               </View>
               <View className="flex-1">

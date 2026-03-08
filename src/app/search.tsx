@@ -3,12 +3,14 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
 import type { Group, Media, Task } from "@/db/schema";
+import { useKeyboard } from "@/hooks/useKeyboard";
 import { useTheme } from "@/providers/ThemeProvider";
 import { getAllGroups, getAllTasks, getMediaForTask } from "@/services/taskService";
+import { FlashList } from "@shopify/flash-list";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Bell, Search as SearchIcon, X } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Platform, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function SearchScreen() {
@@ -27,6 +29,13 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(true);
   
   const inputRef = useRef<TextInput>(null);
+
+  const { isVisible: isKeyboardVisible } = useKeyboard();
+  const [flexToggle, setFlexToggle] = useState(true);
+
+  useEffect(() => {
+    setFlexToggle(!isKeyboardVisible);
+  }, [isKeyboardVisible]);
 
   useEffect(() => {
     loadData();
@@ -89,8 +98,12 @@ export default function SearchScreen() {
   return (
     <View className="flex-1 bg-surface" style={{ paddingTop: insets.top }}>
       <KeyboardAvoidingView 
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior="padding"
+        keyboardVerticalOffset={20}
         className="flex-1"
+        style={[
+            flexToggle ? { flexGrow: 1 } : { flex: 1 }
+        ]}
       >
         {/* Header */}
         <View className="px-4 py-2 flex-row items-center gap-3 border-b border-border">
@@ -136,7 +149,7 @@ export default function SearchScreen() {
               <ActivityIndicator size="large" color={primaryColor} />
           </View>
         ) : (
-          <FlatList
+          <FlashList<Task>
               data={filteredTasks}
               keyExtractor={(item) => item.id.toString()}
               contentContainerStyle={{ padding: 16, paddingBottom: 100 }}

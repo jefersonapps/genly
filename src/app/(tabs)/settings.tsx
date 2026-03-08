@@ -1,5 +1,6 @@
 import { SettingsRow } from "@/components/settings/SettingsRow";
 import { Avatar } from "@/components/ui/Avatar";
+import BottomSheet from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
 import { Divider } from "@/components/ui/Divider";
 import { TabHeader } from "@/components/ui/TabHeader";
@@ -8,28 +9,25 @@ import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { exportBackup, importBackup } from "@/services/backupService";
 import {
-    getSetting,
-    setSetting,
+  getSetting,
+  setSetting,
 } from "@/services/settingsService";
+import { withOpacity } from "@/utils/colors";
 import { copyToProfileDir, pickImages } from "@/utils/file";
-import {
-    BottomSheetBackdrop,
-    BottomSheetModal,
-    BottomSheetView
-} from "@gorhom/bottom-sheet";
+import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
 import * as LocalAuthentication from "expo-local-authentication";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import {
-    Download,
-    FolderPlus,
-    Palette,
-    Share2,
-    Shield,
-    Sparkles,
-    Upload
+  Download,
+  FolderPlus,
+  Palette,
+  Share2,
+  Shield,
+  Sparkles,
+  Upload
 } from "lucide-react-native";
 import React, { useCallback, useRef, useState } from "react";
 import { Text, View } from "react-native";
@@ -175,17 +173,7 @@ export default function SettingsScreen() {
     }
   };
 
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.5}
-      />
-    ),
-    []
-  );
+  // renderBackdrop removed, handled by BottomSheet component
 
   const handleImport = async () => {
     if (securityEnabled) {
@@ -333,55 +321,32 @@ export default function SettingsScreen() {
 
       </Animated.ScrollView>
 
-      <BottomSheetModal
-        ref={bottomSheetModalRef}
-        index={0}
+      <BottomSheet
+        sheetRef={bottomSheetModalRef}
         snapPoints={snapPoints}
-        backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: isDark ? '#18181b' : '#f4f4f5' }}
-        handleIndicatorStyle={{ backgroundColor: isDark ? '#52525b' : '#d4d4d8' }}
       >
-        <BottomSheetView 
-          className="p-6 gap-6"
-          style={{ paddingBottom: Math.max(insets.bottom, 24) }}
-        >
-          <Text className="font-sans-bold text-xl text-on-surface">
-            Exportar Backup
-          </Text>
+        <BottomSheet.View>
+          <BottomSheet.Header title="Exportar Backup" />
 
-          <View className="gap-3">
-            <Button 
-              variant="ghost"
+          <BottomSheet.ItemGroup>
+            <BottomSheet.Item
+              icon={<FolderPlus size={20} color={primaryColor} />}
+              iconBackgroundColor={withOpacity(primaryColor, 0.08)}
+              title="Salvar em Pasta"
+              subtitle="Escolher diretório local"
               onPress={handleSaveToFolder}
-              className="flex-row items-center p-4 bg-surface-secondary rounded-2xl border border-border"
-              style={{ borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)", borderWidth: 1 }}
-            >
-              <View className="h-10 w-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: primaryColor + "15" }}>
-                <FolderPlus size={20} color={primaryColor} />
-              </View>
-              <View className="flex-1">
-                <Text className="font-sans-bold text-on-surface">Salvar em Pasta</Text>
-                <Text className="font-sans text-xs text-on-surface-secondary">Escolher diretório local</Text>
-              </View>
-            </Button>
-
-            <Button 
-              variant="ghost"
+            />
+            <BottomSheet.Separator />
+            <BottomSheet.Item
+              icon={<Share2 size={20} color={primaryColor} />}
+              iconBackgroundColor={withOpacity(primaryColor, 0.08)}
+              title="Compartilhar"
+              subtitle="Enviar para outro app"
               onPress={handleShareExport}
-              className="flex-row items-center p-4 bg-surface-secondary rounded-2xl border border-border"
-              style={{ borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)", borderWidth: 1 }}
-            >
-              <View className="h-10 w-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: primaryColor + "15" }}>
-                <Share2 size={20} color={primaryColor} />
-              </View>
-              <View className="flex-1">
-                <Text className="font-sans-bold text-on-surface">Compartilhar</Text>
-                <Text className="font-sans text-xs text-on-surface-secondary">Enviar para outro app</Text>
-              </View>
-            </Button>
-          </View>
-        </BottomSheetView>
-      </BottomSheetModal>
+            />
+          </BottomSheet.ItemGroup>
+        </BottomSheet.View>
+      </BottomSheet>
     </View>
   );
 }

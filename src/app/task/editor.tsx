@@ -37,7 +37,6 @@ import {
     ActivityIndicator,
     Keyboard,
     Platform,
-    StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
@@ -46,6 +45,19 @@ import {
 import { ScrollView } from "react-native-gesture-handler";
 import PdfThumbnail from "react-native-pdf-thumbnail";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const ensureFileProtocol = (uri: string) => {
+  if (!uri) return uri;
+  if (
+    !uri.startsWith("file://") &&
+    !uri.startsWith("content://") &&
+    !uri.startsWith("http") &&
+    uri.startsWith("/")
+  ) {
+    return `file://${uri}`;
+  }
+  return uri;
+};
 
 import {
     EnrichedTextInput,
@@ -174,9 +186,9 @@ function ToolbarButton({
     <TouchableOpacity
       onPress={onPress}
       disabled={isBlocking}
-      activeOpacity={0.6}
+      activeOpacity={0.8}
+      className="w-10 h-10 rounded-full items-center justify-center m-0.5"
       style={[
-        styles.toolbarBtn,
         isActive && { backgroundColor: activeBg },
         isBlocking && { opacity: 0.3 },
       ]}
@@ -234,6 +246,7 @@ export default function TaskEditor() {
   const [undoStack, setUndoStack] = useState<string[]>([]);
   const [redoStack, setRedoStack] = useState<string[]>([]);
   const lastSavedHtmlRef = useRef<string>("");
+  const [flexToggle, setFlexToggle] = useState(true);
 
   const memoizedDate = React.useMemo(() => {
     return deliveryDate ? new Date(deliveryDate + 'T00:00:00') : new Date();
@@ -309,10 +322,18 @@ export default function TaskEditor() {
       }
     }
   }, [params.sharedText, params.sharedImages, params.reminderDate, params.deliveryDate, params.deliveryTime]);
+ 
+  useEffect(() => {
+    setFlexToggle(!isKeyboardVisible);
+  }, [isKeyboardVisible]);
 
   const loadInitialData = async () => {
     const allGroups = await getAllGroups();
-    setGroups(allGroups);
+    // Filter out restricted groups dedicated to specific tools
+    const filteredGroups = allGroups.filter(
+      (g) => g.name !== "Mapas Mentais" && g.name !== "Flashcards"
+    );
+    setGroups(filteredGroups);
     if (taskId) {
       const t = await getTaskById(taskId);
       if (t) {
@@ -443,7 +464,7 @@ export default function TaskEditor() {
                return {
                  uri: asset.uri,
                  type: 'pdf' as const,
-                 thumbnailUri: thumbnail.uri
+                 thumbnailUri: ensureFileProtocol(thumbnail.uri)
                };
              } catch (e) {
                console.error("Thumbnail generation failed for", asset.uri, e);
@@ -760,19 +781,27 @@ export default function TaskEditor() {
 
   // ─── Render ────────────────────────
   return (
-    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: colors.surface }]}>
+    <KeyboardAvoidingView 
+      className="flex-1" 
+      behavior="padding"
+      keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 20}
+      style={[
+        { paddingTop: insets.top, backgroundColor: colors.surface },
+        flexToggle ? { flexGrow: 1 } : { flex: 1 }
+      ]}
+    >
       {/* ── Header ── */}
       <View
+        className="flex-row items-center justify-between px-4 py-3 border-b"
         style={[
-          styles.header,
           { borderBottomColor: colors.border, backgroundColor: colors.surface },
         ]}
       >
-        <View style={styles.headerLeft}>
+        <View className="flex-row items-center">
           <Button variant="icon" onPress={() => router.back()} className="mr-1">
             <Button.Icon icon={<ArrowLeft size={24} color={colors.text} />} />
           </Button>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>
+          <Text className="font-sans-bold text-lg ml-2" style={[{ color: colors.text }]}>
             {isEditing ? "Editar Nota" : "Nova Nota"}
           </Text>
         </View>
@@ -783,8 +812,7 @@ export default function TaskEditor() {
         </Button>
       </View>
 
-      {/* Static Metadata Area */}
-      <View style={{ paddingHorizontal: 20, paddingTop: 10 }}>
+      <View className="px-5 pt-2.5">
         {/* Title */}
         {isTitleFocused ? (
           <TextInput
@@ -798,21 +826,30 @@ export default function TaskEditor() {
             returnKeyType="done"
             blurOnSubmit={true}
             onBlur={() => setIsTitleFocused(false)}
-            style={[styles.titleInput, { color: colors.text, marginBottom: 8 }]}
+            textAlignVertical="center"
+            className="font-extrabold"
+            style={[
+              { 
+                color: colors.text, 
+                paddingVertical: 0,
+                paddingHorizontal: 0,
+                height: 48,
+                fontSize: 26,
+                includeFontPadding: false,
+              }
+            ]}
           />
         ) : (
           <TouchableOpacity 
             activeOpacity={1} 
             onPress={() => setIsTitleFocused(true)}
-            style={{ marginBottom: 8 }}
+            style={{ height: 48, justifyContent: 'center', paddingHorizontal: 0 }}
           >
             <Text 
               numberOfLines={1} 
               ellipsizeMode="tail"
-              style={[
-                styles.titleInput, 
-                { color: title ? colors.text : colors.placeholder }
-              ]}
+              className="font-extrabold text-[26px]"
+              style={[{ color: title ? colors.text : colors.placeholder, lineHeight: 32, paddingHorizontal: 0 }]}
             >
               {title || "Título da nota"}
             </Text>
@@ -820,24 +857,23 @@ export default function TaskEditor() {
         )}
       </View>
 
-      <View style={{
-        backgroundColor: colors.surface,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-        paddingVertical: 6,
-        marginBottom: 16,
-      }}>
+      <View 
+        className="py-1.5 mb-4 border-b"
+        style={[{ backgroundColor: colors.surface, borderBottomColor: colors.border }]}
+      >
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.toolbarRow}
+          contentContainerStyle={{ alignItems: 'center', gap: 2, paddingBottom: 6, paddingHorizontal: 20 }}
           keyboardShouldPersistTaps="always"
         >
           
           <Dropdown>
             <Dropdown.Trigger>
                 <TouchableOpacity 
-                    style={[styles.toolbarBtn, aiLoading && { opacity: 0.5 }]} 
+                    activeOpacity={0.8}
+                    className="w-9.5 h-9.5 rounded-xl items-center justify-center"
+                    style={[{ opacity: aiLoading ? 0.5 : 1 }]} 
                     disabled={aiLoading}
                 >
                     {aiLoading ? (
@@ -860,9 +896,9 @@ export default function TaskEditor() {
                 />
             </Dropdown.Content>
           </Dropdown>
-
-          <View style={[styles.separator, { backgroundColor: colors.surfaceTertiary }]} />
-
+ 
+          <View className="w-[1px] h-[22px] mx-1.5 self-center" style={[{ backgroundColor: colors.surfaceTertiary }]} />
+ 
           <ToolbarButton
             icon={<Undo size={18} color={undoStack.length > 0 ? colors.text : colors.placeholder} />}
             onPress={handleUndo}
@@ -875,8 +911,8 @@ export default function TaskEditor() {
             isBlocking={redoStack.length === 0}
             activeBg={safeAccent + "20"}
           />
-
-          <View style={[styles.separator, { backgroundColor: colors.surfaceTertiary }]} />
+ 
+          <View className="w-[1px] h-[22px] mx-1.5 self-center" style={[{ backgroundColor: colors.surfaceTertiary }]} />
           
           <ToolbarButton
             icon={<Bold size={18} color={getIconColor(stylesState?.bold?.isActive)} />}
@@ -907,7 +943,7 @@ export default function TaskEditor() {
             activeBg={safeAccent + "20"}
           />
 
-          <View style={[styles.separator, { backgroundColor: colors.surfaceTertiary }]} />
+          <View className="w-[1px] h-[22px] mx-1.5 self-center" style={[{ backgroundColor: colors.surfaceTertiary }]} />
 
           <ToolbarButton
             icon={<Heading1 size={18} color={getIconColor(stylesState?.h1?.isActive)} />}
@@ -931,7 +967,7 @@ export default function TaskEditor() {
             activeBg={safeAccent + "20"}
           />
 
-          <View style={[styles.separator, { backgroundColor: colors.surfaceTertiary }]} />
+          <View className="w-[1px] h-[22px] mx-1.5 self-center" style={[{ backgroundColor: colors.surfaceTertiary }]} />
 
           <ToolbarButton
             icon={<List size={18} color={getIconColor(stylesState?.unorderedList?.isActive)} />}
@@ -955,7 +991,7 @@ export default function TaskEditor() {
             activeBg={safeAccent + "20"}
           />
 
-          <View style={[styles.separator, { backgroundColor: colors.surfaceTertiary }]} />
+          <View className="w-[1px] h-[22px] mx-1.5 self-center" style={[{ backgroundColor: colors.surfaceTertiary }]} />
 
           <ToolbarButton
             icon={<Quote size={18} color={getIconColor(stylesState?.blockQuote?.isActive)} />}
@@ -980,14 +1016,9 @@ export default function TaskEditor() {
           />
         </ScrollView>
       </View>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
-      >
-        <View style={{ flex: 1, paddingHorizontal: 20 }}>
+        <View className="flex-1 px-5">
           {/* Rich text editor container */}
-          <View style={{ flex: 1 }}>
+          <View className="flex-1">
           {dataLoaded && (
             <EnrichedTextInput
               key={`${taskId}-${initialContent?.length || 0}`}
@@ -1057,7 +1088,7 @@ export default function TaskEditor() {
               scrollEnabled={true}
             />
           )}
-
+ 
         </View>
         </View>
 
@@ -1065,10 +1096,13 @@ export default function TaskEditor() {
         {/* Media section */}
         {/* Media section */}
         {(!isKeyboardVisible || showDatePicker || showTimePicker) && (
-          <View style={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: insets.bottom + 10, backgroundColor: colors.surface }}>
+          <View 
+            className="px-5 pt-2.5 bg-surface" 
+            style={[{ paddingBottom: insets.bottom + 10, backgroundColor: colors.surface }]}
+          >
             {/* Group picker */}
-            <View style={{ marginBottom: 12 }}>
-              <Text style={[styles.label, { color: colors.textSecondary, marginBottom: 4, fontSize: 10 }]}>Grupo</Text>
+            <View className="mb-3">
+              <Text className="font-sans-bold text-[10px] uppercase tracking-widest mb-1" style={[{ color: colors.textSecondary }]}>Grupo</Text>
               <GroupChipList
                 groups={groups}
                 selectedGroupId={selectedGroupId}
@@ -1076,41 +1110,35 @@ export default function TaskEditor() {
                 accentColor={safeAccent}
               />
             </View>
-
+ 
             {/* Reminder */}
-            <View style={{ marginBottom: 12 }}>
-              <Text style={[styles.label, { color: colors.textSecondary, marginBottom: 4, fontSize: 10 }]}>Lembrete</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View className="mb-3">
+              <Text className="font-sans-bold text-[10px] uppercase tracking-widest mb-1" style={[{ color: colors.textSecondary }]}>Lembrete</Text>
+              <View className="flex-row items-center">
                 <TouchableOpacity
                   onPress={openDatePicker}
-                  activeOpacity={0.7}
+                  activeOpacity={0.8}
+                  className="flex-row items-center h-10 px-3 rounded-xl border flex-1"
                   style={[
-                    styles.groupChip,
                     {
                       borderColor: deliveryDate ? safeAccent : "transparent",
                       backgroundColor: deliveryDate ? safeAccent + "15" : colors.surfaceSecondary,
-                      flex: 1,
                       marginRight: deliveryDate ? 8 : 0,
                     },
                   ]}
                 >
-                  <Bell size={16} color={deliveryDate ? safeAccent : colors.iconDefault} style={{ marginRight: 6 }} />
-                  <Text style={{ fontSize: 13, color: deliveryDate ? colors.text : colors.textSecondary, fontFamily: 'Montserrat-Medium' }}>
+                  <Bell size={16} color={deliveryDate ? safeAccent : colors.iconDefault} style={{ marginRight: 8 }} />
+                  <Text className="text-[13px] font-sans-medium" style={[{ color: deliveryDate ? colors.text : colors.textSecondary }]}>
                     {formatReminder()}
                   </Text>
                 </TouchableOpacity>
-
+ 
                 {deliveryDate && (
                   <TouchableOpacity
+                    activeOpacity={0.8}
                     onPress={removeReminder}
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 16,
-                      backgroundColor: colors.surfaceSecondary,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
+                    className="w-8 h-8 rounded-full items-center justify-center"
+                    style={[{ backgroundColor: colors.surfaceSecondary }]}
                   >
                     <X size={14} color={colors.textSecondary} />
                   </TouchableOpacity>
@@ -1120,9 +1148,9 @@ export default function TaskEditor() {
 
 
 
-             <View style={{ height: 1, backgroundColor: colors.border, marginBottom: 12, marginTop: 4 }} />
+             <View className="h-[1px] mb-3 mt-1" style={[{ backgroundColor: colors.border }]} />
              
-             <Text style={[styles.label, { color: colors.textSecondary, marginBottom: 8, fontSize: 10 }]}>Anexos</Text>
+             <Text className="font-sans-bold text-[10px] uppercase tracking-widest mb-2" style={[{ color: colors.textSecondary }]}>Anexos</Text>
              <ScrollView
                horizontal
                showsHorizontalScrollIndicator={false}
@@ -1131,102 +1159,108 @@ export default function TaskEditor() {
              >
                <Dropdown>
                  <Dropdown.Trigger>
-                    <TouchableOpacity style={[
-                      styles.mediaThumb, 
-                      { 
+                    <TouchableOpacity 
+                      activeOpacity={0.8}
+                      style={{ 
+                        width: 80, 
+                        height: 80, 
+                        borderRadius: 16, 
                         alignItems: 'center', 
-                        justifyContent: 'center', 
+                        justifyContent: 'center',
+                        borderWidth: 1,
+                        borderStyle: 'dashed',
                         borderColor: colors.border, 
-                        borderStyle: 'dashed', 
                         backgroundColor: colors.surfaceSecondary 
-                      }
-                    ]}>
+                      }}
+                    >
                       <Plus size={24} color={colors.textSecondary} />
                     </TouchableOpacity>
                  </Dropdown.Trigger>
-                 <Dropdown.Content width={180} direction="top">
+                 <Dropdown.Content width={180} direction="top" align="start">
                    <Dropdown.Item label="Imagem" icon={ImageIcon} onPress={handlePickImage} />
                    <Dropdown.Item label="Equação LaTeX" icon={Sigma} onPress={() => openLatexEditor()} />
                    <Dropdown.Item label="Documento PDF" icon={FileText} onPress={handlePickDocument} />
                  </Dropdown.Content>
                </Dropdown>
 
-               {mediaItems.map((m) => (
-                 <View key={m.id} style={styles.mediaThumbContainer}>
-                   <TouchableOpacity 
-                     activeOpacity={0.8}
-                     onPress={() => {
-                        if (m.type === 'latex') {
-                          openLatexEditor(m.latexSource ?? undefined, undefined, m.latexStyle ?? undefined);
-                        } else {
-                          const allMedia = [
-                            ...mediaItems.map(item => ({ uri: item.uri, type: item.type, thumbnailUri: item.thumbnailUri || (item as any).thumbnail_uri })),
-                            ...tempMedia.map(item => ({ uri: item.uri, type: item.type, thumbnailUri: item.thumbnailUri || (item as any).thumbnail_uri }))
-                          ];
-                          const index = mediaItems.indexOf(m);
-                          router.push({
-                            pathname: "/media-preview",
-                            params: {
-                              uri: m.uri,
-                              type: m.type,
-                               thumbnailUri: m.thumbnailUri || (m as any).thumbnail_uri,
-                               mediaItems: JSON.stringify(allMedia),
-                               index: index >= 0 ? index.toString() : "0"
-                            }
-                          });
-                        }
-                      }}
-                   >
-                     <MediaPreview media={m as any} size={80} gridSize={12} />
-                   </TouchableOpacity>
-                   <TouchableOpacity
-                     style={styles.mediaRemoveBtn}
-                     onPress={() => removeMedia(m.id)}
-                   >
-                     <Trash2 size={12} color="#FFF" />
-                   </TouchableOpacity>
-                 </View>
-               ))}
-               {tempMedia.map((m, i) => (
-                 <View key={`t-${i}`} style={styles.mediaThumbContainer}>
-                   <TouchableOpacity 
+                {mediaItems.map((m) => (
+                  <View key={m.id} style={{ width: 80, height: 80, position: 'relative' }}>
+                    <TouchableOpacity 
                       activeOpacity={0.8}
                       onPress={() => {
-                        if (m.type === 'latex') {
-                          openLatexEditor(m.latexSource, i, m.latexStyle);
-                        } else {
-                          const allMedia = [
-                            ...mediaItems.map(item => ({ uri: item.uri, type: item.type as "image" | "latex" | "pdf", thumbnailUri: item.thumbnailUri || (item as any).thumbnail_uri })),
-                            ...tempMedia.map(item => ({ uri: item.uri, type: item.type as "image" | "latex" | "pdf", thumbnailUri: item.thumbnailUri || (item as any).thumbnail_uri }))
-                          ];
-                          const index = mediaItems.length + i;
-                          router.push({
-                            pathname: "/media-preview",
-                            params: {
-                              uri: m.uri,
-                              type: m.type,
+                         if (m.type === 'latex') {
+                           openLatexEditor(m.latexSource ?? undefined, undefined, m.latexStyle ?? undefined);
+                         } else {
+                           const allMedia = [
+                             ...mediaItems.map(item => ({ uri: item.uri, type: item.type, thumbnailUri: item.thumbnailUri || (item as any).thumbnail_uri })),
+                             ...tempMedia.map(item => ({ uri: item.uri, type: item.type, thumbnailUri: item.thumbnailUri || (item as any).thumbnail_uri }))
+                           ];
+                           const index = mediaItems.indexOf(m);
+                           router.push({
+                             pathname: "/media-preview",
+                             params: {
+                               uri: m.uri,
+                               type: m.type,
                                thumbnailUri: m.thumbnailUri || (m as any).thumbnail_uri,
                                mediaItems: JSON.stringify(allMedia),
-                               index: index.toString()
-                            }
-                          });
-                        }
-                      }}
-                   >
-                     <MediaPreview media={m as any} size={80} gridSize={12} />
-                   </TouchableOpacity>
-                   <TouchableOpacity
-                     style={styles.mediaRemoveBtn}
-                     onPress={() => removeTempMedia(i)}
-                   >
-                     <X size={12} color="#FFF" />
-                   </TouchableOpacity>
-                 </View>
-               ))}
+                                index: index >= 0 ? index.toString() : "0"
+                             }
+                           });
+                         }
+                       }}
+                    >
+                      <MediaPreview media={m as any} size={80} gridSize={12} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      style={{ position: 'absolute', top: 6, right: 6, zIndex: 10, backgroundColor: 'rgba(0,0,0,0.5)', padding: 4, borderRadius: 999 }}
+                      onPress={() => removeMedia(m.id)}
+                    >
+                      <Trash2 size={12} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                {tempMedia.map((m, i) => (
+                  <View key={`t-${i}`} style={{ width: 80, height: 80, position: 'relative' }}>
+                    <TouchableOpacity 
+                       activeOpacity={0.8}
+                       onPress={() => {
+                         if (m.type === 'latex') {
+                           openLatexEditor(m.latexSource, i, m.latexStyle);
+                         } else {
+                           const allMedia = [
+                             ...mediaItems.map(item => ({ uri: item.uri, type: item.type as "image" | "latex" | "pdf", thumbnailUri: item.thumbnailUri || (item as any).thumbnail_uri })),
+                             ...tempMedia.map(item => ({ uri: item.uri, type: item.type as "image" | "latex" | "pdf", thumbnailUri: item.thumbnailUri || (item as any).thumbnail_uri }))
+                           ];
+                           const index = mediaItems.length + i;
+                           router.push({
+                             pathname: "/media-preview",
+                             params: {
+                               uri: m.uri,
+                               type: m.type,
+                               thumbnailUri: m.thumbnailUri || (m as any).thumbnail_uri,
+                               mediaItems: JSON.stringify(allMedia),
+                                index: index.toString()
+                             }
+                           });
+                         }
+                       }}
+                    >
+                      <MediaPreview media={m as any} size={80} gridSize={12} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      style={{ position: 'absolute', top: 6, right: 6, zIndex: 10, backgroundColor: 'rgba(0,0,0,0.5)', padding: 4, borderRadius: 999 }}
+                      onPress={() => removeTempMedia(i)}
+                    >
+                      <X size={12} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
              </ScrollView>
           </View>
         )}
-      </KeyboardAvoidingView>
+
 
       {Platform.OS === "ios" && showDatePicker && (
         <DateTimePicker
@@ -1247,128 +1281,6 @@ export default function TaskEditor() {
         />
       )}
 
-    </View>
+    </KeyboardAvoidingView>
   );
 }
-
-// ─── Styles ──────────────────────────────────────
-const styles = StyleSheet.create({
-  root: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  headerLeft: { flexDirection: "row", alignItems: "center", flex: 1 },
-  headerTitle: { fontWeight: "700", fontSize: 20, marginLeft: 4 },
-  saveBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 999,
-  },
-  saveBtnText: { color: "#FFF", fontWeight: "700", fontSize: 14, marginLeft: 8 },
-  scroll: { flex: 1 },
-  scrollContent: { padding: 20, paddingBottom: 150, flexGrow: 1 },
-  label: { fontWeight: "700", fontSize: 11, textTransform: "uppercase", letterSpacing: 2, marginBottom: 10, paddingLeft: 4 },
-  groupChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    // gap: 6, // gap is not supported in all React Native versions for View style, using margin in children instead if needed or just flex gap
-  },
-  groupIcon: { width: 22, height: 22, borderRadius: 6, alignItems: "center", justifyContent: "center", marginRight: 6 },
-  groupLabel: { fontWeight: "600", fontSize: 13 },
-  titleInput: { fontWeight: "800", fontSize: 26, marginBottom: 4 },
-  mediaGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 12, paddingBottom: 10 },
-  mediaThumbContainer: {
-    width: 80,
-    height: 80,
-    position: 'relative',
-  },
-  mediaThumb: {
-    width: 80,
-    height: 80,
-    borderRadius: 16,
-    overflow: "hidden",
-    borderWidth: 1,
-  },
-  mediaRemoveBtn: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    padding: 4,
-    borderRadius: 999,
-  },
-  bottomBar: {
-    borderTopWidth: 1,
-    paddingHorizontal: 12,
-    paddingTop: 6,
-  },
-  toolbarRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 4, gap: 2, paddingBottom: 6 },
-  toolbarBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  separator: { width: 1, height: 22, marginHorizontal: 6, alignSelf: "center" as const },
-  actionBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 6,
-    borderRadius: 24,
-    borderWidth: 1,
-    marginBottom: 4,
-  },
-  actionSep: { width: 1, height: 24, marginHorizontal: 8 },
-  latexBtn: { paddingHorizontal: 16, height: 44, alignItems: "center", justifyContent: "center" },
-  latexBtnText: { fontWeight: "700", fontSize: 11, textTransform: "uppercase", letterSpacing: 2 },
-  aiReviewFloating: {
-    position: "absolute",
-    bottom: 12,
-    right: 12,
-    padding: 8,
-    borderRadius: 12,
-    elevation: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-  },
-  aiReviewLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    marginRight: 4,
-  },
-  aiReviewRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  aiReviewBtn: {
-    paddingHorizontal: 12,
-    height: 32,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-  },
-  aiReviewText: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  sliderSection: { marginTop: 8, gap: 12 },
-});

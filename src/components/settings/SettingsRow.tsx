@@ -16,6 +16,7 @@ interface SettingsRowProps {
     onValueChange: (value: boolean) => void;
   };
   disabled?: boolean;
+  containerStyle?: any;
 }
 
 export function SettingsRow({
@@ -28,6 +29,7 @@ export function SettingsRow({
   toggle,
   disabled = false,
   iconBackgroundColor,
+  containerStyle,
 }: SettingsRowProps) {
   const { primaryColor } = useTheme();
 
@@ -64,11 +66,11 @@ export function SettingsRow({
 
   if (onPress) {
     return (
-      <TouchableOpacity onPress={onPress} activeOpacity={0.6} disabled={disabled} style={disabled && { opacity: 0.5 }}>
+      <TouchableOpacity onPress={onPress} activeOpacity={0.8} disabled={disabled} style={[disabled && { opacity: 0.5 }, containerStyle]}>
         {content}
       </TouchableOpacity>
     );
   }
 
-  return content;
+  return <View style={containerStyle}>{content}</View>;
 }

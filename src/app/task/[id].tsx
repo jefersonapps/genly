@@ -278,6 +278,7 @@ export default function TaskDetail() {
               >
                   {mediaItems.map((m) => (
                       <TouchableOpacity 
+                          activeOpacity={0.8}
                           key={m.id} 
                           onPress={() => openMedia(m)}
                           className="rounded-xl overflow-hidden"

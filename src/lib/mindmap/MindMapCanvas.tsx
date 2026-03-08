@@ -1,16 +1,16 @@
 import {
-    Canvas,
-    Group,
-    Path,
-    Picture,
-    Rect,
-    Skia,
-    Text as SkiaText,
-    useFont,
-    type SkFont
+  Canvas,
+  Group,
+  Path,
+  Picture,
+  Rect,
+  Skia,
+  Text as SkiaText,
+  useFont,
+  type SkFont
 } from '@shopify/react-native-skia';
 import React, { useMemo } from 'react';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 import { useDerivedValue, type SharedValue } from 'react-native-reanimated';
 import { computeEdges } from './layoutEngine';
 import type { DragState, ResizeState } from './useMapGestures';
@@ -659,7 +659,7 @@ export const MindMapCanvas = React.memo(function MindMapCanvas({
   const isBgDark = hexLuminance(bgColor) < 0.5;
 
   return (
-    <Canvas style={styles.canvas}>
+    <Canvas style={{ flex: 1 }}>
       <BackgroundLayer
          isDark={isDark}
          canvasBgColor={canvasBgColor}
@@ -682,5 +682,3 @@ export const MindMapCanvas = React.memo(function MindMapCanvas({
     </Canvas>
   );
 });
-
-const styles = StyleSheet.create({ canvas: { flex: 1 } });

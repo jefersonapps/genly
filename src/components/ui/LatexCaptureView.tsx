@@ -1,10 +1,10 @@
 import {
-  buildCaptureHtml,
-  type LatexStyle,
-  saveLatexPng,
+    buildCaptureHtml,
+    type LatexStyle,
+    saveLatexPng,
 } from "@/utils/latexCapture";
 import React, { useCallback, useRef, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { View } from "react-native";
 import { WebView } from "react-native-webview";
 
 export interface CaptureResult {
@@ -100,31 +100,19 @@ export function LatexCaptureView({ captureRequest, onCaptureComplete, onCaptureE
   if (!html) return null;
 
   return (
-    <View style={styles.container} pointerEvents="none">
+    <View 
+      className="absolute -left-[9999px] -top-[9999px] w-[600px] h-[400px] opacity-0" 
+      pointerEvents="none"
+    >
       <WebView
         ref={webViewRef}
         source={{ html }}
         originWhitelist={["*"]}
         javaScriptEnabled
         onMessage={handleMessage}
-        style={styles.webview}
+        className="flex-1 bg-transparent"
         scrollEnabled={false}
       />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    position: "absolute",
-    left: -9999,
-    top: -9999,
-    width: 600,
-    height: 400,
-    opacity: 0,
-  },
-  webview: {
-    flex: 1,
-    backgroundColor: "transparent",
-  },
-});

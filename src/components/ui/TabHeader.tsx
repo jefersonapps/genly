@@ -1,6 +1,6 @@
 import { useTheme } from '@/providers/ThemeProvider';
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import Animated, {
     Extrapolation,
     interpolate,
@@ -121,10 +121,10 @@ export const TabHeader: React.FC<TabHeaderProps> = ({
   });
 
   return (
-    <View style={styles.container} pointerEvents="box-none">
+    <View className="absolute top-0 left-0 right-0 z-50" pointerEvents="box-none">
       <Animated.View
+        className="pb-2 px-6"
         style={[
-          styles.headerBar,
           { paddingTop: insets.top + 4 },
           containerAnimStyle,
         ]}
@@ -132,11 +132,10 @@ export const TabHeader: React.FC<TabHeaderProps> = ({
       >
         {/* Background layer — solid color, numeric opacity only (no rgba strings) */}
         <Animated.View
+          className="absolute inset-0 border-b"
           style={[
-            StyleSheet.absoluteFill,
             {
               backgroundColor: bgColor,
-              borderBottomWidth: 1,
               borderBottomColor: borderColor,
             },
             bgLayerStyle,
@@ -144,10 +143,10 @@ export const TabHeader: React.FC<TabHeaderProps> = ({
           pointerEvents="none"
         />
 
-        <View style={styles.content}>
-          <View style={styles.leftSection}>
+        <View className="flex-row items-center justify-between h-12">
+          <View className="flex-row items-center gap-3 flex-1">
             {leftComponent}
-            <View style={styles.titleContainer}>
+            <View className="relative h-7 justify-center flex-1">
               <Animated.Text 
                 className="absolute font-sans-bold text-lg text-on-surface"
                 style={headerTitleStyle}
@@ -167,7 +166,7 @@ export const TabHeader: React.FC<TabHeaderProps> = ({
             </View>
           </View>
           
-          <View style={styles.rightSection}>
+          <View className="flex-row gap-3 ml-auto">
             {rightComponent}
           </View>
         </View>
@@ -178,43 +177,3 @@ export const TabHeader: React.FC<TabHeaderProps> = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 50,
-  },
-  headerBar: {
-    paddingBottom: 8,
-    paddingHorizontal: 24,
-    // No elevation, no shadowColor/Offset/Radius here —
-    // these cause native re-layout loops on Android during scroll.
-    // The background + border are handled by the bgLayer child.
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 48,
-  },
-  leftSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  titleContainer: {
-    position: 'relative',
-    height: 28,
-    justifyContent: 'center',
-    flex: 1,
-  },
-  rightSection: {
-    flexDirection: 'row',
-    gap: 12,
-    marginLeft: 'auto',
-  },
-});

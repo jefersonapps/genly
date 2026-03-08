@@ -1,4 +1,5 @@
 import { useTheme } from "@/providers/ThemeProvider";
+import { shadows } from "@/theme/shadows";
 import React, { createContext, useContext } from "react";
 import {
     Animated,
@@ -165,7 +166,7 @@ function DialogButton({
 
   return (
     <TouchableOpacity
-      activeOpacity={0.7}
+      activeOpacity={0.8}
       onPress={handlePress}
       disabled={disabled || loading}
       className={`rounded-xl overflow-hidden flex-row items-center justify-center gap-2 ${variant === 'outline' ? 'border border-border' : ''}`}
@@ -250,7 +251,7 @@ function DialogRoot({ visible, onClose, children }: DialogRootProps) {
             <Animated.View
               style={{ transform: [{ scale: scaleAnim }] }}
             >
-              <View className="bg-surface rounded-2xl p-6 border border-border shadow-2xl">
+              <View className="bg-surface rounded-2xl p-6 border border-border" style={shadows['2xl']}>
                 {children}
               </View>
             </Animated.View>

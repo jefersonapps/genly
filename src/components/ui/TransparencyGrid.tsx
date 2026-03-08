@@ -1,4 +1,3 @@
-import React from 'react';
 import { StyleSheet, View, ViewProps } from 'react-native';
 import Svg, { Defs, Pattern, Rect } from 'react-native-svg';
 
@@ -11,9 +10,9 @@ interface TransparencyGridProps extends ViewProps {
  * A reusable checkerboard background component to visualize transparency.
  * Standard grid pattern seen in image editors like Photoshop.
  */
-export function TransparencyGrid({ size = 16, opacity = 0.4, style, ...props }: TransparencyGridProps) {
+export function TransparencyGrid({ size = 16, opacity = 0.4, style, className, ...props }: TransparencyGridProps & { className?: string }) {
   return (
-    <View style={[styles.container, style]} {...props}>
+    <View className={className} style={[StyleSheet.absoluteFill, style]} {...props}>
       <Svg width="100%" height="100%" style={{ opacity }}>
         <Defs>
           <Pattern
@@ -37,9 +36,3 @@ export function TransparencyGrid({ size = 16, opacity = 0.4, style, ...props }: 
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    ...StyleSheet.absoluteFillObject,
-  },
-});

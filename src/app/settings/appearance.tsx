@@ -6,7 +6,6 @@ import { ArrowLeft, Check } from "lucide-react-native";
 import React from "react";
 import {
     ScrollView,
-    StyleSheet,
     Switch,
     Text,
     TouchableOpacity,
@@ -54,11 +53,11 @@ export default function AppearanceScreen() {
       <TouchableOpacity
         onPress={onPress}
         activeOpacity={0.8}
-        style={{ alignItems: "center", gap: 8, flex: 1 }}
+        className="items-center gap-2 flex-1"
       >
         <View
+          className="w-full aspect-[0.65] rounded-xl overflow-hidden"
           style={[
-            styles.cardContainer,
             {
               backgroundColor: cardBg,
               borderColor: isActive ? primaryColor : cardBorder,
@@ -95,31 +94,30 @@ export default function AppearanceScreen() {
             />
 
             {/* Bottom Bar Mock */}
-            <View style={{ marginTop: 'auto', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 4 }}>
-                 <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: mockText2 }} />
+            <View className="mt-auto flex-row items-center justify-around px-1">
+                 <View className="w-3 h-3 rounded-full" style={[{ backgroundColor: mockText2 }]} />
                  
                  {/* FAB mimic */}
-                 <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: primaryColor, alignItems: 'center', justifyContent: 'center' }}>
-                    <View style={{ width: 10, height: 2, backgroundColor: '#FFF', borderRadius: 1 }} />
-                    <View style={{ position: 'absolute', width: 2, height: 10, backgroundColor: '#FFF', borderRadius: 1 }} />
+                 <View className="w-6 h-6 rounded-full items-center justify-center" style={[{ backgroundColor: primaryColor }]}>
+                    <View className="w-2.5 h-0.5 rounded-sm" style={[{ backgroundColor: '#FFF' }]} />
+                    <View className="absolute w-0.5 h-2.5 rounded-sm" style={[{ backgroundColor: '#FFF' }]} />
                  </View>
-
-                 <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: mockText2 }} />
+ 
+                 <View className="w-3 h-3 rounded-full" style={[{ backgroundColor: mockText2 }]} />
             </View>
           </View>
 
           {/* Active Checkmark Overlay */}
           {isActive && (
-            <View style={[styles.activeBadge, { backgroundColor: primaryColor }]}>
+            <View className="absolute bottom-2 right-2 w-5 h-5 rounded-full items-center justify-center" style={[{ backgroundColor: primaryColor }]}>
               <Check size={12} color="#FFF" />
             </View>
           )}
         </View>
         <Text
+          className={`text-sm ${isActive ? 'font-sans-bold' : 'font-sans'}`}
           style={{
             color: isActive ? colors.text : colors.textSecondary,
-            fontWeight: isActive ? "700" : "400",
-            fontSize: 14,
           }}
         >
           {label}
@@ -129,22 +127,25 @@ export default function AppearanceScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
+    <View className="flex-1" style={[{ backgroundColor: colors.bg, paddingTop: insets.top }]}>
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+      <View 
+        className="flex-row items-center justify-between px-4 py-3 border-b" 
+        style={[{ borderBottomColor: colors.border }]}
+      >
         <Button variant="icon" onPress={() => router.back()}>
           <Button.Icon icon={<ArrowLeft size={24} color={colors.text} />} />
         </Button>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Aparência</Text>
-        <View style={{ width: 40 }} /> 
+        <Text className="text-lg font-sans-bold" style={[{ color: colors.text }]}>Aparência</Text>
+        <View className="w-10" /> 
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={{ padding: 20 }}>
         {/* ── Theme Mode Section ── */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>TEMA</Text>
+        <View className="mb-6">
+          <Text className="text-[13px] font-sans-semibold mb-3 tracking-[0.5px] opacity-60" style={[{ color: colors.text }]}>TEMA</Text>
           
-          <View style={styles.cardsRow}>
+          <View className="flex-row gap-4">
             <ThemeCard
               mode="light"
               label="Claro"
@@ -158,9 +159,9 @@ export default function AppearanceScreen() {
               onPress={() => setThemeMode("dark")}
             />
           </View>
-
-          <View style={[styles.row, { backgroundColor: colors.surface, marginTop: 16 }]}>
-            <Text style={[styles.rowLabel, { color: colors.text }]}>Automático</Text>
+ 
+          <View className="flex-row items-center justify-between p-4 rounded-xl mt-4" style={[{ backgroundColor: colors.surface }]}>
+            <Text className="text-base font-sans-medium" style={[{ color: colors.text }]}>Automático</Text>
             <Switch
               value={themeMode === "system"}
               onValueChange={(val) => setThemeMode(val ? "system" : isDark ? "dark" : "light")}
@@ -168,14 +169,14 @@ export default function AppearanceScreen() {
               thumbColor={"#f4f3f4"}
             />
           </View>
-          <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+          <Text className="text-xs font-sans mt-2 px-1" style={[{ color: colors.textSecondary }]}>
             Se ativado, o Genly seguirá as configurações de aparência do seu sistema.
           </Text>
         </View>
 
         {/* ── Accent Color Section ── */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 24 }]}>
+        <View className="mb-6">
+          <Text className="text-[13px] font-sans-semibold mb-3 tracking-[0.5px] opacity-60 mt-6" style={[{ color: colors.text }]}>
             COR DE DESTAQUE
           </Text>
           
@@ -186,73 +187,8 @@ export default function AppearanceScreen() {
             colors={["#208AEF", "#6a57e3", "#22c55e", "#f97316", "#ec4899", "#ef4444", "#14b8a6", "#eab308"]}
           />
         </View>
-
+ 
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  headerTitle: { fontSize: 18, fontWeight: "700" },
-  content: { padding: 20 },
-  section: { marginBottom: 24 },
-  sectionTitle: { fontSize: 13, fontWeight: "600", marginBottom: 12, opacity: 0.6, letterSpacing: 0.5 },
-  cardsRow: { flexDirection: "row", gap: 16 },
-  cardContainer: {
-    width: "100%",
-    aspectRatio: 0.65, // mimic phone ratio
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-  activeBadge: {
-    position: "absolute",
-    bottom: 8,
-    right: 8,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
-    borderRadius: 12,
-  },
-  rowLabel: { fontSize: 16, fontWeight: "500" },
-  helperText: { fontSize: 12, marginTop: 8, paddingHorizontal: 4 },
-  colorGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 16,
-    padding: 16,
-    borderRadius: 12,
-    justifyContent: 'flex-start'
-  },
-  colorSwatch: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  colorCheck: {
-      // Optional drop shadow for better visibility on light colors
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.2,
-      shadowRadius: 1,
-      elevation: 2,
-  }
-});

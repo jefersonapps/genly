@@ -1,11 +1,13 @@
-import { Button } from "@/components/ui/Button";
+import BottomSheet from "@/components/ui/BottomSheet";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
+import { ToolActions } from "@/components/ui/ToolActions";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
+import { shadows } from "@/theme/shadows";
 import { withOpacity } from "@/utils/colors";
 import { recognizeText, sanitizeForWinAnsi } from "@/utils/ocr";
 import { launchScanner } from "@dariyd/react-native-document-scanner";
-import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
+import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
@@ -13,32 +15,46 @@ import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import {
-  Camera,
-  ChevronLeft,
-  Download,
-  FileText,
-  Languages,
-  Plus,
-  RotateCw,
-  Share2,
-  Trash2,
-  X
+    Camera,
+    ChevronLeft,
+    Download,
+    FileStack,
+    FileText,
+    Languages,
+    Plus,
+    RotateCw,
+    Share2,
+    Trash2,
+    X
 } from "lucide-react-native";
 import { PDFDocument, PDFName, degrees, rgb } from "pdf-lib";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Platform,
-  StyleSheet,
-  Switch,
-  Text,
-  TouchableOpacity,
-  View,
-  useWindowDimensions
+    Platform,
+    StyleSheet,
+    Switch,
+    Text,
+    TouchableOpacity,
+    View,
+    useWindowDimensions
 } from "react-native";
 import PdfThumbnail from "react-native-pdf-thumbnail";
 import Animated, { useAnimatedRef } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Sortable from "react-native-sortables";
+
+const ensureFileProtocol = (uri: string) => {
+  if (!uri) return uri;
+  if (
+    !uri.startsWith("file://") &&
+    !uri.startsWith("content://") &&
+    !uri.startsWith("http") &&
+    uri.startsWith("/")
+  ) {
+    return `file://${uri}`;
+  }
+  return uri;
+};
 
 export type PDFPageItem = {
   id: string; // unique page ID for the list
@@ -177,7 +193,7 @@ export default function PDFOrganizerScreen() {
                 sourceUri: asset.uri,
                 pageIndex: index,
                 sourceFileName: asset.name,
-                thumbnailUri: thumb.uri,
+                thumbnailUri: ensureFileProtocol(thumb.uri),
                 rotation: 0,
               });
             });
@@ -207,17 +223,7 @@ export default function PDFOrganizerScreen() {
     }
   };
 
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.5}
-      />
-    ),
-    []
-  );
+  // renderBackdrop removed, handled by BottomSheet component
 
   const clearAll = () => {
     dialog.show({
@@ -473,23 +479,22 @@ export default function PDFOrganizerScreen() {
     ({ item, index }: { item: PDFPageItem; index: number }) => {
       return (
         <View
-          style={[
-            styles.card,
-            {
+          className="p-2 rounded-xl border relative my-1"
+          style={[{
               width: cardWidth,
               backgroundColor: isDark ? "#1E1E1E" : "#FFFFFF",
               borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
-            },
-          ]}
+          }, shadows.sm]}
         >
-          <View style={styles.thumbnailContainer}>
+          <View className="w-full aspect-[1/1.414] overflow-hidden rounded-lg bg-surface-secondary items-center justify-center">
             <Image 
               source={{ uri: item.thumbnailUri }}
               style={[
-                styles.thumbnailImage, 
+                StyleSheet.absoluteFillObject,
                 { transform: [{ rotate: `${item.rotation}deg` }] }
               ]}
               contentFit="contain"
+              transition={200}
             />
           </View>
           
@@ -503,7 +508,9 @@ export default function PDFOrganizerScreen() {
 
           {/* Action Overlay: Top Left (Rotate) */}
           <TouchableOpacity 
-             style={[styles.overlayButton, { top: -10, left: -10, backgroundColor: "#3B82F6" }]} 
+             activeOpacity={0.8}
+             className="absolute w-6 h-6 rounded-full items-center justify-center z-10"
+             style={[{ top: -10, left: -10, backgroundColor: "#3B82F6" }, shadows.sm]} 
              onPress={() => rotatePage(item.id)}
              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
           >
@@ -512,7 +519,9 @@ export default function PDFOrganizerScreen() {
 
           {/* Action Overlay: Top Right (Delete) */}
           <TouchableOpacity 
-             style={[styles.overlayButton, { top: -10, right: -10, backgroundColor: isDark ? "#3F3F46" : "#A1A1AA" }]} 
+             activeOpacity={0.8}
+             className="absolute w-6 h-6 rounded-full items-center justify-center z-10"
+             style={[{ top: -10, right: -10, backgroundColor: isDark ? "#3F3F46" : "#A1A1AA" }, shadows.sm]} 
              onPress={() => removePage(item.id)}
              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
           >
@@ -521,7 +530,9 @@ export default function PDFOrganizerScreen() {
 
           {/* Action Overlay: Center Right (Insert After) */}
           <TouchableOpacity 
-             style={[styles.overlayButton, { top: '50%', marginTop: -12, right: -29, backgroundColor: primaryColor }]} 
+             activeOpacity={0.8}  
+             className="absolute w-6 h-6 rounded-full items-center justify-center z-10"
+             style={[{ top: '50%', marginTop: -12, right: -29, backgroundColor: primaryColor }, shadows.sm]} 
              onPress={() => handleAddOptions(index + 1)}
              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
           >
@@ -531,7 +542,9 @@ export default function PDFOrganizerScreen() {
           {/* Action Overlay: Center Left (Insert Before - Only on first item) */}
           {index === 0 && (
             <TouchableOpacity 
-               style={[styles.overlayButton, { top: '50%', marginTop: -12, left: -28, backgroundColor: primaryColor }]} 
+               activeOpacity={0.8}  
+               className="absolute w-6 h-6 rounded-full items-center justify-center z-10"
+               style={[{ top: '50%', marginTop: -12, left: -28, backgroundColor: primaryColor }, shadows.sm]} 
                onPress={() => handleAddOptions(0)}
                hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
             >
@@ -540,8 +553,11 @@ export default function PDFOrganizerScreen() {
           )}
 
           {/* Badge: Page Number */}
-          <View style={[styles.pageBadge, { backgroundColor: isDark ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.8)" }]}>
-             <Text style={styles.pageBadgeText}>{index + 1}</Text>
+          <View 
+            className="absolute bottom-8 left-2 px-2 py-0.5 rounded-xl z-10"
+            style={[{ backgroundColor: isDark ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.8)" }]}
+          >
+             <Text className="font-sans-bold text-xs text-[#888]">{index + 1}</Text>
           </View>
         </View>
       );
@@ -555,6 +571,7 @@ export default function PDFOrganizerScreen() {
       <View className="flex-row items-center justify-between border-b border-border/10 px-4 pb-4 pt-2">
         <View className="flex-row items-center">
           <TouchableOpacity
+            activeOpacity={0.8}
             onPress={() => router.back()}
             className="mr-3 p-2 -ml-2"
           >
@@ -567,6 +584,7 @@ export default function PDFOrganizerScreen() {
         <View className="flex-row items-center">
          {pages.length > 0 && (
            <TouchableOpacity
+              activeOpacity={0.8}
               onPress={clearAll}
               className="p-2 mr-2"
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -576,6 +594,7 @@ export default function PDFOrganizerScreen() {
             </TouchableOpacity>
          )}
           <TouchableOpacity
+            activeOpacity={0.8}
             onPress={() => handleAddOptions()}
             className="p-2"
             disabled={isProcessing}
@@ -593,23 +612,35 @@ export default function PDFOrganizerScreen() {
 
       {pages.length === 0 ? (
         <View className="flex-1 justify-center items-center px-8">
-           <View className={`mb-6 h-24 w-24 items-center justify-center rounded-full ${isDark ? "bg-primary/20" : "bg-primary/10"}`}>
-             <FileText size={48} color={isDark ? "#A78BFA" : "#7C3AED"} />
+           <View 
+            style={{ backgroundColor: withOpacity("#EF4444", isDark ? 0.15 : 0.1) }}
+            className="mb-8 h-24 w-24 items-center justify-center rounded-full"
+          >
+             <FileStack size={48} color="#EF4444" />
            </View>
            <Text className="font-sans-semibold text-xl text-on-surface text-center mb-2">
-             Nenhum PDF Importado
+             Organizador de PDF
            </Text>
-           <Text className="font-sans text-base text-on-surface-secondary text-center mb-8">
-             Toque no botão + acima ou abaixo para adicionar documentos ou escanear.
+           <Text className="font-sans text-base text-on-surface-secondary text-center mb-10">
+             Junte, reordene e organize seus arquivos PDF e imagens em um único documento de forma simples.
            </Text>
-           <TouchableOpacity
-             onPress={() => handleAddOptions()}
-             className="rounded-full px-8 py-4 gap-2 items-center justify-center flex-row"
-             style={{ backgroundColor: primaryColor }}
-           >
-             <Plus size={20} color="#FFFFFF" className="mr-2" />
-             <Text className="font-sans-bold text-white text-base">Adicionar Páginas</Text>
-           </TouchableOpacity>
+
+           <ToolActions>
+             <ToolActions.Button
+               onPress={handleImportFiles}
+               icon={<FileText size={24} color="#EF4444" />}
+               color="#EF4444"
+               title="Importar PDF ou Imagem"
+               description="Escolher arquivos do dispositivo"
+             />
+             <ToolActions.Button
+               onPress={scanDocument}
+               icon={<Camera size={24} color="#EF4444" />}
+               color="#EF4444"
+               title="Escanear Documento"
+               description="Usar a câmera para escanear"
+             />
+           </ToolActions>
         </View>
       ) : (
         <View className="flex-1 pt-4 pb-2">
@@ -651,6 +682,7 @@ export default function PDFOrganizerScreen() {
           <View className="px-4 pt-4 pb-2 bg-surface border-t border-border/10 gap-4" style={{ paddingBottom: Math.max(insets.bottom, 16) }}>
             {/* OCR Toggle Row */}
             <TouchableOpacity 
+              activeOpacity={0.8}
               onPress={() => setIsOCREnabled(!isOCREnabled)}
               className="flex-row items-center p-3 bg-surface-secondary rounded-2xl border border-border justify-between mx-1"
             >
@@ -673,6 +705,7 @@ export default function PDFOrganizerScreen() {
 
             <View className="flex-row justify-between gap-3">
               <TouchableOpacity
+                activeOpacity={0.8}
                 onPress={handleSaveLocal}
                 disabled={isProcessing}
                 className={`flex-1 rounded-xl py-4 items-center justify-center flex-row gap-2 ${isProcessing ? 'opacity-50' : 'opacity-100'}`}
@@ -685,6 +718,7 @@ export default function PDFOrganizerScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
+                activeOpacity={0.8}
                 onPress={handleShare}
                 disabled={isProcessing}
                 className={`flex-1 rounded-xl py-4 items-center justify-center flex-row gap-2 ${isProcessing ? 'opacity-50' : 'opacity-100'}`}
@@ -700,101 +734,32 @@ export default function PDFOrganizerScreen() {
         )}
       </View>
 
-      <BottomSheetModal
-        ref={bottomSheetModalRef}
-        index={0}
+      <BottomSheet
+        sheetRef={bottomSheetModalRef}
         snapPoints={snapPoints}
-        backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: resolvedTheme === 'dark' ? '#18181b' : '#f4f4f5' }}
-        handleIndicatorStyle={{ backgroundColor: resolvedTheme === 'dark' ? '#52525b' : '#d4d4d8' }}
       >
-        <BottomSheetView 
-          className="p-6 gap-4"
-          style={{ paddingBottom: Math.max(insets.bottom, 24) }}
-        >
-          <Text className="font-sans-bold text-xl text-on-surface mb-2">
-            Adicionar à Ordem
-          </Text>
+        <BottomSheet.View>
+          <BottomSheet.Header title="Adicionar à Ordem" />
 
-          <Button 
-            variant="ghost"
-            onPress={handleImportFiles}
-            className="flex-row items-center p-4 bg-surface-secondary rounded-2xl border border-border"
-          >
-            <View className="h-10 w-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: withOpacity(primaryColor, 0.1) }}>
-              <FileText size={20} color={primaryColor} />
-            </View>
-            <Button.Text className="flex-1 text-left">Importar Arquivo (PDF ou Imagem)</Button.Text>
-          </Button>
-
-          <Button 
-            variant="ghost"
-            onPress={scanDocument}
-            className="flex-row items-center p-4 bg-surface-secondary rounded-2xl border border-border"
-          >
-            <View className="h-10 w-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: withOpacity(primaryColor, 0.1) }}>
-              <Camera size={20} color={primaryColor} />
-            </View>
-            <Button.Text className="flex-1 text-left">Escanear Documento</Button.Text>
-          </Button>
-        </BottomSheetView>
-      </BottomSheetModal>
+          <BottomSheet.ItemGroup>
+            <BottomSheet.Item
+              icon={<FileText size={20} color={primaryColor} />}
+              iconBackgroundColor={withOpacity(primaryColor, 0.08)}
+              title="Importar PDF ou Imagem"
+              onPress={handleImportFiles}
+            />
+            <BottomSheet.Separator />
+            <BottomSheet.Item
+              icon={<Camera size={20} color={primaryColor} />}
+              iconBackgroundColor={withOpacity(primaryColor, 0.08)}
+              title="Escanear Documento"
+              onPress={scanDocument}
+            />
+          </BottomSheet.ItemGroup>
+        </BottomSheet.View>
+      </BottomSheet>
     </>
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    padding: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-    position: 'relative',
-    marginVertical: 4,
-  },
-  thumbnailContainer: {
-    width: '100%',
-    aspectRatio: 1 / 1.414, // A4 aspect ratio 
-    overflow: 'hidden',
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6', // fallback background 
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  thumbnailImage: {
-    width: '100%',
-    height: '100%',
-  },
-  overlayButton: {
-    position: 'absolute',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    zIndex: 10,
-  },
-  pageBadge: {
-    position: 'absolute',
-    bottom: 32,
-    left: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    zIndex: 5,
-  },
-  pageBadgeText: {
-    fontFamily: 'Montserrat-Bold',
-    fontSize: 12,
-    color: '#888', 
-  }
-});
+

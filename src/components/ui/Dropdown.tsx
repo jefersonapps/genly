@@ -1,4 +1,5 @@
 import { useTheme } from "@/providers/ThemeProvider";
+import { shadows } from "@/theme/shadows";
 import { LucideIcon } from "lucide-react-native";
 import React, {
   createContext,
@@ -11,7 +12,6 @@ import {
   LayoutRectangle,
   Modal,
   Text as RNText,
-  StyleSheet,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View
@@ -116,18 +116,15 @@ function Content({ children, width = 200, align = "start", direction = "bottom" 
 
   const renderMenu = (calculatedStyle: any) => (
     <Animated.View
+      className="absolute rounded-xl border p-1.5"
       style={[
-        styles.menu,
         calculatedStyle,
         {
           width,
           backgroundColor: isDark ? "#18181B" : "#FFFFFF",
           borderColor: isDark ? "#27272A" : "#E4E4E7",
-          shadowColor: "#000",
-          shadowOpacity: 0.15,
-          shadowRadius: 10,
-          shadowOffset: { width: 0, height: 4 },
         },
+        shadows.lg
       ]}
       entering={(values: any) => {
         "worklet";
@@ -186,7 +183,7 @@ function Content({ children, width = 200, align = "start", direction = "bottom" 
       animationType="none"
     >
       <TouchableWithoutFeedback onPress={context.close}>
-        <View style={styles.overlay}>
+        <View className="flex-1">
           <ContextDimensions 
             direction={direction} 
             align={align}
@@ -266,14 +263,14 @@ function Item({ icon: Icon, label, onPress, destructive }: ItemProps) {
   return (
     <TouchableOpacity
       onPress={handlePress}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
+      className="flex-row items-center gap-2.5 py-2.5 px-2.5 rounded-lg mb-0.5"
       style={[
-        styles.item,
         destructive && { backgroundColor: isDark ? "rgba(239, 68, 68, 0.1)" : "#FEF2F2" },
       ]}
     >
-      {Icon && <Icon size={18} color={textColor} style={{ marginRight: 10 }} />}
-      <RNText style={[styles.itemText, { color: textColor }]}>{label}</RNText>
+      {Icon && <Icon size={18} color={textColor} className="mr-2.5" />}
+      <RNText className="text-sm font-sans-semibold" style={{ color: textColor }}>{label}</RNText>
     </TouchableOpacity>
   );
 }
@@ -300,32 +297,4 @@ export const Dropdown = Object.assign(DropdownRoot, {
   Trigger,
   Content,
   Item,
-});
-
-// ─── Styles ──────────────────────────────────────
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    // Transparent background to catch clicks outside
-  },
-  menu: {
-    position: "absolute",
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 6,
-    elevation: 8,
-    // Add zIndex if needed depending on parent, but Modal usually handles it.
-  },
-  item: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    marginBottom: 2,
-  },
-  itemText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
 });

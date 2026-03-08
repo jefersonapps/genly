@@ -5,7 +5,17 @@
  * @returns Adjusted hex color string.
  */
 export const adjustColor = (color: string, amount: number) => {
-    return '#' + color.replace(/^#/, '').replace(/../g, color => ('0'+Math.min(255, Math.max(0, parseInt(color, 16) + amount)).toString(16)).substr(-2));
+    // Strip hash and any alpha (8 digits -> 6, 4 digits -> 3)
+    let hex = color.replace(/^#/, '');
+    if (hex.length >= 8) hex = hex.substring(0, 6);
+    if (hex.length === 4 || hex.length === 5) hex = hex.substring(0, 3);
+    
+    // Normalize to 6 digits if 3
+    if (hex.length === 3) {
+        hex = hex.split('').map(s => s + s).join('');
+    }
+
+    return '#' + hex.replace(/../g, c => ('0' + Math.min(255, Math.max(0, parseInt(c, 16) + amount)).toString(16)).substr(-2));
 }
 
 /**
@@ -68,10 +78,15 @@ export const adjustHue = (color: string, degree: number) => {
  * @returns Hex color with alpha or original color if not hex.
  */
 export const withOpacity = (color: string, opacity: number) => {
-    if (!color.startsWith('#')) return color; // Return named colors as-is (no opacity support without lib)
+    if (!color.startsWith('#')) return color; 
     
+    let hex = color.replace(/^#/, '');
+    
+    // Strip existing alpha if present (8+ digits -> 6, 4+ digits -> 3)
+    if (hex.length >= 8) hex = hex.substring(0, 6);
+    if (hex.length >= 4 && hex.length <= 5) hex = hex.substring(0, 3);
+
     // Ensure 6 digits
-    let hex = color.replace('#', '');
     if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
     
     const alpha = Math.round(opacity * 255).toString(16).padStart(2, '0');

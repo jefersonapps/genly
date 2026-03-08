@@ -1,8 +1,8 @@
-import { Button } from '@/components/ui/Button';
+import BottomSheet from '@/components/ui/BottomSheet';
 import { useDialog } from '@/providers/DialogProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 import { withOpacity } from '@/utils/colors';
-import { BottomSheetBackdrop, BottomSheetModal, BottomSheetTextInput, BottomSheetView } from '@gorhom/bottom-sheet';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
@@ -15,6 +15,8 @@ import {
     ChevronRight, Crop,
     Download,
     Eraser,
+    FilePen,
+    FileText,
     Image as ImageIcon,
     ImagePlus,
     Maximize,
@@ -30,7 +32,6 @@ import {
     Keyboard,
     Platform,
     ScrollView,
-    StyleSheet,
     Text, TextInput, TouchableOpacity,
     View,
     useWindowDimensions
@@ -46,8 +47,10 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
+import { ToolActions } from "@/components/ui/ToolActions";
 import { exportEditedPdf } from '@/lib/pdfEditor/pdfExportUtils';
 import { usePdfEditorStore, type Annotation, type FormField } from '@/lib/pdfEditor/usePdfEditorStore';
+import { shadows } from '@/theme/shadows';
 
 const SPRING_CONFIG = { damping: 20, stiffness: 200 };
 
@@ -328,17 +331,17 @@ function DraggableAnnotation({
         {annotation.isCropping && isSelected && (
           <>
             {/* Corner handles */}
-            <GestureDetector gesture={resizeTL}><Animated.View style={[styles.cropHandle, { top: -5, left: -5 }]} /></GestureDetector>
-            <GestureDetector gesture={resizeTR}><Animated.View style={[styles.cropHandle, { top: -5, right: -5 }]} /></GestureDetector>
-            <GestureDetector gesture={resizeBL}><Animated.View style={[styles.cropHandle, { bottom: -5, left: -5 }]} /></GestureDetector>
+            <GestureDetector gesture={resizeTL}><Animated.View className="absolute bg-white border border-[#3B82F6] rounded-[2] w-3 h-3 z-50" style={[{ top: -5, left: -5 }, shadows.sm]} /></GestureDetector>
+            <GestureDetector gesture={resizeTR}><Animated.View className="absolute bg-white border border-[#3B82F6] rounded-[2] w-3 h-3 z-50" style={[{ top: -5, right: -5 }, shadows.sm]} /></GestureDetector>
+            <GestureDetector gesture={resizeBL}><Animated.View className="absolute bg-white border border-[#3B82F6] rounded-[2] w-3 h-3 z-50" style={[{ bottom: -5, left: -5 }, shadows.sm]} /></GestureDetector>
             {/* Edge midpoint handles */}
-            <GestureDetector gesture={resizeTC}><Animated.View style={[styles.cropHandle, { top: -5, left: '50%', marginLeft: -5 }]} /></GestureDetector>
-            <GestureDetector gesture={resizeBC}><Animated.View style={[styles.cropHandle, { bottom: -5, left: '50%', marginLeft: -5 }]} /></GestureDetector>
-            <GestureDetector gesture={resizeML}><Animated.View style={[styles.cropHandle, { top: '50%', left: -5, marginTop: -5 }]} /></GestureDetector>
-            <GestureDetector gesture={resizeMR}><Animated.View style={[styles.cropHandle, { top: '50%', right: -5, marginTop: -5 }]} /></GestureDetector>
+            <GestureDetector gesture={resizeTC}><Animated.View className="absolute bg-white border border-[#3B82F6] rounded-[2] w-3 h-3 z-50" style={[{ top: -5, left: '50%', marginLeft: -5 }, shadows.sm]} /></GestureDetector>
+            <GestureDetector gesture={resizeBC}><Animated.View className="absolute bg-white border border-[#3B82F6] rounded-[2] w-3 h-3 z-50" style={[{ bottom: -5, left: '50%', marginLeft: -5 }, shadows.sm]} /></GestureDetector>
+            <GestureDetector gesture={resizeML}><Animated.View className="absolute bg-white border border-[#3B82F6] rounded-[2] w-3 h-3 z-50" style={[{ top: '50%', left: -5, marginTop: -5 }, shadows.sm]} /></GestureDetector>
+            <GestureDetector gesture={resizeMR}><Animated.View className="absolute bg-white border border-[#3B82F6] rounded-[2] w-3 h-3 z-50" style={[{ top: '50%', right: -5, marginTop: -5 }, shadows.sm]} /></GestureDetector>
             {/* Bottom-right is the resize handle for cropping */}
             <GestureDetector gesture={resizeGesture}>
-              <Animated.View style={[styles.cropHandle, { bottom: -5, right: -5 }]} />
+              <Animated.View className="absolute bg-white border border-[#3B82F6] rounded-[2] w-3 h-3 z-50" style={[{ bottom: -5, right: -5 }, shadows.sm]} />
             </GestureDetector>
           </>
         )}
@@ -349,13 +352,14 @@ function DraggableAnnotation({
             {/* Rotation handle — top center */}
             <GestureDetector gesture={rotateGesture}>
               <Animated.View
-                style={[styles.annotationAction, {
+                className="absolute w-6 h-6 rounded-full items-center justify-center"
+                style={[{
                   top: -28,
                   alignSelf: 'center',
                   left: '50%',
                   marginLeft: -11,
                   backgroundColor: '#3B82F6',
-                }]}
+                }, shadows.sm]}
               >
                 <RefreshCw size={10} color="#FFF" />
               </Animated.View>
@@ -364,9 +368,10 @@ function DraggableAnnotation({
             {/* Resize handle — bottom right */}
             <GestureDetector gesture={resizeGesture}>
               <Animated.View
-                style={[styles.resizeHandle, {
+                className="absolute w-4 h-4 rounded-full right-[-8] bottom-[-8]"
+                style={[{
                   backgroundColor: primaryColor,
-                }]}
+                }, shadows.sm]}
               />
             </GestureDetector>
           </>
@@ -422,6 +427,7 @@ function FormFieldItem({
     return (
       <Animated.View style={[{ position: 'absolute', zIndex: 10 }, animatedStyle]}>
         <TouchableOpacity
+          activeOpacity={0.8}
           onPress={() => {
             onUpdate(field.name, !field.value);
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -446,6 +452,7 @@ function FormFieldItem({
     return (
       <Animated.View style={[{ position: 'absolute', zIndex: 10 }, animatedStyle]}>
         <TouchableOpacity
+          activeOpacity={0.8}
           onPress={() => {
             if (field.optionValue) {
               onUpdate(field.name, field.optionValue);
@@ -479,6 +486,7 @@ function FormFieldItem({
     return (
       <Animated.View style={[{ position: 'absolute', zIndex: 10 }, animatedStyle]}>
         <TouchableOpacity
+          activeOpacity={0.8}
           onPress={() => {
             if (field.options) {
               dialog.show({
@@ -529,7 +537,7 @@ function FormFieldItem({
               return (
                 <TouchableOpacity
                   key={i}
-                  activeOpacity={0.7}
+                  activeOpacity={0.8}
                   onPress={() => {
                     onUpdate(field.name, opt);
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -537,9 +545,7 @@ function FormFieldItem({
                   style={{
                     height: itemHeight,
                     width: '100%',
-                    backgroundColor: isSelected ? primaryColor + '40' : 'transparent',
-                    justifyContent: 'center',
-                    paddingHorizontal: 4,
+                    backgroundColor: isSelected ? withOpacity(primaryColor, 0.25) : 'transparent',
                   }}
                 >
                   {/* No extra text layer - use the background highlight only to match original labels */}
@@ -569,6 +575,7 @@ function FormFieldItem({
     return (
       <Animated.View style={[{ position: 'absolute', zIndex: 10 }, animatedStyle]}>
         <TouchableOpacity
+          activeOpacity={0.8}
           onPress={() => {
             if (isReset) {
               onReset();
@@ -792,7 +799,6 @@ export default function PdfEditorTool() {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeTool, setActiveTool] = useState<'text' | 'image' | 'eraser' | null>(null);
-
   // Canvas transform shared values
   const scale = useSharedValue(1);
   const translateX = useSharedValue(0);
@@ -1335,12 +1341,7 @@ export default function PdfEditorTool() {
   // Current page annotations
   const currentAnnotations = annotations.filter((a) => a.page === currentPage);
 
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-    ),
-    [],
-  );
+  // renderBackdrop removed, handled by BottomSheet component
 
   // ─── Empty State ──────────────────────────────────
   if (!pdfUri) {
@@ -1348,7 +1349,7 @@ export default function PdfEditorTool() {
       <View style={{ paddingTop: insets.top }} className="flex-1 bg-surface">
         {/* Header */}
         <View className="flex-row items-center border-b border-border/10 px-4 pb-4 pt-2">
-          <TouchableOpacity onPress={() => router.back()} className="mr-3 p-2 -ml-2">
+          <TouchableOpacity activeOpacity={0.8} onPress={() => router.back()} className="mr-3 p-2 -ml-2">
             <ChevronLeft size={28} color={isDark ? '#FFFFFF' : '#000000'} />
           </TouchableOpacity>
           <Text className="font-sans-semibold text-xl text-on-surface">Editor de PDF</Text>
@@ -1356,24 +1357,27 @@ export default function PdfEditorTool() {
 
         <View className="flex-1 justify-center items-center px-8">
           <View
-            className={`mb-6 h-24 w-24 items-center justify-center rounded-full ${isDark ? 'bg-primary/20' : 'bg-primary/10'}`}
+            style={{ backgroundColor: withOpacity("#EAB308", isDark ? 0.15 : 0.1) }}
+            className="mb-8 h-24 w-24 items-center justify-center rounded-full"
           >
-            <Type size={48} color={primaryColor} />
+            <FilePen size={48} color="#EAB308" />
           </View>
           <Text className="font-sans-semibold text-xl text-on-surface text-center mb-2">
-            Nenhum PDF Aberto
+            Editor de PDF
           </Text>
-          <Text className="font-sans text-base text-on-surface-secondary text-center mb-8">
-            Selecione um arquivo PDF para começar a editar com textos, imagens e borracha.
+          <Text className="font-sans text-base text-on-surface-secondary text-center mb-10">
+            Edite seus arquivos PDF adicionando textos, imagens ou ocultando informações com a ferramenta borracha.
           </Text>
-          <TouchableOpacity
-            onPress={() => handleImportPdf()}
-            className="rounded-full px-8 py-4 items-center justify-center flex-row gap-3"
-            style={{ backgroundColor: primaryColor }}
-          >
-            <Type size={20} color="#FFFFFF" />
-            <Text className="font-sans-bold text-white text-base">Abrir PDF</Text>
-          </TouchableOpacity>
+
+          <ToolActions>
+            <ToolActions.Button
+              onPress={() => handleImportPdf()}
+              icon={<FileText size={24} color="#EAB308" />}
+              color="#EAB308"
+              title="Abrir PDF"
+              description="Selecionar arquivo para editar"
+            />
+          </ToolActions>
         </View>
       </View>
     );
@@ -1386,6 +1390,7 @@ export default function PdfEditorTool() {
       <View className="flex-row items-center justify-between border-b border-border/10 px-4 pb-3 pt-2">
         <View className="flex-row items-center flex-1">
           <TouchableOpacity
+            activeOpacity={0.8}
             onPress={() => {
               reset();
               router.back();
@@ -1400,6 +1405,7 @@ export default function PdfEditorTool() {
         </View>
         <View className="flex-row items-center gap-1">
           <TouchableOpacity
+            activeOpacity={0.8}
             onPress={() => {
               Keyboard.dismiss();
               exportSheetRef.current?.present();
@@ -1463,7 +1469,7 @@ export default function PdfEditorTool() {
                   }}
                 />
 
-                <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+                <View className="absolute inset-0" pointerEvents="box-none">
                   {/* Form Fields - Rendered First (Bottom Layer) */}
                   {pageDimensions && formFields.filter(f => f.page === currentPage).map((field) => {
                     // Map PDF points to view space
@@ -1534,6 +1540,7 @@ export default function PdfEditorTool() {
               }}
             >
               <TouchableOpacity
+                activeOpacity={0.8}
                 onPress={() => {
                   if (currentPage > 0) setCurrentPage(currentPage - 1);
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1549,6 +1556,7 @@ export default function PdfEditorTool() {
               </Text>
 
               <TouchableOpacity
+                activeOpacity={0.8}
                 onPress={() => {
                   if (currentPage < pageCount - 1) setCurrentPage(currentPage + 1);
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1574,6 +1582,7 @@ export default function PdfEditorTool() {
             return (
               <View className="flex-row items-center justify-around py-3 px-4">
                 <TouchableOpacity
+                  activeOpacity={0.8}
                   onPress={() => {
                     updateAnnotation(selectedId, { isCropping: false });
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1590,6 +1599,7 @@ export default function PdfEditorTool() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
+                  activeOpacity={0.8}
                   onPress={() => {
                     updateAnnotation(selectedId, { isCropping: true });
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1606,6 +1616,7 @@ export default function PdfEditorTool() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
+                  activeOpacity={0.8}
                   onPress={handleReplaceImage}
                   className="items-center gap-1 px-4 py-2 rounded-2xl"
                 >
@@ -1616,6 +1627,7 @@ export default function PdfEditorTool() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
+                  activeOpacity={0.8}
                   onPress={() => handleDeleteAnnotation(selectedId)}
                   className="items-center gap-1 px-4 py-2 rounded-2xl"
                 >
@@ -1626,6 +1638,7 @@ export default function PdfEditorTool() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
+                  activeOpacity={0.8}
                   onPress={() => selectAnnotation(null)}
                   className="items-center gap-1 px-4 py-2 rounded-2xl"
                 >
@@ -1641,6 +1654,7 @@ export default function PdfEditorTool() {
             return (
               <View className="flex-row items-center justify-around py-3 px-4">
                 <TouchableOpacity
+                  activeOpacity={0.8}
                   onPress={() => openEditSheet(selectedId)}
                   className="items-center gap-1 px-4 py-2 rounded-2xl"
                 >
@@ -1651,6 +1665,7 @@ export default function PdfEditorTool() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
+                  activeOpacity={0.8}
                   onPress={() => handleDeleteAnnotation(selectedId)}
                   className="items-center gap-1 px-4 py-2 rounded-2xl"
                 >
@@ -1661,6 +1676,7 @@ export default function PdfEditorTool() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
+                  activeOpacity={0.8}
                   onPress={() => selectAnnotation(null)}
                   className="items-center gap-1 px-4 py-2 rounded-2xl"
                 >
@@ -1677,6 +1693,7 @@ export default function PdfEditorTool() {
           return (
             <View className="flex-row items-center justify-around py-3 px-4">
               <TouchableOpacity
+                activeOpacity={0.8}
                 onPress={() => handleDeleteAnnotation(selectedId)}
                 className="items-center gap-1 px-4 py-2 rounded-2xl"
               >
@@ -1686,6 +1703,7 @@ export default function PdfEditorTool() {
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
+                activeOpacity={0.8}
                 onPress={() => selectAnnotation(null)}
                 className="items-center gap-1 px-4 py-2 rounded-2xl"
               >
@@ -1699,6 +1717,7 @@ export default function PdfEditorTool() {
         })() : (
           <View className="flex-row items-center justify-around py-3 px-4">
             <TouchableOpacity
+              activeOpacity={0.8}
               onPress={handleAddText}
               className="items-center gap-1 px-4 py-2 rounded-2xl"
               style={{
@@ -1717,6 +1736,7 @@ export default function PdfEditorTool() {
             </TouchableOpacity>
 
             <TouchableOpacity
+              activeOpacity={0.8}
               onPress={handleAddImage}
               className="items-center gap-1 px-4 py-2 rounded-2xl"
               style={{
@@ -1735,6 +1755,7 @@ export default function PdfEditorTool() {
             </TouchableOpacity>
 
             <TouchableOpacity
+              activeOpacity={0.8}
               onPress={handleAddEraser}
               className="items-center gap-1 px-4 py-2 rounded-2xl"
               style={{
@@ -1753,6 +1774,7 @@ export default function PdfEditorTool() {
             </TouchableOpacity>
 
             <TouchableOpacity
+              activeOpacity={0.8}
               onPress={() => handleImportPdf()}
               className="items-center gap-1 px-4 py-2 rounded-2xl"
             >
@@ -1766,40 +1788,39 @@ export default function PdfEditorTool() {
       </View>
 
       {/* Edit Text Bottom Sheet */}
-      <BottomSheetModal
-        ref={editSheetRef}
-        index={0}
+      <BottomSheet
+        sheetRef={editSheetRef}
         snapPoints={editSnapPoints}
-        backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: isDark ? '#18181b' : '#f4f4f5' }}
-        handleIndicatorStyle={{ backgroundColor: isDark ? '#52525b' : '#d4d4d8' }}
       >
-        <BottomSheetView className="p-6 gap-4" style={{ paddingBottom: Math.max(insets.bottom, 24) }}>
-          <Text className="font-sans-bold text-xl text-on-surface">Editar Texto</Text>
+        <BottomSheet.View>
+          <BottomSheet.Header title="Editar Texto" />
 
           {/* Text input */}
-          <BottomSheetTextInput
-            value={editText}
-            onChangeText={setEditText}
-            placeholder="Digite seu texto..."
-            placeholderTextColor={isDark ? '#71717A' : '#A1A1AA'}
-            multiline
-            autoFocus
-            style={[
-              styles.editInput,
-              {
-                backgroundColor: isDark ? '#27272A' : '#FFFFFF',
-                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-                color: isDark ? '#FAFAFA' : '#18181B',
-                minHeight: 60,
-              },
-            ]}
-          />
+          <BottomSheet.ItemGroup>
+            <View className="p-4 bg-surface-secondary">
+               <TextInput
+                 value={editText}
+                 onChangeText={setEditText}
+                 placeholder="Digite seu texto..."
+                 placeholderTextColor={isDark ? '#71717A' : '#A1A1AA'}
+                 multiline
+                 autoFocus
+                 className="text-base font-sans-medium"
+                 style={[
+                   {
+                     color: isDark ? '#FAFAFA' : '#18181B',
+                     minHeight: 60,
+                   },
+                 ]}
+               />
+            </View>
+          </BottomSheet.ItemGroup>
 
           {/* Font size */}
           <View className="flex-row items-center gap-3">
             <Text className="font-sans-medium text-sm text-on-surface-secondary">Tamanho:</Text>
             <TouchableOpacity
+              activeOpacity={0.8}
               onPress={() => setEditFontSize(Math.max(8, editFontSize - 2))}
               className="h-8 w-8 rounded-full items-center justify-center"
               style={{ backgroundColor: isDark ? '#27272A' : '#E5E7EB' }}
@@ -1808,6 +1829,7 @@ export default function PdfEditorTool() {
             </TouchableOpacity>
             <Text className="font-sans-bold text-base text-on-surface w-8 text-center">{editFontSize}</Text>
             <TouchableOpacity
+              activeOpacity={0.8}
               onPress={() => setEditFontSize(Math.min(72, editFontSize + 2))}
               className="h-8 w-8 rounded-full items-center justify-center"
               style={{ backgroundColor: isDark ? '#27272A' : '#E5E7EB' }}
@@ -1821,6 +1843,7 @@ export default function PdfEditorTool() {
             <Text className="font-sans-medium text-sm text-on-surface-secondary mr-1">Cor:</Text>
             {TEXT_COLORS.map((c) => (
               <TouchableOpacity
+                activeOpacity={0.8}
                 key={c}
                 onPress={() => setEditColor(c)}
                 style={{
@@ -1836,30 +1859,26 @@ export default function PdfEditorTool() {
           </View>
 
           {/* Save button */}
-          <TouchableOpacity
-            onPress={saveEdit}
-            className="rounded-2xl py-4 items-center justify-center"
-            style={{ backgroundColor: primaryColor }}
-          >
-            <Text className="font-sans-bold text-white text-base">Salvar</Text>
-          </TouchableOpacity>
-        </BottomSheetView>
-      </BottomSheetModal>
+          <BottomSheet.Button
+             title="Salvar"
+             onPress={saveEdit}
+             variant="primary"
+          />
+
+        </BottomSheet.View>
+      </BottomSheet>
 
       {/* Export Bottom Sheet */}
-      <BottomSheetModal
-        ref={exportSheetRef}
-        index={0}
+      <BottomSheet
+        sheetRef={exportSheetRef}
         snapPoints={exportSnapPoints}
-        backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: isDark ? '#18181b' : '#f4f4f5' }}
-        handleIndicatorStyle={{ backgroundColor: isDark ? '#52525b' : '#d4d4d8' }}
       >
-        <BottomSheetView className="p-6 gap-4" style={{ paddingBottom: Math.max(insets.bottom, 24) }}>
-          <Text className="font-sans-bold text-xl text-on-surface mb-2">Exportar PDF Editado</Text>
+        <BottomSheet.View>
+          <BottomSheet.Header title="Exportar PDF Editado" />
 
           <View className="flex-row gap-3">
             <TouchableOpacity
+              activeOpacity={0.8}
               onPress={() => handleExport('save')}
               className="flex-1 rounded-2xl py-6 items-center justify-center gap-2 border border-border"
               style={{ backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }}
@@ -1871,6 +1890,7 @@ export default function PdfEditorTool() {
             </TouchableOpacity>
 
             <TouchableOpacity
+              activeOpacity={0.8}
               onPress={() => handleExport('share')}
               className="flex-1 rounded-2xl py-6 items-center justify-center gap-2"
               style={{ backgroundColor: primaryColor }}
@@ -1881,39 +1901,38 @@ export default function PdfEditorTool() {
               </Text>
             </TouchableOpacity>
           </View>
-        </BottomSheetView>
-      </BottomSheetModal>
+        </BottomSheet.View>
+      </BottomSheet>
 
       {/* Action Sheet (Delete) */}
-      <BottomSheetModal
-        ref={actionSheetRef}
-        index={0}
+      <BottomSheet
+        sheetRef={actionSheetRef}
         snapPoints={['20%']}
-        name="actionSheet"
-        backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: isDark ? '#18181b' : '#f4f4f5' }}
-        handleIndicatorStyle={{ backgroundColor: isDark ? '#52525b' : '#d4d4d8' }}
       >
-        <BottomSheetView className="p-6 gap-4" style={{ paddingBottom: Math.max(insets.bottom, 24) }}>
-          <Text className="font-sans-bold text-xl text-on-surface mb-2">Opções do Item</Text>
+        <BottomSheet.View>
+          <BottomSheet.Header title="Opções do Item" />
 
-          <Button 
-            variant="ghost" 
-            className="flex-row items-center p-4 bg-red-500/10 rounded-2xl border border-red-500/20"
-            onPress={() => {
-              if (actionAnnotationId) {
-                handleDeleteAnnotation(actionAnnotationId);
-                actionSheetRef.current?.dismiss();
-              }
-            }}
-          >
-            <View className="h-10 w-10 rounded-full items-center justify-center mr-3 bg-red-500/20">
-              <Trash2 size={20} color="#EF4444" />
-            </View>
-            <Button.Text className="flex-1 text-left text-red-500">Excluir Item</Button.Text>
-          </Button>
-        </BottomSheetView>
-      </BottomSheetModal>
+          <BottomSheet.ItemGroup>
+            <BottomSheet.Item
+              icon={<Trash2 size={20} color="#EF4444" />}
+              iconBackgroundColor="rgba(239, 68, 68, 0.2)"
+              title="Excluir Item"
+              onPress={() => {
+                if (actionAnnotationId) {
+                  handleDeleteAnnotation(actionAnnotationId);
+                  actionSheetRef.current?.dismiss();
+                }
+              }}
+              titleStyle={{ color: '#EF4444' }}
+              containerStyle={{
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                borderColor: 'rgba(239, 68, 68, 0.2)',
+                borderWidth: 1,
+              }}
+            />
+          </BottomSheet.ItemGroup>
+        </BottomSheet.View>
+      </BottomSheet>
 
       {/* Loading overlay */}
       <LoadingOverlay
@@ -1924,51 +1943,3 @@ export default function PdfEditorTool() {
   );
 }
 
-// ─── Styles ─────────────────────────────────────────
-const styles = StyleSheet.create({
-  annotationAction: {
-    position: 'absolute',
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 5,
-    zIndex: 20,
-  },
-  resizeHandle: {
-    position: 'absolute',
-    bottom: -6,
-    right: -6,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 5,
-    zIndex: 20,
-  },
-  editInput: {
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 16,
-    fontSize: 16,
-    fontFamily: 'Montserrat-Medium',
-  },
-  cropHandle: {
-    position: 'absolute' as const,
-    width: 10,
-    height: 10,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#3B82F6',
-    borderRadius: 1,
-    zIndex: 30,
-  },
-});

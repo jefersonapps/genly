@@ -1,15 +1,14 @@
+import BottomSheet from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
+import { ToolActions } from "@/components/ui/ToolActions";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
+import { shadows } from "@/theme/shadows";
 import { withOpacity } from "@/utils/colors";
 import { recognizeText, sanitizeForWinAnsi } from "@/utils/ocr";
 import { launchScanner } from "@dariyd/react-native-document-scanner";
-import {
-    BottomSheetBackdrop,
-    BottomSheetModal,
-    BottomSheetView,
-} from "@gorhom/bottom-sheet";
+import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
@@ -17,28 +16,28 @@ import * as MediaLibrary from "expo-media-library";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import {
-    Camera,
-    Check,
-    ChevronLeft,
-    Download,
-    FilePlus2,
-    Languages,
-    Plus,
-    RotateCw,
-    Share2,
-    Trash2,
-    X
+  Camera,
+  Check,
+  ChevronLeft,
+  Download,
+  FilePlus2,
+  Languages,
+  Plus,
+  RotateCw,
+  Share2,
+  Trash2,
+  X
 } from "lucide-react-native";
 import { PDFDocument, degrees, rgb } from "pdf-lib";
 import React, { useCallback, useRef, useState } from "react";
 import {
-    Platform,
-    StyleSheet,
-    Switch,
-    Text,
-    TouchableOpacity,
-    View,
-    useWindowDimensions,
+  Platform,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
 } from "react-native";
 import Animated, { useAnimatedRef } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -66,6 +65,13 @@ export default function DocumentScannerScreen() {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const snapPoints = React.useMemo(() => ["55%"], []);
+ 
+  const normalizeUri = (uri: string) => {
+    if (uri && !uri.startsWith("file://") && !uri.startsWith("http") && !uri.startsWith("data:")) {
+      return `file://${uri}`;
+    }
+    return uri;
+  };
 
   React.useEffect(() => {
     if (params.imageUris) {
@@ -74,7 +80,7 @@ export default function DocumentScannerScreen() {
         if (uris.length > 0) {
           const newItems: ScannedPageItem[] = uris.map((uri) => ({
             id: `${Date.now()}-${Math.random().toString(36).substring(7)}`,
-            uri,
+            uri: normalizeUri(uri),
             rotation: 0,
           }));
           setPages(newItems);
@@ -101,7 +107,7 @@ export default function DocumentScannerScreen() {
       if (result.images && result.images.length > 0) {
         const newItems: ScannedPageItem[] = result.images.map((img) => ({
           id: `${Date.now()}-${Math.random().toString(36).substring(7)}`,
-          uri: img.uri,
+          uri: normalizeUri(img.uri),
           rotation: 0,
         }));
 
@@ -322,17 +328,7 @@ export default function DocumentScannerScreen() {
     }
   };
 
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.5}
-      />
-    ),
-    []
-  );
+  // renderBackdrop removed, handled by BottomSheet component
 
   const clearAll = () => {
     dialog.show({
@@ -363,23 +359,25 @@ export default function DocumentScannerScreen() {
     ({ item, index }: { item: ScannedPageItem; index: number }) => {
       return (
         <View
+          className="p-2 rounded-xl border relative my-1"
           style={[
-            styles.card,
             {
               width: cardWidth,
               backgroundColor: isDark ? "#1E1E1E" : "#FFFFFF",
               borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
             },
+            shadows.sm,
           ]}
         >
-          <View style={styles.thumbnailContainer}>
+          <View className="w-full aspect-[1/1.414] overflow-hidden rounded-lg bg-surface-secondary items-center justify-center">
             <Image
               source={{ uri: item.uri }}
               style={[
-                styles.thumbnailImage,
+                StyleSheet.absoluteFillObject,
                 { transform: [{ rotate: `${item.rotation}deg` }] },
               ]}
               contentFit="contain"
+              transition={200}
             />
           </View>
 
@@ -392,9 +390,11 @@ export default function DocumentScannerScreen() {
 
           {/* Action Overlay: Top Left (Rotate) */}
           <TouchableOpacity
+            activeOpacity={0.8}
+            className="absolute w-6 h-6 rounded-full items-center justify-center z-10"
             style={[
-              styles.overlayButton,
               { top: -10, left: -10, backgroundColor: "#3B82F6" },
+              shadows.sm,
             ]}
             onPress={() => rotatePage(item.id)}
             hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
@@ -404,13 +404,15 @@ export default function DocumentScannerScreen() {
 
           {/* Action Overlay: Top Right (Delete) */}
           <TouchableOpacity
+            activeOpacity={0.8}
+            className="absolute w-6 h-6 rounded-full items-center justify-center z-10"
             style={[
-              styles.overlayButton,
               {
                 top: -10,
                 right: -10,
                 backgroundColor: isDark ? "#3F3F46" : "#A1A1AA",
               },
+              shadows.sm,
             ]}
             onPress={() => removePage(item.id)}
             hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
@@ -420,14 +422,16 @@ export default function DocumentScannerScreen() {
 
           {/* Action Overlay: Center Right (Insert After) */}
           <TouchableOpacity
+            activeOpacity={0.8}
+            className="absolute w-6 h-6 rounded-full items-center justify-center z-10"
             style={[
-              styles.overlayButton,
               {
                 top: "50%",
                 marginTop: -12,
                 right: -29,
                 backgroundColor: primaryColor,
               },
+              shadows.sm,
             ]}
             onPress={() => handleScan(index + 1)}
             hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
@@ -438,14 +442,16 @@ export default function DocumentScannerScreen() {
           {/* Action Overlay: Center Left (Insert Before - Only on first item) */}
           {index === 0 && (
             <TouchableOpacity
+              activeOpacity={0.8}
+              className="absolute w-6 h-6 rounded-full items-center justify-center z-10"
               style={[
-                styles.overlayButton,
                 {
                   top: "50%",
                   marginTop: -12,
                   left: -28,
                   backgroundColor: primaryColor,
                 },
+                shadows.sm,
               ]}
               onPress={() => handleScan(0)}
               hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
@@ -456,8 +462,8 @@ export default function DocumentScannerScreen() {
 
           {/* Badge: Index */}
           <View
+            className="absolute bottom-8 left-2 px-2 py-0.5 rounded-xl z-10"
             style={[
-              styles.pageBadge,
               {
                 backgroundColor: isDark
                   ? "rgba(0,0,0,0.6)"
@@ -465,7 +471,7 @@ export default function DocumentScannerScreen() {
               },
             ]}
           >
-            <Text style={styles.pageBadgeText}>{index + 1}</Text>
+            <Text className="font-sans-bold text-xs text-[#888]">{index + 1}</Text>
           </View>
         </View>
       );
@@ -479,6 +485,7 @@ export default function DocumentScannerScreen() {
       <View className="flex-row items-center justify-between border-b border-border/10 px-4 pb-4 pt-2">
         <View className="flex-row items-center">
           <TouchableOpacity
+            activeOpacity={0.8}
             onPress={() => router.back()}
             className="mr-3 p-2 -ml-2"
           >
@@ -491,6 +498,7 @@ export default function DocumentScannerScreen() {
         <View className="flex-row items-center">
           {pages.length > 0 && (
             <TouchableOpacity
+              activeOpacity={0.8}
               onPress={clearAll}
               className="p-2 mr-2"
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -498,7 +506,7 @@ export default function DocumentScannerScreen() {
               <Trash2 size={24} color={isDark ? "#D4D4D8" : "#52525B"} />
             </TouchableOpacity>
           )}
-          <TouchableOpacity onPress={() => handleScan()} className="p-2">
+          <TouchableOpacity activeOpacity={0.8} onPress={() => handleScan()} className="p-2">
             <Plus size={28} color={primaryColor} />
           </TouchableOpacity>
         </View>
@@ -508,22 +516,27 @@ export default function DocumentScannerScreen() {
         /* Empty state */
         <View className="flex-1 justify-center items-center px-8">
           <View
-            className={`mb-6 h-24 w-24 items-center justify-center rounded-full ${
-              isDark ? "bg-primary/20" : "bg-primary/10"
-            }`}
+            style={{ backgroundColor: withOpacity("#3B82F6", isDark ? 0.15 : 0.1) }}
+            className="mb-8 h-24 w-24 items-center justify-center rounded-full"
           >
-            <Camera size={48} color={primaryColor} />
+            <Camera size={48} color="#3B82F6" />
           </View>
           <Text className="font-sans-semibold text-xl text-on-surface text-center mb-2">
-            Nenhum Documento
+            Scanner de Documentos
           </Text>
-          <Text className="font-sans text-base text-on-surface-secondary text-center mb-8">
-            Toque no botão + acima ou abaixo para começar a escanear.
+          <Text className="font-sans text-base text-on-surface-secondary text-center mb-10">
+            Escaneie documentos, recibos ou anotações e transforme em arquivos digitais organizados.
           </Text>
-          <Button onPress={() => handleScan()} rounded="full" size="lg">
-            <Button.Icon icon={Camera} />
-            <Button.Text>Iniciar Scanner</Button.Text>
-          </Button>
+
+          <ToolActions>
+            <ToolActions.Button
+              onPress={() => handleScan()}
+              icon={<Camera size={24} color="#3B82F6" />}
+              color="#3B82F6"
+              title="Iniciar Scanner"
+              description="Escanear novas páginas"
+            />
+          </ToolActions>
         </View>
       ) : (
         <View className="flex-1 pt-4 pb-2">
@@ -571,7 +584,7 @@ export default function DocumentScannerScreen() {
       {/* Bottom Action Bar */}
       {pages.length > 0 && (
         <View
-          className="px-4 pt-4 pb-2 bg-surface border-t border-border/10 items-center"
+          className="px-6 pt-4 pb-12 bg-surface border-t border-border/10 items-center"
           style={{ paddingBottom: Math.max(insets.bottom, 16) }}
         >
           <Button
@@ -585,34 +598,28 @@ export default function DocumentScannerScreen() {
           >
             <Button.Icon icon={Check} />
             <Button.Text>
-              {`Concluir (${pages.length} ${pages.length === 1 ? "página" : "páginas"})`}
+              {`Exportar (${pages.length} ${pages.length === 1 ? "página" : "páginas"})`}
             </Button.Text>
           </Button>
         </View>
       )}
 
-      <BottomSheetModal
-        ref={bottomSheetModalRef}
-        index={0}
+      <BottomSheet
+        sheetRef={bottomSheetModalRef}
         snapPoints={snapPoints}
-        backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: isDark ? '#18181b' : '#f4f4f5' }}
-        handleIndicatorStyle={{ backgroundColor: isDark ? '#52525b' : '#d4d4d8' }}
       >
-        <BottomSheetView 
-          className="p-6 gap-3"
-          style={{ paddingBottom: Math.max(insets.bottom, 24) }}
-        >
-          <Text className="font-sans-bold text-xl text-on-surface">
-            O que deseja fazer?
-          </Text>
+        <BottomSheet.View className="p-4 gap-2" paddingBottomOffset={8}>
+          <View className="-mb-2">
+            <BottomSheet.Header title="O que deseja fazer?" />
+          </View>
 
-          {/* Categoria: Nota */}
-          <View className="gap-3">
-             <Text className="font-sans-semibold text-sm text-on-surface-secondary px-1 uppercase tracking-wider">Configuração</Text>
-             <TouchableOpacity 
+          {/* Categoria: OCR */}
+          <Text className="font-sans-semibold text-[10px] text-on-surface-secondary px-1 uppercase tracking-wider mt-0 -mb-2">Configuração</Text>
+          <BottomSheet.ItemGroup>
+              <TouchableOpacity
+                activeOpacity={0.8}
                 onPress={() => setIsOCREnabled(!isOCREnabled)}
-                className="flex-row items-center p-4 bg-surface-secondary rounded-2xl border border-border justify-between"
+                className="flex-row items-center p-2 justify-between"
               >
                 <View className="flex-row items-center flex-1">
                   <View className="h-10 w-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: withOpacity(primaryColor, 0.1) }}>
@@ -623,132 +630,72 @@ export default function DocumentScannerScreen() {
                     <Text className="font-sans text-xs text-on-surface-secondary">Extrai texto e integra ao PDF</Text>
                   </View>
                 </View>
-                <Switch 
+                <Switch
                   value={isOCREnabled}
                   onValueChange={setIsOCREnabled}
                   trackColor={{ false: "#71717a", true: primaryColor }}
                 />
               </TouchableOpacity>
-          </View>
+          </BottomSheet.ItemGroup>
 
           {/* Categoria: Nota */}
-          <View className="gap-3">
-             <Text className="font-sans-semibold text-sm text-on-surface-secondary px-1 uppercase tracking-wider">Nota</Text>
-             <Button 
-                variant="ghost"
-                onPress={handleCreateNote}
-                className="flex-row items-center p-4 bg-surface-secondary rounded-2xl border border-border"
-              >
-                <View className="h-10 w-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: withOpacity(primaryColor, 0.1) }}>
-                  <FilePlus2 size={20} color={primaryColor} />
-                </View>
-                <Button.Text className="flex-1 text-left">Criar Nota com Imagens</Button.Text>
-              </Button>
-          </View>
+          <Text className="font-sans-semibold text-[10px] text-on-surface-secondary px-1 uppercase tracking-wider mt-0 -mb-2">Nota</Text>
+          <BottomSheet.ItemGroup>
+            <BottomSheet.Item
+              icon={<FilePlus2 size={18} color={primaryColor} />}
+              iconBackgroundColor={withOpacity(primaryColor, 0.08)}
+              title="Criar Nota com Imagens"
+              onPress={handleCreateNote}
+              containerStyle={{ paddingVertical: 8 }}
+            />
+          </BottomSheet.ItemGroup>
 
           {/* Categoria: PDF */}
-          <View className="gap-3">
-            <Text className="font-sans-semibold text-sm text-on-surface-secondary px-1 uppercase tracking-wider">PDF</Text>
-            <View className="flex-row gap-3">
-              <Button 
+          <Text className="font-sans-semibold text-[10px] text-on-surface-secondary px-1 uppercase tracking-wider mt-0 -mb-2">PDF</Text>
+          <View className="flex-row gap-3">
+              <Button
                 variant="ghost"
                 onPress={handleSavePDF}
-                className="flex-1 flex-row items-center p-4 bg-surface-secondary rounded-2xl border border-border"
+                className="flex-1 flex-row items-center p-2 bg-surface-secondary rounded-2xl border border-border"
               >
                 <Download size={18} color={primaryColor} />
                 <Button.Text className="ml-2">Salvar</Button.Text>
               </Button>
-              <Button 
+              <Button
                 variant="ghost"
                 onPress={handleSharePDF}
-                className="flex-1 flex-row items-center p-4 bg-surface-secondary rounded-2xl border border-border"
+                className="flex-1 flex-row items-center p-2 bg-surface-secondary rounded-2xl border border-border"
               >
                 <Share2 size={18} color={primaryColor} />
                 <Button.Text className="ml-2">Compartilhar</Button.Text>
               </Button>
-            </View>
           </View>
 
           {/* Categoria: Imagens */}
-          <View className="gap-3">
-            <Text className="font-sans-semibold text-sm text-on-surface-secondary px-1 uppercase tracking-wider">Imagens</Text>
-            <View className="flex-row gap-3">
-              <Button 
+          <Text className="font-sans-semibold text-[10px] text-on-surface-secondary px-1 uppercase tracking-wider mt-0 -mb-1">Imagens</Text>
+          <View className="flex-row gap-2">
+            <Button
                 variant="ghost"
                 onPress={handleSaveGallery}
-                className="flex-1 flex-row items-center p-4 bg-surface-secondary rounded-2xl border border-border"
+                className="flex-1 flex-row items-center p-2 bg-surface-secondary rounded-2xl border border-border"
               >
                 <Camera size={18} color={primaryColor} />
                 <Button.Text className="ml-2">Galeria</Button.Text>
               </Button>
-              <Button 
+              <Button
                 variant="ghost"
                 onPress={handleShareImages}
-                className="flex-1 flex-row items-center p-4 bg-surface-secondary rounded-2xl border border-border"
+                className="flex-1 flex-row items-center p-2 bg-surface-secondary rounded-2xl border border-border"
               >
                 <Share2 size={18} color={primaryColor} />
                 <Button.Text className="ml-2">Compartilhar</Button.Text>
               </Button>
-            </View>
           </View>
-        </BottomSheetView>
-      </BottomSheetModal>
+
+        </BottomSheet.View>
+      </BottomSheet>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    padding: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-    position: "relative",
-    marginVertical: 4,
-  },
-  thumbnailContainer: {
-    width: "100%",
-    aspectRatio: 1 / 1.414, // A4 aspect ratio
-    overflow: "hidden",
-    borderRadius: 8,
-    backgroundColor: "#F3F4F6", // fallback background
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  thumbnailImage: {
-    width: "100%",
-    height: "100%",
-  },
-  overlayButton: {
-    position: "absolute",
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    zIndex: 10,
-  },
-  pageBadge: {
-    position: "absolute",
-    bottom: 32,
-    left: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    zIndex: 5,
-  },
-  pageBadgeText: {
-    fontFamily: "Montserrat-Bold",
-    fontSize: 12,
-    color: "#888",
-  },
-});
+

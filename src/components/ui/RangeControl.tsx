@@ -3,17 +3,16 @@ import * as Haptics from "expo-haptics";
 import { Minus, Plus } from "lucide-react-native";
 import React, { useCallback } from "react";
 import {
-    LayoutChangeEvent,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  LayoutChangeEvent,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
-    runOnJS,
-    useAnimatedStyle,
-    useSharedValue,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
 } from "react-native-reanimated";
 
 interface RangeControlProps {
@@ -120,34 +119,42 @@ export function RangeControl({
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
-        <Text style={[styles.value, { color: colors.valueText }]}>{value}</Text>
+    <View className="mb-4 w-full">
+      <View className="flex-row justify-between items-center mb-2 px-1">
+        <Text className="text-[13px] font-sans-bold uppercase tracking-widest" style={{ color: colors.text }}>{label}</Text>
+        <Text className="text-sm font-sans-bold font-mono" style={{ color: colors.valueText }}>{value}</Text>
       </View>
 
-      <View style={styles.controlRow}>
+      <View className="flex-row items-center gap-3">
         <TouchableOpacity 
           onPress={handleDecrement}
-          style={[styles.adjustBtn, { backgroundColor: colors.buttonBg }]}
-          activeOpacity={0.7}
+          className="w-10 h-10 rounded-xl items-center justify-center"
+          style={[{ backgroundColor: colors.buttonBg }]}
+          activeOpacity={0.8}
         >
           <Minus size={18} color={colors.valueText} />
         </TouchableOpacity>
-
+ 
         <GestureDetector gesture={Gesture.Exclusive(gesture, tapGesture)}>
-          <View style={styles.trackContainer} onLayout={onLayout}>
-            <View style={[styles.track, { backgroundColor: colors.track }]}>
-              <Animated.View style={[styles.fill, animatedFillStyle]} />
+          <View className="flex-1 h-10 justify-center relative" onLayout={onLayout}>
+            <View className="h-1.5 rounded-full w-full overflow-hidden" style={[{ backgroundColor: colors.track }]}>
+              <Animated.View style={[{ height: '100%' }, animatedFillStyle]} />
             </View>
-            <Animated.View style={[styles.thumb, animatedThumbStyle]} />
+            <Animated.View 
+              className="absolute w-5 h-5 rounded-full border-[3px] shadow elevation-2"
+              style={[
+                { top: 10 },
+                animatedThumbStyle
+              ]} 
+            />
           </View>
         </GestureDetector>
 
         <TouchableOpacity 
           onPress={handleIncrement}
-          style={[styles.adjustBtn, { backgroundColor: colors.buttonBg }]}
-          activeOpacity={0.7}
+          className="w-10 h-10 rounded-xl items-center justify-center"
+          style={[{ backgroundColor: colors.buttonBg }]}
+          activeOpacity={0.8}
         >
           <Plus size={18} color={colors.valueText} />
         </TouchableOpacity>
@@ -155,68 +162,3 @@ export function RangeControl({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
-    width: '100%',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-    paddingHorizontal: 4,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  value: {
-    fontSize: 14,
-    fontWeight: '800',
-    fontFamily: 'monospace',
-  },
-  controlRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  adjustBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  trackContainer: {
-    flex: 1,
-    height: 40,
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  track: {
-    height: 6,
-    borderRadius: 3,
-    width: '100%',
-    overflow: 'hidden',
-  },
-  fill: {
-    height: '100%',
-  },
-  thumb: {
-    position: 'absolute',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 3,
-    top: 10, // Center on the 40px container (40/2 - 20/2)
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-});

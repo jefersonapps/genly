@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/Button";
+import { ToolActions } from "@/components/ui/ToolActions";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { withOpacity } from "@/utils/colors";
@@ -15,13 +15,11 @@ import {
     Download,
     FilePlus2,
     FileText,
-    Plus,
-    Share2
+    ImageDown, Share2
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator, FlatList,
-    Platform,
+    ActivityIndicator, FlatList, Platform,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -30,6 +28,19 @@ import {
 } from "react-native";
 import PdfThumbnail from "react-native-pdf-thumbnail";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const ensureFileProtocol = (uri: string) => {
+  if (!uri) return uri;
+  if (
+    !uri.startsWith("file://") &&
+    !uri.startsWith("content://") &&
+    !uri.startsWith("http") &&
+    uri.startsWith("/")
+  ) {
+    return `file://${uri}`;
+  }
+  return uri;
+};
 
 const COLUMN_COUNT = 2;
 
@@ -68,7 +79,7 @@ export default function PdfToImageScreen() {
       const result = await PdfThumbnail.generateAllPages(uri, 90);
       const newImages: PDFImageItem[] = result.map((res, i) => ({
         id: `page-${i}-${Date.now()}`,
-        uri: res.uri,
+        uri: ensureFileProtocol(res.uri),
         pageIndex: i,
       }));
       setImages(newImages);
@@ -191,17 +202,20 @@ export default function PdfToImageScreen() {
       <TouchableOpacity
         onPress={() => toggleSelection(item.id)}
         activeOpacity={0.8}
-        style={[styles.itemContainer, { backgroundColor: isDark ? "#1A1A1A" : "#F5F5F5", width: ITEM_WIDTH, height: ITEM_WIDTH * 1.4 }]}
+        className="m-2 rounded-2xl overflow-hidden relative"
+        style={[{ backgroundColor: isDark ? "#1A1A1A" : "#F5F5F5", width: ITEM_WIDTH, height: ITEM_WIDTH * 1.4 }]}
       >
         <Image
           source={{ uri: item.uri }}
-          style={styles.thumbnail}
+          style={StyleSheet.absoluteFillObject}
+          className="m-3"
           contentFit="contain"
+          transition={200}
         />
-        <View style={styles.pageBadge}>
-          <Text style={styles.pageBadgeText}>Pág. {item.pageIndex + 1}</Text>
+        <View className="absolute bottom-2 left-2 bg-black/50 px-2 py-1 rounded-lg">
+          <Text className="text-white text-[10px] font-sans-medium">Pág. {item.pageIndex + 1}</Text>
         </View>
-        <View style={styles.selectionOverlay}>
+        <View className="absolute top-2 right-2">
             {isSelected ? (
                 <CheckCircle2 size={24} color={primaryColor} fill={withOpacity(primaryColor, 0.2)} />
             ) : (
@@ -217,6 +231,7 @@ export default function PdfToImageScreen() {
       {/* Header */}
       <View className="flex-row items-center justify-between px-4 py-2 border-b border-outline/10">
         <TouchableOpacity
+          activeOpacity={0.8}
           onPress={() => router.back()}
           className="h-10 w-10 items-center justify-center rounded-full bg-surface-secondary/50"
         >
@@ -228,19 +243,28 @@ export default function PdfToImageScreen() {
 
       {!pdfUri ? (
         <View className="flex-1 justify-center items-center px-8">
-           <View className={`mb-6 h-24 w-24 items-center justify-center rounded-full ${isDark ? "bg-primary/20" : "bg-primary/10"}`}>
-             <FileText size={48} color={primaryColor} />
+           <View 
+            style={{ backgroundColor: withOpacity("#F59E0B", isDark ? 0.15 : 0.1) }}
+            className="mb-8 h-24 w-24 items-center justify-center rounded-full"
+          >
+             <ImageDown size={48} color="#F59E0B" />
            </View>
            <Text className="font-sans-semibold text-xl text-on-surface text-center mb-2">
-             Selecione um PDF
+             PDF para Imagem
            </Text>
-           <Text className="font-sans text-base text-on-surface-secondary text-center mb-8">
-             Escolha um arquivo para extrair suas páginas como imagens individuais.
+           <Text className="font-sans text-base text-on-surface-secondary text-center mb-10">
+             Extraia páginas de arquivos PDF e as transforme em imagens de alta qualidade instantaneamente.
            </Text>
-           <Button onPress={handlePickDocument} rounded="full" size="lg">
-             <Button.Icon icon={Plus} />
-             <Button.Text>Escolher Arquivo</Button.Text>
-           </Button>
+
+           <ToolActions>
+             <ToolActions.Button
+               onPress={handlePickDocument}
+               icon={<FileText size={24} color="#F59E0B" />}
+               color="#F59E0B"
+               title="Escolher Arquivo"
+               description="Selecionar PDF do dispositivo"
+             />
+           </ToolActions>
         </View>
       ) : (
         <View className="flex-1">
@@ -262,8 +286,8 @@ export default function PdfToImageScreen() {
 
               {/* Action Bar */}
               <View 
+                className="absolute bottom-0 left-0 right-0 pt-4 border-t"
                 style={[
-                    styles.actionBar, 
                     { 
                         backgroundColor: isDark ? "#121212" : "#FFFFFF",
                         paddingBottom: insets.bottom + 16,
@@ -276,6 +300,7 @@ export default function PdfToImageScreen() {
                         {selectedIds.size} de {images.length} selecionadas
                     </Text>
                     <TouchableOpacity 
+                        activeOpacity={0.8}
                         onPress={() => setSelectedIds(selectedIds.size === images.length ? new Set() : new Set(images.map(i => i.id)))}
                     >
                         <Text style={{ color: primaryColor }} className="font-sans-bold">
@@ -286,27 +311,33 @@ export default function PdfToImageScreen() {
 
                 <View className="flex-row gap-2 px-4">
                   <TouchableOpacity
+                    activeOpacity={0.8}
                     onPress={handleSaveToGallery}
                     disabled={selectedIds.size === 0}
-                    style={[styles.actionButton, { backgroundColor: isDark ? "#2A2A2A" : "#F0F0F0", opacity: selectedIds.size === 0 ? 0.5 : 1 }]}
+                    className="flex-1 h-15 rounded-2xl items-center justify-center py-2"
+                    style={[{ backgroundColor: isDark ? "#2A2A2A" : "#F0F0F0", opacity: selectedIds.size === 0 ? 0.5 : 1 }]}
                   >
                     <Download size={20} color={isDark ? "#FFF" : "#000"} />
                     <Text style={{ color: isDark ? "#FFF" : "#000" }} className="mt-1 text-xs font-sans-medium">Galeria</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
+                    activeOpacity={0.8}
                     onPress={handleShareBatch}
                     disabled={selectedIds.size === 0}
-                    style={[styles.actionButton, { backgroundColor: isDark ? "#2A2A2A" : "#F0F0F0", opacity: selectedIds.size === 0 ? 0.5 : 1 }]}
+                    className="flex-1 h-15 rounded-2xl items-center justify-center py-2"
+                    style={[{ backgroundColor: isDark ? "#2A2A2A" : "#F0F0F0", opacity: selectedIds.size === 0 ? 0.5 : 1 }]}
                   >
                     <Share2 size={20} color={isDark ? "#FFF" : "#000"} />
                     <Text style={{ color: isDark ? "#FFF" : "#000" }} className="mt-1 text-xs font-sans-medium">Compartilhar</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
+                    activeOpacity={0.8}
                     onPress={handleCreateNote}
                     disabled={selectedIds.size === 0}
-                    style={[styles.actionButton, { backgroundColor: primaryColor, opacity: selectedIds.size === 0 ? 0.5 : 1 }]}
+                    className="flex-1 h-15 rounded-2xl items-center justify-center py-2"
+                    style={[{ backgroundColor: primaryColor, opacity: selectedIds.size === 0 ? 0.5 : 1 }]}
                   >
                     <FilePlus2 size={20} color="#FFF" />
                     <Text className="mt-1 text-xs font-sans-medium text-white">Nota</Text>
@@ -321,49 +352,3 @@ export default function PdfToImageScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  itemContainer: {
-    margin: 8,
-    borderRadius: 16,
-    overflow: "hidden",
-    position: "relative",
-  },
-  thumbnail: {
-    flex: 1,
-    margin: 12,
-  },
-  pageBadge: {
-    position: "absolute",
-    bottom: 8,
-    left: 8,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  pageBadgeText: {
-    color: "#FFF",
-    fontSize: 10,
-    fontFamily: "Montserrat-Medium",
-  },
-  selectionOverlay: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-  },
-  actionBar: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingTop: 16,
-    borderTopWidth: 1,
-  },
-  actionButton: {
-    flex: 1,
-    height: 60,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  }
-});

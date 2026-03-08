@@ -1,41 +1,41 @@
 import { Button } from "@/components/ui/Button";
 import { CardGradient } from "@/components/ui/CardGradient";
 import { useTheme } from "@/providers/ThemeProvider";
+import { shadows } from "@/theme/shadows";
 import { withOpacity } from "@/utils/colors";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import {
-    ArrowRightLeft,
-    Bell,
-    Camera,
-    ChevronRight,
-    Clock,
-    DollarSign,
-    FileStack,
-    Grid3X3,
-    ImageDown,
-    Library,
-    Network,
-    Paperclip,
-    QrCode,
-    ScanText,
-    Share2,
-    Sparkles,
-    Timer,
-    TrendingDown,
-    TrendingUp,
-    Wallet,
+  ArrowRightLeft,
+  Bell,
+  Camera,
+  ChevronRight,
+  Clock,
+  DollarSign,
+  FileStack,
+  Grid3X3,
+  ImageDown,
+  Library,
+  Network,
+  Paperclip,
+  QrCode,
+  ScanText,
+  Share2,
+  Sparkles,
+  Timer,
+  TrendingDown,
+  TrendingUp,
+  Wallet,
 } from "lucide-react-native";
 import React, { useCallback, useRef, useState } from "react";
 import {
-    FlatList,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
-    type ViewToken,
+  FlatList,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+  type ViewToken,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -79,20 +79,15 @@ function SlideNotes({ isDark, primaryColor, width }: { isDark: boolean; primaryC
         showsVerticalScrollIndicator={false}
     >
       <View className="w-full rounded-3xl overflow-hidden mb-8" style={{ minHeight: 280 }}>
-        <CardGradient color={primaryColor} style={StyleSheet.absoluteFill} hasSolidBackground />
+        <CardGradient color={primaryColor} className="absolute inset-0" hasSolidBackground />
         <View className="flex-1 p-5 justify-center">
           {/* Mocked note card 1 */}
           <View
-            className="mb-3 rounded-2xl bg-surface p-4"
-            style={{
-              borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 3,
-              elevation: 3,
-            }}
+            className="mb-3 rounded-2xl bg-surface p-4 border"
+            style={[
+              { borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)" },
+              shadows.sm,
+            ]}
           >
             <View className="flex-row items-start justify-between">
               <View className="flex-1">
@@ -114,16 +109,11 @@ function SlideNotes({ isDark, primaryColor, width }: { isDark: boolean; primaryC
 
           {/* Mocked note card 2 */}
           <View
-            className="rounded-2xl bg-surface p-4"
-            style={{
-              borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 3,
-              elevation: 3,
-            }}
+            className="rounded-2xl bg-surface p-4 border"
+            style={[
+              { borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)" },
+              shadows.sm,
+            ]}
           >
             <View className="flex-row items-start justify-between">
               <View className="flex-1">
@@ -197,26 +187,26 @@ function SlideReminders({ isDark, primaryColor, width }: { isDark: boolean; prim
               <Bell size={24} color={primaryColor} />
             </View>
             <View className="flex-1">
-              <Text style={{ fontFamily: "Montserrat-Bold", fontSize: 15, color: isDark ? "#FAFAFA" : "#18181B" }}>Reunião de Projeto</Text>
-              <Text style={{ fontFamily: "Montserrat-Regular", fontSize: 12, color: isDark ? "#A1A1AA" : "#71717A" }}>Hoje, 14:30</Text>
+              <Text className="font-sans-bold text-[15px]" style={{ color: isDark ? "#FAFAFA" : "#18181B" }}>Reunião de Projeto</Text>
+              <Text className="font-sans text-xs" style={{ color: isDark ? "#A1A1AA" : "#71717A" }}>Hoje, 14:30</Text>
             </View>
             <View className="px-3 py-1.5 rounded-full" style={{ backgroundColor: withOpacity(primaryColor, 0.12) }}>
-              <Text style={{ fontFamily: "Montserrat-Bold", fontSize: 11, color: primaryColor }}>Em breve</Text>
+              <Text className="font-sans-bold text-[11px]" style={{ color: primaryColor }}>Em breve</Text>
             </View>
           </View>
 
-          <View style={{ height: 1, backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)" }} />
+          <View className="h-[1px]" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)" }} />
 
           <View className="flex-row items-center mt-5">
             <View className="h-12 w-12 rounded-2xl items-center justify-center mr-4" style={{ backgroundColor: withOpacity("#F59E0B", 0.12) }}>
               <Clock size={24} color="#F59E0B" />
             </View>
             <View className="flex-1">
-              <Text style={{ fontFamily: "Montserrat-Bold", fontSize: 15, color: isDark ? "#FAFAFA" : "#18181B" }}>Entregar Trabalho</Text>
-              <Text style={{ fontFamily: "Montserrat-Regular", fontSize: 12, color: isDark ? "#A1A1AA" : "#71717A" }}>Amanhã, 08:00</Text>
+              <Text className="font-sans-bold text-[15px]" style={{ color: isDark ? "#FAFAFA" : "#18181B" }}>Entregar Trabalho</Text>
+              <Text className="font-sans text-xs" style={{ color: isDark ? "#A1A1AA" : "#71717A" }}>Amanhã, 08:00</Text>
             </View>
             <View className="px-3 py-1.5 rounded-full" style={{ backgroundColor: withOpacity("#F59E0B", 0.12) }}>
-              <Text style={{ fontFamily: "Montserrat-Bold", fontSize: 11, color: "#F59E0B" }}>Amanhã</Text>
+              <Text className="font-sans-bold text-[11px]" style={{ color: "#F59E0B" }}>Amanhã</Text>
             </View>
           </View>
         </View>
@@ -245,18 +235,17 @@ function SlideTools({ isDark, primaryColor, width }: { isDark: boolean; primaryC
             return (
               <View
                 key={i}
-                className="items-center justify-center rounded-2xl p-3"
+                className="items-center justify-center rounded-2xl p-3 border"
                 style={{
-                  width: (width - 72) / 3,
-                  backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
-                  borderWidth: 1,
-                  borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                   width: (width - 72) / 3,
+                   backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
+                   borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
                 }}
               >
                 <View className="h-10 w-10 rounded-xl items-center justify-center mb-2" style={{ backgroundColor: withOpacity(tool.color, 0.12) }}>
                   <Icon size={20} color={tool.color} />
                 </View>
-                <Text style={{ fontFamily: "Montserrat-Medium", fontSize: 11, color: isDark ? "#D4D4D8" : "#52525B", textAlign: "center" }}>
+                <Text className="font-sans-medium text-[11px] text-center" style={{ color: isDark ? "#D4D4D8" : "#52525B" }}>
                   {tool.label}
                 </Text>
               </View>
@@ -289,15 +278,14 @@ function SlideAI({ isDark, primaryColor, width }: { isDark: boolean; primaryColo
           {AI_MODES.map((mode, i) => (
             <View
               key={i}
-              className="flex-row items-center rounded-2xl px-4 py-3.5"
+              className="flex-row items-center rounded-2xl px-4 py-3.5 border"
               style={{
                 backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
-                borderWidth: 1,
                 borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
               }}
             >
-              <Text style={{ fontSize: 20, marginRight: 12 }}>{mode.emoji}</Text>
-              <Text style={{ fontFamily: "Montserrat-SemiBold", fontSize: 14, color: isDark ? "#FAFAFA" : "#18181B" }}>{mode.label}</Text>
+              <Text className="text-xl mr-3">{mode.emoji}</Text>
+              <Text className="font-sans-semibold text-sm" style={{ color: isDark ? "#FAFAFA" : "#18181B" }}>{mode.label}</Text>
             </View>
           ))}
         </View>
@@ -321,23 +309,22 @@ function SlideFinances({ isDark, primaryColor, width }: { isDark: boolean; prima
     >
       <View className="w-full mb-8">
         {/* Balance card */}
-        <View className="rounded-3xl overflow-hidden mb-4" style={{ height: 120 }}>
-          <CardGradient color="#10B981" style={StyleSheet.absoluteFill} hasSolidBackground />
+        <View className="rounded-3xl overflow-hidden mb-4 h-[120px]">
+          <CardGradient color="#10B981" className="absolute inset-0" hasSolidBackground />
           <View className="flex-1 p-5 justify-center">
             <View className="flex-row items-center mb-1">
               <Wallet size={18} color="rgba(255,255,255,0.8)" />
-              <Text style={{ fontFamily: "Montserrat-Medium", fontSize: 12, color: "rgba(255,255,255,0.8)", marginLeft: 8 }}>Saldo Atual</Text>
+              <Text className="font-sans-medium text-xs ml-2" style={{ color: "rgba(255,255,255,0.8)" }}>Saldo Atual</Text>
             </View>
-            <Text style={{ fontFamily: "Montserrat-Bold", fontSize: 28, color: "#FFFFFF" }}>R$ 2.450,00</Text>
+            <Text className="font-sans-bold text-[28px] text-white">R$ 2.450,00</Text>
           </View>
         </View>
 
         {/* Mocked transactions */}
         <View
-          className="rounded-2xl overflow-hidden"
+          className="rounded-2xl overflow-hidden border"
           style={{
             backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
-            borderWidth: 1,
             borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
           }}
         >
@@ -346,10 +333,10 @@ function SlideFinances({ isDark, primaryColor, width }: { isDark: boolean; prima
               <TrendingDown size={18} color="#EF4444" />
             </View>
             <View className="flex-1">
-              <Text style={{ fontFamily: "Montserrat-SemiBold", fontSize: 14, color: isDark ? "#FAFAFA" : "#18181B" }}>Mercado</Text>
-              <Text style={{ fontFamily: "Montserrat-Regular", fontSize: 11, color: isDark ? "#A1A1AA" : "#71717A" }}>Ontem</Text>
+              <Text className="font-sans-semibold text-sm" style={{ color: isDark ? "#FAFAFA" : "#18181B" }}>Mercado</Text>
+              <Text className="font-sans text-[11px]" style={{ color: isDark ? "#A1A1AA" : "#71717A" }}>Ontem</Text>
             </View>
-            <Text style={{ fontFamily: "Montserrat-Bold", fontSize: 14, color: "#EF4444" }}>- R$ 182,50</Text>
+            <Text className="font-sans-bold text-sm text-[#EF4444]">- R$ 182,50</Text>
           </View>
           <View style={{ height: 1, backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", marginHorizontal: 16 }} />
           <View className="flex-row items-center p-4">
@@ -357,10 +344,10 @@ function SlideFinances({ isDark, primaryColor, width }: { isDark: boolean; prima
               <TrendingUp size={18} color="#10B981" />
             </View>
             <View className="flex-1">
-              <Text style={{ fontFamily: "Montserrat-SemiBold", fontSize: 14, color: isDark ? "#FAFAFA" : "#18181B" }}>Freelance</Text>
-              <Text style={{ fontFamily: "Montserrat-Regular", fontSize: 11, color: isDark ? "#A1A1AA" : "#71717A" }}>Hoje</Text>
+              <Text className="font-sans-semibold text-sm" style={{ color: isDark ? "#FAFAFA" : "#18181B" }}>Freelance</Text>
+              <Text className="font-sans text-[11px]" style={{ color: isDark ? "#A1A1AA" : "#71717A" }}>Hoje</Text>
             </View>
-            <Text style={{ fontFamily: "Montserrat-Bold", fontSize: 14, color: "#10B981" }}>+ R$ 800,00</Text>
+            <Text className="font-sans-bold text-sm text-[#10B981]">+ R$ 800,00</Text>
           </View>
         </View>
       </View>
@@ -397,17 +384,16 @@ function SlideSharing({ isDark, primaryColor, width }: { isDark: boolean; primar
             return (
               <View
                 key={i}
-                className="flex-row items-center rounded-2xl px-4 py-4"
+                className="flex-row items-center rounded-2xl px-4 py-4 border"
                 style={{
                   backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
-                  borderWidth: 1,
                   borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
                 }}
               >
                 <View className="h-10 w-10 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: withOpacity(item.color, 0.12) }}>
                   <Icon size={20} color={item.color} />
                 </View>
-                <Text className="flex-1" style={{ fontFamily: "Montserrat-Medium", fontSize: 13, color: isDark ? "#D4D4D8" : "#3F3F46" }}>
+                <Text className="flex-1 font-sans-medium text-[13px]" style={{ color: isDark ? "#D4D4D8" : "#3F3F46" }}>
                   {item.label}
                 </Text>
               </View>
@@ -458,12 +444,10 @@ function SlideWidgets({
           {WIDGET_IMAGES.map((item, i) => (
             <View
               key={i}
-              className="rounded-2xl overflow-hidden mr-3"
+              className="rounded-2xl overflow-hidden mr-3 h-[260px] border"
               style={{
                 width: (width - 48) * 0.65,
-                height: 260,
                 backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
-                borderWidth: 1,
                 borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
               }}
             >
@@ -472,15 +456,7 @@ function SlideWidgets({
                 style={{ flex: 1, margin: 8, borderRadius: 12 }}
                 contentFit="contain"
               />
-              <Text
-                style={{
-                  fontFamily: "Montserrat-SemiBold",
-                  fontSize: 12,
-                  color: isDark ? "#D4D4D8" : "#52525B",
-                  textAlign: "center",
-                  paddingBottom: 12,
-                }}
-              >
+              <Text className="font-sans-semibold text-xs text-center pb-3" style={{ color: isDark ? "#D4D4D8" : "#52525B" }}>
                 {item.label}
               </Text>
             </View>
@@ -569,8 +545,8 @@ export default function OnboardingScreen() {
     <View className="flex-1 bg-surface" style={{ paddingTop: insets.top }}>
       {/* Top bar: Skip */}
       <View className="flex-row justify-end px-5 py-3">
-        <TouchableOpacity onPress={handleSkip} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Text style={{ fontFamily: "Montserrat-SemiBold", fontSize: 15, color: isDark ? "#A1A1AA" : "#71717A" }}>
+        <TouchableOpacity activeOpacity={0.8} onPress={handleSkip} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Text className="font-sans-semibold text-[15px]" style={{ color: isDark ? "#A1A1AA" : "#71717A" }}>
             Pular
           </Text>
         </TouchableOpacity>

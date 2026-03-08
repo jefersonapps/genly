@@ -1,8 +1,8 @@
+import { shadows } from "@/theme/shadows";
 import { X } from "lucide-react-native";
 import React, { useState } from "react";
 import {
     Modal,
-    StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
@@ -50,41 +50,49 @@ export function ColorPickerModal({ visible, title, currentColor, onSelect, onClo
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity activeOpacity={1} style={styles.overlay} onPress={onClose}>
-        <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-          <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      <TouchableOpacity 
+        activeOpacity={1} 
+        className="flex-1 bg-black/50 justify-center items-center p-6" 
+        onPress={onClose}
+      >
+        <TouchableOpacity activeOpacity={1} onPress={() => {}} className="w-full max-w-[360px]">
+          <View 
+            className="w-full rounded-[20px] p-5"
+            style={[ { backgroundColor: colors.bg }, shadows.lg]}
+          >
             {/* Header */}
-            <View style={styles.header}>
-              <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-              <TouchableOpacity onPress={onClose}>
+            <View className="flex-row justify-between items-center mb-4">
+              <Text className="text-lg font-sans-bold" style={{ color: colors.text }}>{title}</Text>
+              <TouchableOpacity activeOpacity={0.8} onPress={onClose}>
                 <X size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             {/* Current color preview */}
-            <View style={styles.previewRow}>
+            <View className="flex-row items-center mb-4 gap-3">
               <View
+                className="w-9 h-9 rounded-xl border-2"
                 style={[
-                  styles.previewSwatch,
                   {
                     backgroundColor: currentColor,
                     borderColor: colors.border,
                   },
                 ]}
               />
-              <Text style={[styles.previewHex, { color: colors.text }]}>
+              <Text className="text-base font-sans-semibold" style={{ color: colors.text }}>
                 {currentColor.toUpperCase()}
               </Text>
             </View>
 
             {/* Color grid */}
-            <View style={styles.grid}>
+            <View className="flex-row flex-wrap gap-2 mb-4">
               {PRESET_COLORS.map((color) => (
                 <TouchableOpacity
+                  activeOpacity={0.8}
                   key={color}
                   onPress={() => onSelect(color)}
+                  className="w-[34px] h-[34px] rounded-lg"
                   style={[
-                    styles.swatch,
                     {
                       backgroundColor: color,
                       borderColor: currentColor === color ? "#6366f1" : colors.border,
@@ -96,8 +104,8 @@ export function ColorPickerModal({ visible, title, currentColor, onSelect, onClo
             </View>
 
             {/* Custom hex */}
-            <View style={styles.customRow}>
-              <Text style={[styles.customLabel, { color: colors.textSecondary }]}>Hex:</Text>
+            <View className="flex-row items-center gap-2">
+              <Text className="text-sm font-sans-semibold" style={{ color: colors.textSecondary }}>Hex:</Text>
               <TextInput
                 value={customHex}
                 onChangeText={setCustomHex}
@@ -105,16 +113,17 @@ export function ColorPickerModal({ visible, title, currentColor, onSelect, onClo
                 placeholder="#000000"
                 placeholderTextColor={colors.textSecondary}
                 autoCapitalize="characters"
+                className="flex-1 h-10 rounded-xl border px-3 text-sm font-sans"
                 style={[
-                  styles.customInput,
                   { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border },
                 ]}
               />
               <TouchableOpacity
+                activeOpacity={0.8}
                 onPress={handleCustomSubmit}
-                style={[styles.customBtn, { backgroundColor: "#6366f1" }]}
+                className="h-10 px-4 rounded-xl items-center justify-center bg-[#6366f1]"
               >
-                <Text style={styles.customBtnText}>OK</Text>
+                <Text className="text-white font-sans-bold text-sm">OK</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -123,92 +132,3 @@ export function ColorPickerModal({ visible, title, currentColor, onSelect, onClo
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-  },
-  container: {
-    width: "100%",
-    maxWidth: 360,
-    borderRadius: 20,
-    padding: 20,
-    elevation: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  previewRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-    gap: 12,
-  },
-  previewSwatch: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    borderWidth: 2,
-  },
-  previewHex: {
-    fontSize: 16,
-    fontWeight: "600",
-    fontFamily: "monospace",
-  },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 16,
-  },
-  swatch: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-  },
-  customRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  customLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  customInput: {
-    flex: 1,
-    height: 40,
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    fontSize: 14,
-    fontFamily: "monospace",
-  },
-  customBtn: {
-    height: 40,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  customBtnText: {
-    color: "#FFF",
-    fontWeight: "700",
-    fontSize: 14,
-  },
-});

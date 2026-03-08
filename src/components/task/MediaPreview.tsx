@@ -39,7 +39,7 @@ export function MediaPreview({
         return (
           <Image
             source={{ uri: media.uri }}
-            style={StyleSheet.absoluteFill}
+            style={StyleSheet.absoluteFillObject}
             contentFit="cover"
           />
         );
@@ -49,28 +49,28 @@ export function MediaPreview({
           return (
             <Image
               source={{ uri: pdfThumb }}
-              style={StyleSheet.absoluteFill}
+              style={StyleSheet.absoluteFillObject}
               contentFit="contain"
             />
           );
         }
         return (
-          <View style={styles.pdfContainer}>
+          <View className="flex-1 items-center justify-center bg-transparent">
             <FileText size={size * 0.5} color={primaryColor} />
           </View>
         );
       case "latex":
       default:
         return (
-          <View style={styles.latexContainer}>
+          <View className="flex-1 items-center justify-center">
             {isLocalUri ? (
               <Image
                 source={{ uri: media.uri }}
-                style={StyleSheet.absoluteFill}
+                style={StyleSheet.absoluteFillObject}
                 contentFit="contain"
               />
             ) : (
-              <View style={styles.mathJaxWrapper}>
+              <View className="p-1 w-full h-full items-center justify-center overflow-hidden">
                 <EnrichedMarkdownText 
                   flavor="github"
                   markdown={media.latexSource || ""} 
@@ -96,43 +96,19 @@ export function MediaPreview({
 
   return (
     <View 
+      className="overflow-hidden border border-black/5"
       style={[
-        styles.container, 
-        { width: size, height: size, borderRadius: rounded }, 
+        { width: size, height: size, borderRadius: rounded, backgroundColor: isDark ? '#1A1A1A' : '#FFFFFF' }, 
         style
       ]} 
       {...props}
     >
-      {showGrid && <TransparencyGrid size={gridSize} />}
-      {renderContent()}
+      <View style={StyleSheet.absoluteFill}>
+        {showGrid && <TransparencyGrid size={gridSize} />}
+      </View>
+      <View style={StyleSheet.absoluteFill}>
+        {renderContent()}
+      </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    overflow: "hidden",
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.05)",
-  },
-  latexContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pdfContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: 'transparent',
-  },
-  mathJaxWrapper: {
-    padding: 4,
-    width: '100%',
-    height: '100%',
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  }
-});

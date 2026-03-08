@@ -1,5 +1,6 @@
 import { AnimatedGlowButton } from "@/components/ui/AnimatedGlowButton";
 import { useTheme } from "@/providers/ThemeProvider";
+import { shadows } from "@/theme/shadows";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -11,7 +12,7 @@ import {
     User as IconUser,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import { LayoutChangeEvent, StyleSheet, View } from "react-native";
+import { LayoutChangeEvent, View } from "react-native";
 import Animated, {
     Easing,
     useAnimatedStyle,
@@ -33,7 +34,8 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
   const CONTAINER_PADDING = 8;
   // 5 slots: Home, Tools, [Plus], Finances, User
   const TAB_COUNT = 5;
-  const tabWidth = (layout.width - CONTAINER_PADDING * 2) / TAB_COUNT;
+  // Subtract 16 for horizontal padding (px-2) and 2 for borders (1px each side)
+  const tabWidth = (layout.width - (CONTAINER_PADDING * 2) - 2) / TAB_COUNT;
   const INDICATOR_WIDTH = 60; // Fixed width for better alignment
 
   // Map state index (0..3) to visual position (0, 1, 3, 4)
@@ -54,7 +56,8 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
 
   useEffect(() => {
     if (tabWidth > 0) {
-      const targetX = CONTAINER_PADDING + activeVisualIndex * tabWidth;
+      // 1px compensation for border + 2px offset to center the wider pill (+4px width)
+      const targetX = (activeVisualIndex * tabWidth) - 2;
       
       // "Liquid" effect: stretch while moving - Reduced intensity
       scaleX.value = withSequence(
@@ -101,40 +104,41 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
   return (
     <View
       pointerEvents="box-none"
-      style={styles.containerWrapper}
+      className="absolute bottom-0 left-0 right-0 h-[100px] items-center justify-center"
     >
       <View
         onLayout={onLayout}
+        className="flex-row bottom-3 w-[90%] rounded-[32px] h-16 border items-center px-2"
         style={[
-          styles.container,
           {
             backgroundColor: isDark ? "#121212" : "#FFFFFF",
             borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
           },
+          shadows.lg
         ]}
       >
         {/* Animated Background Indicator */}
         {layout.width > 0 && (
-          <Animated.View
-            style={[
-              styles.indicator,
-              {
-                width: tabWidth,
-                backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
-                borderRadius: 24, // Full pill shape (48/2)
-                height: 48, // Fixed height for pill shape
-                top: 7, // Adjusted for optical centering (was 8)
-              },
-              animatedStyle,
-            ]}
-          />
+          <View className="absolute inset-0 justify-center px-2" pointerEvents="none" style={{ left: 1, right: 1 }}>
+            <Animated.View
+              className="h-12"
+              style={[
+                {
+                  width: tabWidth + 4,
+                  backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
+                  borderRadius: 24,
+                },
+                animatedStyle,
+              ]}
+            />
+          </View>
         )}
 
         {/* Render Tabs Uniformly */}
         {TAB_ITEMS.map((item, index) => {
           if (item.type === 'button') {
             return (
-              <View key="plus-button" style={styles.tabSlot}>
+              <View key="plus-button" className="flex-1 items-center justify-center">
                 <AnimatedGlowButton
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -152,7 +156,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
           const isFocused = state.index === (index > 2 ? index - 1 : index);
           
           return (
-            <View key={item.routeName} style={styles.tabSlot}>
+            <View key={item.routeName} className="flex-1 items-center justify-center">
               <TabButton
                 icon={item.icon!}
                 isFocused={isFocused}
@@ -169,45 +173,3 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  containerWrapper: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 100, // Reduced from 120
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  container: {
-    flexDirection: "row",
-    bottom: 12,
-    width: "90%",
-    borderRadius: 32, // Reduced from 40 (half of 64)
-    height: 64, // Reduced from 80
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
-  },
-  tabSlot: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  indicator: {
-    position: "absolute",
-    top: 7, 
-    left: 0, 
-    height: 48,
-    // Width is set dynamicall
-  },
-});

@@ -1,4 +1,7 @@
 import { useTheme } from "@/providers/ThemeProvider";
+import { shadows } from "@/theme/shadows";
+import { withOpacity } from "@/utils/colors";
+import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { ChevronLeft, Coffee, Eye, Minus, Pause, Play, Plus, RotateCcw, Settings, X } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
@@ -7,6 +10,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 
 type Mode = "focus" | "shortBreak" | "longBreak";
+
+const DEFAULT_FOCUS_TIME = 25 * 60;
+const DEFAULT_SHORT_BREAK_TIME = 5 * 60;
+const DEFAULT_LONG_BREAK_TIME = 15 * 60;
+const DEFAULT_SESSIONS_BEFORE_LONG = 4;
 
 // Component for Setting Row with Hold-to-change support
 const SettingRow = React.memo(({ label, value, onPressMinus, onPressPlus, unit = "min", icon: Icon }: any) => {
@@ -56,7 +64,7 @@ const SettingRow = React.memo(({ label, value, onPressMinus, onPressPlus, unit =
                onLongPress={() => startChange(onPressMinus)} 
                onPressOut={stopChange}
                delayLongPress={300}
-               activeOpacity={0.5}
+               activeOpacity={0.8}
                className="w-12 h-10 items-center justify-center rounded-full"
             >
                 <Minus size={18} color={isDark ? "#FFF" : "#000"} />
@@ -68,7 +76,7 @@ const SettingRow = React.memo(({ label, value, onPressMinus, onPressPlus, unit =
                onLongPress={() => startChange(onPressPlus)} 
                onPressOut={stopChange}
                delayLongPress={300}
-               activeOpacity={0.5}
+               activeOpacity={0.8}
                className="w-12 h-10 items-center justify-center rounded-full"
             >
                 <Plus size={18} color={isDark ? "#FFF" : "#000"} />
@@ -85,10 +93,10 @@ export default function PomodoroScreen() {
   const isDark = resolvedTheme === "dark";
 
   // Config
-  const [focusTime, setFocusTime] = useState(25 * 60);
-  const [shortBreakTime, setShortBreakTime] = useState(5 * 60);
-  const [longBreakTime, setLongBreakTime] = useState(15 * 60);
-  const [sessionsBeforeLong, setSessionsBeforeLong] = useState(4);
+  const [focusTime, setFocusTime] = useState(DEFAULT_FOCUS_TIME);
+  const [shortBreakTime, setShortBreakTime] = useState(DEFAULT_SHORT_BREAK_TIME);
+  const [longBreakTime, setLongBreakTime] = useState(DEFAULT_LONG_BREAK_TIME);
+  const [sessionsBeforeLong, setSessionsBeforeLong] = useState(DEFAULT_SESSIONS_BEFORE_LONG);
 
   // State
   const [mode, setMode] = useState<Mode>("focus");
@@ -161,6 +169,14 @@ export default function PomodoroScreen() {
     else setTimeLeft(longBreakTime);
   };
 
+  const handleResetSettings = () => {
+    setFocusTime(DEFAULT_FOCUS_TIME);
+    setShortBreakTime(DEFAULT_SHORT_BREAK_TIME);
+    setLongBreakTime(DEFAULT_LONG_BREAK_TIME);
+    setSessionsBeforeLong(DEFAULT_SESSIONS_BEFORE_LONG);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
   const syncTimeLeft = () => {
     if (mode === "focus") setTimeLeft(focusTime);
     else if (mode === "shortBreak") setTimeLeft(shortBreakTime);
@@ -183,9 +199,9 @@ export default function PomodoroScreen() {
   const strokeDashoffset = circumference - progress * circumference;
 
   const modeColors = {
-    focus: { start: primaryColor, end: `${primaryColor}88`, bg: isDark ? "#1C1C1E" : "#FFF", text: "Foco" },
-    shortBreak: { start: "#FF9500", end: "#FF950088", bg: isDark ? "#1C1C1E" : "#FFF", text: "Pausa Curta" },
-    longBreak: { start: "#FF3B30", end: "#FF3B3088", bg: isDark ? "#1C1C1E" : "#FFF", text: "Pausa Longa" }
+    focus: { start: primaryColor, end: withOpacity(primaryColor, 0.53), bg: isDark ? "#1C1C1E" : "#FFF", text: "Foco" },
+    shortBreak: { start: "#FF9500", end: withOpacity("#FF9500", 0.53), bg: isDark ? "#1C1C1E" : "#FFF", text: "Pausa Curta" },
+    longBreak: { start: "#FF3B30", end: withOpacity("#FF3B30", 0.53), bg: isDark ? "#1C1C1E" : "#FFF", text: "Pausa Longa" }
   };
 
   const currentColor = modeColors[mode];
@@ -194,6 +210,7 @@ export default function PomodoroScreen() {
     <View className="flex-1 bg-surface" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center justify-between px-4 py-2">
         <TouchableOpacity
+          activeOpacity={0.8}
           onPress={() => router.back()}
           className="h-10 w-10 items-center justify-center rounded-full bg-surface-secondary/50"
         >
@@ -267,29 +284,32 @@ export default function PomodoroScreen() {
          {/* Bottom Controls */}
          <View className="flex-row items-center justify-between w-full px-8 maxWidth-[400px]">
             <TouchableOpacity 
+                activeOpacity={0.8}
                 onPress={resetTimer}
-                className="h-14 w-14 items-center justify-center rounded-full bg-surface-secondary shadow-sm"
-                style={{ borderWidth: 1, borderColor: isDark ? "#333" : "#E5E5E5" }}
+                className="h-14 w-14 items-center justify-center rounded-full bg-surface-secondary"
+                style={[{ borderWidth: 1, borderColor: isDark ? "#333" : "#E5E5E5" }, shadows.sm]}
             >
                 <RotateCcw size={22} color={isDark ? "#CCC" : "#555"} />
             </TouchableOpacity>
 
             <TouchableOpacity 
                 onPress={toggleTimer}
-                className="h-24 w-24 items-center justify-center rounded-full shadow-md"
-                style={{ backgroundColor: isActive ? (isDark ? "#333" : "#E5E5E5") : currentColor.start }}
+                activeOpacity={0.8}
+                className="h-24 w-24 items-center justify-center rounded-full"
+                style={[{ backgroundColor: isActive ? (isDark ? "#333" : "#E5E5E5") : currentColor.start }, shadows.md]}
             >
                 {isActive ? (
                     <Pause size={40} color={isDark ? "#FFF" : "#000"} fill={isDark ? "#FFF" : "#000"} />
                 ) : (
-                    <Play size={40} color="#FFF" fill="#FFF" style={{ marginLeft: 6 }} />
+                    <Play size={40} color="#FFF" fill="#FFF" />
                 )}
             </TouchableOpacity>
 
             <TouchableOpacity 
+                activeOpacity={0.8}
                 onPress={() => setShowSettings(true)}
-                className="h-14 w-14 items-center justify-center rounded-full bg-surface-secondary shadow-sm"
-                style={{ borderWidth: 1, borderColor: isDark ? "#333" : "#E5E5E5" }}
+                className="h-14 w-14 items-center justify-center rounded-full bg-surface-secondary"
+                style={[{ borderWidth: 1, borderColor: isDark ? "#333" : "#E5E5E5" }, shadows.sm]}
             >
                 <Settings size={22} color={isDark ? "#CCC" : "#555"} />
             </TouchableOpacity>
@@ -304,7 +324,7 @@ export default function PomodoroScreen() {
          <View className="flex-1 bg-surface" style={{ paddingTop: isDark ? 20 : insets.top }}>
              <View className="flex-row items-center justify-between px-6 py-4 border-b border-outline/10">
                  <Text className="font-sans-bold text-2xl text-on-surface">Configurações</Text>
-                 <TouchableOpacity onPress={() => { setShowSettings(false); if (!isActive) syncTimeLeft(); }} className="w-10 h-10 items-center justify-center rounded-full bg-surface-secondary">
+                 <TouchableOpacity activeOpacity={0.8} onPress={() => { setShowSettings(false); if (!isActive) syncTimeLeft(); }} className="w-10 h-10 items-center justify-center rounded-full bg-surface-secondary">
                      <X size={24} color={isDark ? "#FFF" : "#000"} />
                  </TouchableOpacity>
              </View>
@@ -345,6 +365,15 @@ export default function PomodoroScreen() {
                          onPressPlus={() => setSessionsBeforeLong(prev => Math.min(10, prev + 1))}
                      />
                  </View>
+
+                 <TouchableOpacity 
+                   activeOpacity={0.8}
+                   onPress={handleResetSettings}
+                   className="mt-8 flex-row items-center justify-center py-4 rounded-2xl bg-surface-secondary border border-outline/5"
+                 >
+                   <RotateCcw size={18} color={isDark ? "#A1A1AA" : "#71717A"} />
+                   <Text className="font-sans-medium text-on-surface-secondary ml-2">Resetar Configurações</Text>
+                 </TouchableOpacity>
              </ScrollView>
          </View>
       </Modal>

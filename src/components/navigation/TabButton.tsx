@@ -21,7 +21,7 @@ export const TabButton = React.forwardRef<View, TabButtonProps & { noBackground?
       >
         <View
           className={clsx(
-            "items-center justify-center px-5 overflow-hidden", // Removed py-2
+            "items-center justify-center overflow-hidden",
             isFocused && !noBackground && (resolvedTheme === "dark" ? "bg-white/10" : "bg-black/5")
           )}
           style={{ borderRadius: 24, height: 48 }} // Fixed height to match indicator

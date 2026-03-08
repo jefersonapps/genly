@@ -3,7 +3,7 @@ import { useTheme } from "@/providers/ThemeProvider";
 import type { MonthlyBalance } from "@/services/financeService";
 import { formatBRL } from "@/utils/currency";
 import React, { useRef } from "react";
-import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { ScrollView, Text, View, useWindowDimensions } from "react-native";
 import Svg, { Rect, Text as SvgText } from "react-native-svg";
 
 import Animated, {
@@ -133,8 +133,14 @@ export function BalanceChart({ data }: BalanceChartProps) {
 
   if (data.length === 0) {
     return (
-      <View style={[styles.container, { backgroundColor: isDark ? "#171717" : "#F5F5F5" }]}>
-        <Text style={[styles.emptyText, { color: isDark ? "#71717A" : "#A1A1AA" }]}>
+      <View 
+        className="rounded-[20px] p-3 mx-5 overflow-hidden" 
+        style={{ backgroundColor: isDark ? "#171717" : "#F5F5F5" }}
+      >
+        <Text 
+          className="text-center py-10 text-[14px] font-sans-medium"
+          style={{ color: isDark ? "#71717A" : "#A1A1AA" }}
+        >
           Nenhum dado disponível
         </Text>
       </View>
@@ -158,7 +164,10 @@ export function BalanceChart({ data }: BalanceChartProps) {
   const negativeColor = "#EF4444"; // red
 
   return (
-    <View style={[styles.container, { backgroundColor: isDark ? "#171717" : "#F5F5F5" }]}>
+    <View 
+      className="rounded-[20px] p-3 mx-5 overflow-hidden"
+      style={{ backgroundColor: isDark ? "#171717" : "#F5F5F5" }}
+    >
       <ScrollView
         ref={scrollRef}
         horizontal
@@ -214,18 +223,3 @@ export function BalanceChart({ data }: BalanceChartProps) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    borderRadius: 20,
-    padding: 12,
-    marginHorizontal: 20,
-    overflow: "hidden",
-  },
-  emptyText: {
-    textAlign: "center",
-    paddingVertical: 40,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-});

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import AceEditor from "react-ace";
+import "../../global.css";
 
 // Import Ace modes and themes
 import "ace-builds/src-noconflict/ext-language_tools";
@@ -10,6 +11,7 @@ import "ace-builds/src-noconflict/theme-github";
 import "ace-builds/src-noconflict/theme-monokai";
 
 interface LatexEditorProps {
+  dom?: { matchContents?: boolean; style?: { width?: string | number; height?: string | number } };
   initialContent?: string;
   onChange?: (content: string) => void;
   isDark?: boolean;

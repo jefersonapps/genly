@@ -10,7 +10,6 @@ import {
   Dimensions,
   FlatList,
   ScrollView,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -144,21 +143,21 @@ const DayPage = React.memo(({
 
   if (sortedTasks.length === 0) {
     return (
-      <View style={[styles.dayPage, { width: SCREEN_WIDTH }]}>
-        <View style={styles.dayPageHeader}>
-          <Text style={[styles.dayPageTitle, { color: colors.text }]}>
+      <View className="flex-1" style={{ width: SCREEN_WIDTH }}>
+        <View className="px-5 pt-5 pb-4 gap-0.5">
+          <Text className="font-sans-bold text-[22px]" style={{ color: colors.text }}>
             {dayName}
           </Text>
-          <Text style={[styles.dayPageSubtitle, { color: colors.textSecondary }]}>
+          <Text className="font-sans-medium text-[13px] mt-0.5" style={{ color: colors.textSecondary }}>
             {dayNum} de {monthName}
           </Text>
         </View>
-        <View style={styles.emptyState}>
+        <View className="flex-1 items-center justify-center py-20 gap-3">
           <CalendarOff size={48} color={colors.textSecondary} strokeWidth={1.5} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+          <Text className="font-sans-bold text-lg mt-1" style={{ color: colors.text }}>
             Sem lembretes
           </Text>
-          <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>
+          <Text className="font-sans text-[13px] text-center px-10" style={{ color: colors.textSecondary }}>
             Nenhum lembrete marcado para este dia.
           </Text>
         </View>
@@ -167,16 +166,16 @@ const DayPage = React.memo(({
   }
 
   return (
-    <View style={[styles.dayPage, { width: SCREEN_WIDTH }]}>
+    <View className="flex-1" style={{ width: SCREEN_WIDTH }}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: bottomInset + 20 }}
       >
-        <View style={styles.dayPageHeader}>
-          <Text style={[styles.dayPageTitle, { color: colors.text }]}>
+        <View className="px-5 pt-5 pb-4 gap-0.5">
+          <Text className="font-sans-bold text-[22px]" style={{ color: colors.text }}>
             {dayName}
           </Text>
-          <Text style={[styles.dayPageSubtitle, { color: colors.textSecondary }]}>
+          <Text className="font-sans-medium text-[13px] mt-0.5" style={{ color: colors.textSecondary }}>
             {dayNum} de {monthName} · {sortedTasks.length} {sortedTasks.length === 1 ? 'lembrete' : 'lembretes'}
           </Text>
         </View>
@@ -224,7 +223,7 @@ const WeekStripItem = React.memo(({
   }, [startOfWeek]);
 
   return (
-    <View style={{ width: SCREEN_WIDTH, flexDirection: "row", paddingHorizontal: 16 }}>
+    <View className="flex-row px-4" style={{ width: SCREEN_WIDTH }}>
       {days.map((d, i) => {
         const dayKey = formatDateKey(d);
         const isSelected = dayKey === selectedDateKey;
@@ -232,24 +231,24 @@ const WeekStripItem = React.memo(({
         const hasEvents = daysWithEvents.has(dayKey);
         return (
           <TouchableOpacity
+            activeOpacity={0.8}
             key={i}
             onPress={() => onDayPress(d)}
+            className="flex-1 h-9 items-center justify-center m-0.5"
             style={[
-              styles.dayCell,
-              isSelected && { backgroundColor: primaryColor, borderRadius: 20 },
+              isSelected && { backgroundColor: primaryColor, borderRadius: 18 },
             ]}
           >
             <Text
+              className={`text-[15px] ${isSelected ? 'font-sans-bold' : 'font-sans-semibold'}`}
               style={[
-                styles.dayNumber,
                 { color: isSelected ? "#FFF" : isToday ? primaryColor : textColor },
-                isSelected && { fontFamily: "Montserrat-Bold" },
               ]}
             >
               {d.getDate()}
             </Text>
             {hasEvents && !isSelected && (
-              <View style={[styles.eventDot, { backgroundColor: primaryColor }]} />
+              <View className="w-1.5 h-1.5 rounded-full mt-0.5" style={[{ backgroundColor: primaryColor }]} />
             )}
           </TouchableOpacity>
         );
@@ -283,9 +282,9 @@ const MonthGridItem = React.memo(({
 }) => (
   <View style={{ width: SCREEN_WIDTH }}>
     {grid.map((week, wi) => (
-      <View key={wi} style={styles.weekRow}>
+      <View key={wi} className="flex-row px-4 h-11 items-center">
         {week.map((d, di) => {
-          if (!d) return <View key={di} style={styles.dayCell} />;
+          if (!d) return <View key={di} className="flex-1 h-9 items-center justify-center" />;
           const dayKey = formatDateKey(d);
           const isSelected = dayKey === selectedDateKey;
           const isToday = dayKey === todayKey;
@@ -295,21 +294,21 @@ const MonthGridItem = React.memo(({
             <TouchableOpacity
               key={di}
               onPress={() => onDayPress(d)}
-              style={[styles.dayCell, isSelected && { backgroundColor: primaryColor, borderRadius: 20 }]}
+              className="flex-1 h-9 items-center justify-center m-0.5"
+              style={[isSelected && { backgroundColor: primaryColor, borderRadius: 18 }]}
             >
               <Text
+                className={`text-[15px] ${isSelected ? 'font-sans-bold' : 'font-sans-semibold'}`}
                 style={[
-                  styles.dayNumber,
                   {
                     color: isSelected ? "#FFF" : isToday ? primaryColor : isCurrentMonth ? textColor : textSecondaryColor,
                   },
-                  isSelected && { fontFamily: "Montserrat-Bold" },
                 ]}
               >
                 {d.getDate()}
               </Text>
               {hasEvents && !isSelected && (
-                <View style={[styles.eventDot, { backgroundColor: primaryColor }]} />
+                <View className="w-1.5 h-1.5 rounded-full mt-0.5" style={[{ backgroundColor: primaryColor }]} />
               )}
             </TouchableOpacity>
           );
@@ -584,23 +583,23 @@ export default function CalendarScreen() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={[styles.container, { backgroundColor: colors.surface }]}>
+      <View className="flex-1" style={[{ backgroundColor: colors.surface }]}>
         <View style={{ height: insets.top }} />
 
         {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
+        <View className="flex-row items-center justify-between px-3 py-2">
+          <View className="flex-row items-center gap-2">
             <Button variant="icon" onPress={() => router.back()}>
               <Button.Icon icon={<ArrowLeft size={24} color={colors.text} />} />
             </Button>
-            <Text style={[styles.headerTitle, { color: colors.text }]}>Agenda</Text>
+            <Text className="font-sans-bold text-[22px]" style={{ color: colors.text }}>Agenda</Text>
           </View>
         </View>
 
         {/* Day labels */}
-        <View style={styles.dayLabelsRow}>
+        <View className="flex-row px-4 mb-1">
           {HEADER_DAYS_SHORT.map((d) => (
-            <Text key={d} style={[styles.dayLabel, { color: colors.textSecondary }]}>
+            <Text key={d} className="flex-1 text-center font-sans-semibold text-xs uppercase tracking-[0.5px]" style={[{ color: colors.textSecondary }]}>
               {d}
             </Text>
           ))}
@@ -654,12 +653,12 @@ export default function CalendarScreen() {
             </Animated.View>
 
             {/* Month label + drag handle */}
-            <View style={[styles.monthBar, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.monthLabel, { color: colors.textSecondary }]}>
+            <View className="flex-row items-center justify-between px-5 py-3 border-b" style={[{ borderBottomColor: colors.border }]}>
+              <Text className="font-sans-medium text-[13px]" style={[{ color: colors.textSecondary }]}>
                 {MONTHS_PT[viewingMonth.getMonth()]}, {viewingMonth.getFullYear()}
               </Text>
-              <View style={[styles.dragHandle, { backgroundColor: colors.border }]} />
-              <Text style={[styles.weekLabel, { color: colors.textSecondary }]}>
+              <View className="w-10 h-1 rounded-sm" style={[{ backgroundColor: colors.border }]} />
+              <Text className="font-sans-medium text-[13px]" style={[{ color: colors.textSecondary }]}>
                 Semana {getWeekNumber(viewingMonth)}
               </Text>
             </View>
@@ -690,48 +689,3 @@ export default function CalendarScreen() {
     </GestureHandlerRootView>
   );
 }
-
-// ─── Styles ──────────────────────────────────────
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-  headerTitle: { fontFamily: "Montserrat-Bold", fontSize: 22 },
-  dayLabelsRow: { flexDirection: "row", paddingHorizontal: 16, marginBottom: 4 },
-  dayLabel: {
-    flex: 1,
-    textAlign: "center",
-    fontFamily: "Montserrat-SemiBold",
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  weekRow: { flexDirection: "row", paddingHorizontal: 16, height: 44, alignItems: "center" },
-  dayCell: { flex: 1, height: 36, width: 36, alignItems: "center", justifyContent: "center" },
-  dayNumber: { fontFamily: "Montserrat-SemiBold", fontSize: 15 },
-  eventDot: { width: 5, height: 5, borderRadius: 2.5, marginTop: 2 },
-  monthBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  monthLabel: { fontFamily: "Montserrat-Medium", fontSize: 13 },
-  dragHandle: { width: 40, height: 4, borderRadius: 2 },
-  weekLabel: { fontFamily: "Montserrat-Medium", fontSize: 13 },
-  dayPage: { flex: 1 },
-  dayPageHeader: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, gap: 2 },
-  dayPageTitle: { fontFamily: "Montserrat-Bold", fontSize: 22 },
-  dayPageSubtitle: { fontFamily: "Montserrat-Medium", fontSize: 13, marginTop: 2 },
-  emptyState: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 80, gap: 12 },
-  emptyTitle: { fontFamily: "Montserrat-Bold", fontSize: 18, marginTop: 4 },
-  emptyDesc: { fontFamily: "Montserrat-Regular", fontSize: 13, textAlign: "center", paddingHorizontal: 40 },
-});

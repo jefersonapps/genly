@@ -29,7 +29,6 @@ import React, { useCallback, useState } from "react";
 import {
   SectionList,
   SectionListProps,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View
@@ -114,9 +113,10 @@ export default function FinancesScreen() {
 
   const renderSectionHeader = ({ section }: { section: MonthSection }) => (
     <View
-      style={[styles.sectionHeader, { backgroundColor: colors.surface }]}
+      className="px-5 pt-4 pb-1.5"
+      style={{ backgroundColor: colors.surface }}
     >
-      <Text style={[styles.sectionTitle, { color: safeAccent }]}>
+      <Text className="text-sm font-sans-bold uppercase tracking-widest" style={{ color: safeAccent }}>
         {section.title}
       </Text>
     </View>
@@ -134,15 +134,15 @@ export default function FinancesScreen() {
     return (
       <View>
         <TouchableOpacity
-          activeOpacity={0.7}
+          activeOpacity={0.8} 
           onPress={() =>
             router.push({
               pathname: "/finance/editor",
               params: { id: item.id.toString() },
             })
           }
+          className="flex-row items-center mx-5 mb-2 p-3.5 rounded-2xl border"
           style={[
-            styles.transactionItem,
             {
               backgroundColor: colors.surfaceSecondary,
               borderColor: colors.border,
@@ -150,27 +150,24 @@ export default function FinancesScreen() {
           ]}
         >
           <View
-            style={[
-              styles.transactionIcon,
-              { backgroundColor: iconColor + "18" },
-            ]}
+            className="w-10 h-10 rounded-xl items-center justify-center mr-3"
+            style={{ backgroundColor: iconColor + "18" }}
           >
             <Icon size={18} color={iconColor} />
           </View>
 
-          <View style={styles.transactionInfo}>
+          <View className="flex-1 gap-0.5">
             <Text
-              style={[styles.transactionTitle, { color: colors.text }]}
+              className="text-[15px] font-sans-semibold"
+              style={{ color: colors.text }}
               numberOfLines={1}
             >
               {item.title}
             </Text>
             {item.description ? (
               <Text
-                style={[
-                  styles.transactionDesc,
-                  { color: colors.textSecondary },
-                ]}
+                className="text-xs font-sans"
+                style={{ color: colors.textSecondary }}
                 numberOfLines={1}
               >
                 {item.description.replace(/<[^>]*>/g, "").substring(0, 40)}
@@ -178,10 +175,10 @@ export default function FinancesScreen() {
             ) : null}
           </View>
 
-          <View style={styles.transactionRight}>
+          <View className="items-end gap-1">
             <Text
+              className="text-sm font-sans-bold"
               style={[
-                styles.transactionAmount,
                 {
                   color: item.isAmountUndefined
                     ? colors.textSecondary
@@ -191,10 +188,11 @@ export default function FinancesScreen() {
             >
               {amountText}
             </Text>
-            <TouchableOpacity
+            <TouchableOpacity 
+              activeOpacity={0.8} 
               onPress={() => handleDeleteTransaction(item)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              style={styles.deleteBtn}
+              className="p-1"
             >
               <Trash2 size={14} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -215,42 +213,28 @@ export default function FinancesScreen() {
 
       {/* Balance Card */}
       <View
-        style={[
-          styles.balanceCard,
-          {
-            overflow: "hidden", // Important to mask the absolute gradient
-            borderWidth: 0,
-            padding: 12, // Matches horizontal and vertical
-            paddingLeft: 18,
-            justifyContent: "center",
-          },
-        ]}
+        className="mx-5 mt-3 p-3 pl-[18px] justify-center relative rounded-[20] overflow-hidden"
       >
-        <CardGradient color="#10B981" style={[StyleSheet.absoluteFill, { opacity: 0.85 }]} hasSolidBackground />
+        <CardGradient color="#10B981" hasSolidBackground className="absolute inset-0" />
         
         {/* Coins Image Background */}
         <Animated.Image 
             source={require("../../../assets/images/coins.png")} 
+            className="absolute -right-5 -bottom-10 w-[140] h-[140] opacity-90"
             style={{
-                position: "absolute",
-                right: -20,
-                bottom: -40,
-                width: 140,
-                height: 140,
-                opacity: 0.9,
                 transform: [{ rotate: '-15deg' }]
             }}
             resizeMode="contain"
         />
 
-        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+        <View className="flex-row items-center mb-2">
           <Wallet size={18} color="rgba(255,255,255,0.8)" />
-          <Text style={{ fontFamily: "Montserrat-Medium", fontSize: 13, color: "rgba(255,255,255,0.8)", marginLeft: 8, flex: 1 }}>
+          <Text className="font-sans-medium text-[13px] text-white/80 ml-2 flex-1">
             Saldo Atual
           </Text>
           <Button
             variant="icon"
-            style={{ paddingHorizontal: 0 }}
+            className="px-0"
             onPress={() => {
                 dialog.show({
                     title: "Definir saldo",
@@ -272,20 +256,20 @@ export default function FinancesScreen() {
             <Edit3 size={16} color="rgba(255,255,255,0.8)" />
           </Button>
         </View>
-        <Text style={{ 
-          fontFamily: "Montserrat-Bold", 
-          fontSize: 32, 
-          color: "#FFFFFF",
-          textShadowColor: 'rgba(0, 0, 0, 0.25)',
-          textShadowOffset: { width: 0, height: 2 },
-          textShadowRadius: 4
-        }}>
+        <Text 
+          className="font-sans-bold text-[32px] text-white"
+          style={{ 
+            textShadowColor: 'rgba(0, 0, 0, 0.25)',
+            textShadowOffset: { width: 0, height: 2 },
+            textShadowRadius: 4
+          }}
+        >
           {formatBRL(balance)}
         </Text>
       </View>
 
       <View
-        style={styles.actionsRow}
+        className="flex-row px-5 gap-3 mt-4"
       >
         <Button
           variant="ghost"
@@ -330,8 +314,11 @@ export default function FinancesScreen() {
 
       {/* Chart */}
       <View>
-        <View style={[styles.sectionLabelRow, { marginVertical: 16 }]}>
-          <Text style={[styles.sectionLabel, { color: colors.text }]}>
+        <View className="px-5 my-4">
+          <Text 
+            className="text-[17px] font-sans-bold"
+            style={{ color: colors.text }}
+          >
             Balanço Mensal
           </Text>
         </View>
@@ -339,8 +326,11 @@ export default function FinancesScreen() {
       </View>
 
       {/* Transactions Section Label */}
-      <View style={[styles.sectionLabelRow, { marginVertical: 16 }]}>
-        <Text style={[styles.sectionLabel, { color: colors.text }]}>
+      <View className="px-5 my-4">
+        <Text 
+          className="text-[17px] font-sans-bold"
+          style={{ color: colors.text }}
+        >
           Transações
         </Text>
       </View>
@@ -348,12 +338,12 @@ export default function FinancesScreen() {
   );
 
   const ListEmpty = () => (
-    <View style={styles.emptyState}>
+    <View className="items-center py-10 gap-2">
       <CircleHelp size={40} color={colors.textSecondary} />
-      <Text style={[styles.emptyTitle, { color: colors.text }]}>
+      <Text className="text-base font-sans-bold" style={{ color: colors.text }}>
         Nenhuma transação
       </Text>
-      <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>
+      <Text className="text-[13px] font-sans text-center px-10" style={{ color: colors.textSecondary }}>
         Adicione receitas e despesas para acompanhar suas finanças.
       </Text>
     </View>
@@ -391,126 +381,3 @@ export default function FinancesScreen() {
     </View>
   );
 }
-
-// ─── Styles ──────────────────────────────────────
-const styles = StyleSheet.create({
-  root: { flex: 1 },
-  pageHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  pageTitle: {
-    fontSize: 28,
-    fontWeight: "800",
-    fontFamily: "Montserrat-Bold",
-  },
-  balanceCard: {
-    marginHorizontal: 20,
-    marginTop: 12,
-    padding: 20,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  balanceHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 8,
-  },
-  balanceIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  balanceLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    flex: 1,
-  },
-  balanceAmount: {
-    fontSize: 32,
-    fontWeight: "800",
-    fontFamily: "Montserrat-Bold",
-  },
-  actionsRow: {
-    flexDirection: "row",
-    paddingHorizontal: 20,
-    gap: 12,
-    marginTop: 16,
-  },
-  sectionLabelRow: {
-    paddingHorizontal: 20,
-  },
-  sectionLabel: {
-    fontSize: 17,
-    fontWeight: "700",
-    fontFamily: "Montserrat-Bold",
-  },
-  sectionHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 6,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  transactionItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginHorizontal: 20,
-    marginBottom: 8,
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  transactionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  transactionInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  transactionTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  transactionDesc: {
-    fontSize: 12,
-  },
-  transactionRight: {
-    alignItems: "flex-end",
-    gap: 4,
-  },
-  transactionAmount: {
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  deleteBtn: {
-    padding: 4,
-  },
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: 40,
-    gap: 8,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  emptyDesc: {
-    fontSize: 13,
-    textAlign: "center",
-    paddingHorizontal: 40,
-  },
-});

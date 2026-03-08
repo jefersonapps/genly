@@ -1,9 +1,10 @@
 import { MediaPreview } from "@/components/task/MediaPreview";
 import type { Media, Task } from "@/db/schema";
 import { useTheme } from "@/providers/ThemeProvider";
+import { shadows } from "@/theme/shadows";
 import { withOpacity } from "@/utils/colors";
 import { htmlToMarkdown, stripMarkdown, truncateText } from "@/utils/markdown";
-import { AlertCircle, Bell, Calendar, CheckCircle2, ChevronDown, Circle, Clock, Paperclip, Trash2 } from "lucide-react-native";
+import { AlertCircle, Bell, Calendar, Check, CheckCircle2, ChevronDown, Circle, Clock, Paperclip, Trash2 } from "lucide-react-native";
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { EnrichedMarkdownText } from "react-native-enriched-markdown";
@@ -81,9 +82,12 @@ interface TaskCardProps {
   onDelete?: () => void;
   onMediaPress?: (media: Media) => void;
   onToggleComplete?: (task: Task) => void;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onSelect?: (task: Task) => void;
 }
 
-export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPress, onToggleComplete }: TaskCardProps) {
+export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPress, onToggleComplete, selectionMode, isSelected, onSelect }: TaskCardProps) {
   const { resolvedTheme, primaryColor } = useTheme();
   const isDark = resolvedTheme === "dark";
   const safeAccent = primaryColor || "#3B82F6";
@@ -135,40 +139,66 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
     return (
       <TouchableOpacity
         onPress={onPress}
-        activeOpacity={0.7}
-        className="mb-3 rounded-[24px] p-5"
+        activeOpacity={0.8}
+        className="mb-3 rounded-[24px] p-5 border"
         style={{
-          backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
-          borderWidth: 1,
-          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-          opacity: isCompleted ? 0.5 : 1,
+          backgroundColor: isSelected ? withOpacity(primaryColor || "#3b82f6", 0.1) : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)"),
+          borderColor: isSelected ? withOpacity(primaryColor || "#3b82f6", 0.3) : (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"),
+          opacity: (isCompleted && !selectionMode) ? 0.5 : 1,
         }}
       >
         <View className="flex-row items-center">
-          {/* Completion checkbox */}
-          <TouchableOpacity
-            onPress={(e) => {
-              e.stopPropagation();
-              onToggleComplete?.(task);
-            }}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            className="mr-3"
-          >
-            {isCompleted ? (
-              <CheckCircle2 size={24} color="#10B981" />
-            ) : (
-              <Circle size={24} color={isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)"} />
-            )}
-          </TouchableOpacity>
+          {/* Completion or Selection checkbox */}
+          {selectionMode ? (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={(e) => {
+                e.stopPropagation();
+                onSelect?.(task);
+              }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              className="mr-3"
+            >
+              <View 
+                  className={`w-6 h-6 rounded-lg border-2 items-center justify-center`}
+                  style={isSelected ? { backgroundColor: safeAccent, borderColor: safeAccent } : { borderColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)" }}
+              >
+                  {isSelected && <Check size={16} color="#FFF" />}
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={(e) => {
+                e.stopPropagation();
+                onToggleComplete?.(task);
+              }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              className="mr-3"
+            >
+              {isCompleted ? (
+                <CheckCircle2 size={24} color="#10B981" />
+              ) : (
+                <Circle size={24} color={isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)"} />
+              )}
+            </TouchableOpacity>
+          )}
 
           <View className="h-12 w-12 rounded-2xl items-center justify-center mr-4" style={{ backgroundColor: withOpacity(reminderConfig.color, 0.12) }}>
             <Icon size={24} color={reminderConfig.color} />
           </View>
           <View className="flex-1 mr-2">
-            <Text style={{ fontFamily: "Montserrat-Bold", fontSize: 16, color: isDark ? "#FAFAFA" : "#18181B", textDecorationLine: isCompleted ? 'line-through' : 'none' }} numberOfLines={1}>
+            <Text 
+              className="text-base font-sans-bold" 
+              style={{ color: isDark ? "#FAFAFA" : "#18181B", textDecorationLine: isCompleted ? 'line-through' : 'none' }} 
+              numberOfLines={1}
+            >
               {task.title || "Sem título"}
             </Text>
-            <Text style={{ fontFamily: "Montserrat-Regular", fontSize: 13, color: isDark ? "#A1A1AA" : "#71717A" }} className="mt-0.5">
+            <Text 
+              className="mt-0.5 text-[13px] font-sans" 
+              style={{ color: isDark ? "#A1A1AA" : "#71717A" }}
+            >
               {task.deliveryDate ? new Date(`${task.deliveryDate}T${task.deliveryTime || "00:00:00"}`).toLocaleDateString("pt-BR", {
                 weekday: 'short', day: "2-digit", month: "long"
               }).replace('.', '') : ''}
@@ -177,12 +207,13 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
           </View>
           <View className="items-end gap-2">
             <View className="px-3 py-1.5 rounded-full" style={{ backgroundColor: withOpacity(reminderConfig.color, 0.12) }}>
-              <Text style={{ fontFamily: "Montserrat-Bold", fontSize: 11, color: reminderConfig.color }}>
+              <Text className="text-[11px] font-sans-bold" style={{ color: reminderConfig.color }}>
                 {reminderConfig.label}
               </Text>
             </View>
             {onDelete && (
               <TouchableOpacity 
+                  activeOpacity={0.8}
                   onPress={(e) => {
                       e.stopPropagation();
                       onDelete();
@@ -208,21 +239,13 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
   return (
     <TouchableOpacity
       onPress={onPress}
-      activeOpacity={0.7}
-      className="mb-3 rounded-2xl bg-surface-secondary p-4"
-      style={{
-        borderWidth: 1,
-        borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
-        shadowColor: "#000",
-        shadowOffset: {
-          width: 0,
-          height: 2,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-        elevation: 3,
-        opacity: isCompleted ? 0.5 : 1,
-      }}
+      activeOpacity={0.8}
+      className="mb-3 rounded-2xl bg-surface-secondary p-4 border"
+      style={[{
+        backgroundColor: isSelected ? withOpacity(primaryColor || "#3b82f6", 0.08) : (isDark ? "#18181b" : "#f4f4f5"),
+        borderColor: isSelected ? withOpacity(primaryColor || "#3b82f6", 0.3) : (isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"),
+        opacity: (isCompleted && !selectionMode) ? 0.5 : 1,
+      }, shadows.sm]}
     >
       {/* Media thumbnails scroll row */}
       {thumbnailMedia.length > 0 && (
@@ -248,21 +271,41 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
       )}
 
       <View className="flex-row items-start">
-         {/* Completion checkbox */}
-         <TouchableOpacity
-           onPress={(e) => {
-             e.stopPropagation();
-             onToggleComplete?.(task);
-           }}
-           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-           className="mr-3 mt-0.5"
-         >
-           {isCompleted ? (
-             <CheckCircle2 size={22} color="#10B981" />
-           ) : (
-             <Circle size={22} color={isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)"} />
-           )}
-         </TouchableOpacity>
+         {/* Completion or Selection checkbox */}
+         {selectionMode ? (
+           <TouchableOpacity
+             activeOpacity={0.8}
+             onPress={(e) => {
+               e.stopPropagation();
+               onSelect?.(task);
+             }}
+             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+             className="mr-3 mt-0.5"
+           >
+              <View 
+                  className={`w-5 h-5 rounded-md border-2 items-center justify-center`}
+                  style={isSelected ? { backgroundColor: safeAccent, borderColor: safeAccent } : { borderColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)" }}
+              >
+                  {isSelected && <CheckCircle2 size={14} color="#FFF" />}
+              </View>
+           </TouchableOpacity>
+         ) : (
+           <TouchableOpacity
+             activeOpacity={0.8}
+             onPress={(e) => {
+               e.stopPropagation();
+               onToggleComplete?.(task);
+             }}
+             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+             className="mr-3 mt-0.5"
+           >
+             {isCompleted ? (
+               <CheckCircle2 size={22} color="#10B981" />
+             ) : (
+               <Circle size={22} color={isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)"} />
+             )}
+           </TouchableOpacity>
+         )}
 
          <View className="flex-1">
             {/* Title */}
@@ -437,7 +480,8 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
         </View>
 
         {onDelete && (
-            <TouchableOpacity 
+            <TouchableOpacity
+                activeOpacity={0.8}
                 onPress={(e) => {
                     e.stopPropagation();
                     onDelete();

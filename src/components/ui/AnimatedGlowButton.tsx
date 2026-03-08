@@ -79,7 +79,10 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
             <RadialGradient
               c={center}
               r={radius}
-              colors={[adjustColor(color, 40) + 'AA', adjustColor(color, 20) + '00']} // Lighter color -> Transparent
+              colors={[
+                adjustColor(color, 40) + 'AA', 
+                adjustColor(color, 20) + '00'
+              ]} // Lighter color -> Transparent
             />
             <BlurMask blur={15} style="normal" />
           </Circle>
@@ -88,7 +91,7 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
 
       {/* Button */}
       <TouchableOpacity
-        activeOpacity={0.7}
+        activeOpacity={0.8}
         onPress={onPress}
         style={{
           width: size,
