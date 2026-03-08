@@ -7,7 +7,7 @@ import {
   Path as SkiaPath,
 } from '@shopify/react-native-skia';
 import * as Haptics from 'expo-haptics';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -65,8 +65,6 @@ export function PdfDrawingCanvas({
   // Pre-calculated hit paths for eraser performance (on UI thread)
   const hitPaths = useSharedValue<{ id: string; hitPath: ReturnType<typeof Skia.Path.Make> }[]>([]);
 
-  // Update hit paths ONLY when drawings or tool changes.
-  // CRITICAL: No .value in dependency array to avoid Reanimated warnings.
   useEffect(() => {
     if (activeTool === 'eraser') {
       const calculated = existingDrawings.map((ann) => {
@@ -86,6 +84,32 @@ export function PdfDrawingCanvas({
       hitPaths.value = [];
     }
   }, [existingDrawings, activeTool]);
+  
+  const parsedExistingDrawings = useMemo(() => {
+    return existingDrawings.map((ann) => {
+      if (!ann.pathData || typeof ann.pathData !== 'string') return null;
+      try {
+        const path = Skia.Path.MakeFromSVGString(ann.pathData);
+        if (!path) return null;
+        return {
+          id: ann.id,
+          path,
+          color: ann.strokeColor || '#000000',
+          width: ann.strokeWidth || 3
+        };
+      } catch (e) { return null; }
+    }).filter(Boolean) as { id: string; path: ReturnType<typeof Skia.Path.Make>; color: string; width: number }[];
+  }, [existingDrawings]);
+
+  const parsedLocalPaths = useMemo(() => {
+    return localPaths.map((p, i) => {
+      try {
+        const path = Skia.Path.MakeFromSVGString(p.path);
+        if (!path) return null;
+        return { path, color: p.color, width: p.width };
+      } catch (e) { return null; }
+    }).filter(Boolean) as { path: ReturnType<typeof Skia.Path.Make>; color: string; width: number }[];
+  }, [localPaths]);
 
   const onPathCompleteJS = useCallback((svgStr: string) => {
     onPathComplete(svgStr);
@@ -186,17 +210,19 @@ export function PdfDrawingCanvas({
         prevPoint.value = { x: e.x, y: e.y };
       }
     })
-    .onEnd(() => {
+    .onEnd((e) => {
       'worklet';
       showEraser.value = 0;
       prevEraserPoint.value = null;
       
       if (activeTool === 'brush' && activePath.value) {
-        const svg = activePath.value.toSVGString();
+        const path = activePath.value.copy();
+        // Add final segment to exactly match finger lift point
+        path.lineTo(e.x, e.y);
+        const svg = path.toSVGString();
         if (svg.length > 5) {
           runOnJS(onPathCompleteJS)(svg);
         } else {
-          // If too short to save, clear it immediately
           activePath.value = null;
         }
       }
@@ -229,39 +255,30 @@ export function PdfDrawingCanvas({
         <Animated.View style={{ width, height }} pointerEvents={interactive ? "auto" : "none"}>
           <Canvas style={{ width, height }}>
             {/* Store Drawings */}
-            {existingDrawings.map((ann) => {
-              if (!ann.pathData || typeof ann.pathData !== 'string') return null;
-              const path = Skia.Path.MakeFromSVGString(ann.pathData);
-              if (!path) return null;
-              return (
-                <SkiaPath
-                  key={ann.id}
-                  path={path}
-                  color={ann.strokeColor || '#000000'}
-                  style="stroke"
-                  strokeWidth={ann.strokeWidth || 3}
-                  strokeCap="round"
-                  strokeJoin="round"
-                />
-              );
-            })}
+            {parsedExistingDrawings.map((item) => (
+              <SkiaPath
+                key={item.id}
+                path={item.path}
+                color={item.color}
+                style="stroke"
+                strokeWidth={item.width}
+                strokeCap="round"
+                strokeJoin="round"
+              />
+            ))}
 
             {/* Local Unsaved Paths */}
-            {localPaths.map((p, i) => {
-              const path = Skia.Path.MakeFromSVGString(p.path);
-              if (!path) return null;
-              return (
-                <SkiaPath
-                  key={`local-${i}`}
-                  path={path}
-                  color={p.color}
-                  style="stroke"
-                  strokeWidth={p.width}
-                  strokeCap="round"
-                  strokeJoin="round"
-                />
-              );
-            })}
+            {parsedLocalPaths.map((item, i) => (
+              <SkiaPath
+                key={`local-${i}`}
+                path={item.path}
+                color={item.color}
+                style="stroke"
+                strokeWidth={item.width}
+                strokeCap="round"
+                strokeJoin="round"
+              />
+            ))}
 
             {/* Active Path */}
             <SkiaPath

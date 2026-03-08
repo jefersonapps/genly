@@ -208,7 +208,9 @@ export const usePdfEditorStore = create<PdfEditorState>((set, get) => ({
       fontSize: 0,
       fontColor: '',
       originalWidth: origW, originalHeight: origH,
-      isCropping: false, cropX: 0, cropY: 0, cropScale: 1,
+      isCropping: false, cropX: 0, cropY: 0,
+      // Initialize cropScale so that originalWidth * cropScale = width (fits the box)
+      cropScale: origW > 0 ? (width / origW) : 1,
       pathData: '', strokeColor: '', strokeWidth: 0,
     };
     set((s) => ({ annotations: [...s.annotations, annotation], selectedId: id }));

@@ -28,6 +28,7 @@ import {
   Plus,
   Redo2,
   RefreshCw,
+  Settings2,
   Share2,
   Trash2,
   Type,
@@ -40,6 +41,7 @@ import {
   Keyboard,
   Platform,
   ScrollView,
+  StyleSheet,
   Text, TextInput, TouchableOpacity,
   View,
   useWindowDimensions
@@ -65,6 +67,17 @@ import { shadows } from '@/theme/shadows';
 
 const SPRING_CONFIG = { damping: 20, stiffness: 200 };
 
+const rotateVector = (x: number, y: number, angleDeg: number) => {
+  'worklet';
+  const rad = (angleDeg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  return {
+    x: x * cos - y * sin,
+    y: x * sin + y * cos,
+  };
+};
+
 // ─── Draggable Annotation Component ───────────────────
 interface DraggableAnnotationProps {
   annotation: Annotation;
@@ -72,7 +85,7 @@ interface DraggableAnnotationProps {
   canvasScale: SharedValue<number>;
   onSelect: (id: string) => void;
   onDragEnd: (id: string, x: number, y: number) => void;
-  onResizeEnd: (id: string, w: number, h: number) => void;
+  onResizeEnd: (id: string, w: number, h: number, x?: number, y?: number) => void;
   onRotateEnd: (id: string, rotation: number) => void;
   onDoubleTap: (id: string) => void;
   onToggleCrop: (id: string) => void;
@@ -82,25 +95,28 @@ interface DraggableAnnotationProps {
   onTextBlur?: (id: string) => void;
   isDark: boolean;
   primaryColor: string;
+  onUpdate: (id: string, updates: Partial<Annotation>) => void;
 }
 
-function DraggableAnnotation({
-  annotation,
-  isSelected,
-  canvasScale,
-  onSelect,
-  onDragEnd,
-  onResizeEnd,
-  onRotateEnd,
-  onDoubleTap,
-  onToggleCrop,
-  onLongPress,
-  isEditingText,
-  onTextChange,
-  onTextBlur,
-  isDark,
-  primaryColor,
-}: DraggableAnnotationProps) {
+const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
+  const {
+    annotation,
+    isSelected,
+    canvasScale,
+    onSelect,
+    onDragEnd,
+    onResizeEnd,
+    onRotateEnd,
+    onDoubleTap,
+    onToggleCrop,
+    onLongPress,
+    isEditingText,
+    onTextChange,
+    onTextBlur,
+    isDark,
+    primaryColor,
+    onUpdate,
+  } = props;
   // ── ALL position in shared values to avoid React/Reanimated mixing ──
   const baseX = useSharedValue(annotation.x);
   const baseY = useSharedValue(annotation.y);
@@ -111,11 +127,47 @@ function DraggableAnnotation({
   const resizeH = useSharedValue(annotation.height);
   const liveRotation = useSharedValue(annotation.rotation || 0);
 
+  const cropX = useSharedValue(annotation.cropX || 0);
+  const cropY = useSharedValue(annotation.cropY || 0);
+  const cropScale = useSharedValue(annotation.cropScale || 1);
+
+  // Capture values at start of gesture to avoid jitter from state updates
+  const startW = useSharedValue(0);
+  const startH = useSharedValue(0);
+  const startOX = useSharedValue(0);
+  const startOY = useSharedValue(0);
+  const startScale = useSharedValue(1);
+  const startCX = useSharedValue(0);
+  const startCY = useSharedValue(0);
+
   const inputRef = React.useRef<TextInput>(null);
+
+  // ── Animated styles moved to top to avoid Hook violations ──
+  const animatedStyle = useAnimatedStyle(() => ({
+    left: baseX.value + offsetX.value,
+    top: baseY.value + offsetY.value,
+    width: resizeW.value,
+    height: resizeH.value,
+    transform: [{ rotate: `${liveRotation.value}deg` }],
+  }));
+
+  const imageStyle = useAnimatedStyle(() => ({
+    width: annotation.originalWidth * cropScale.value,
+    height: annotation.originalHeight * cropScale.value,
+    left: cropX.value,
+    top: cropY.value,
+  }));
+
+  const cropBgStyle = useAnimatedStyle(() => ({
+    width: annotation.originalWidth * cropScale.value,
+    height: annotation.originalHeight * cropScale.value,
+    left: cropX.value,
+    top: cropY.value,
+    opacity: 0.3,
+  }));
 
   React.useEffect(() => {
     if (isEditingText) {
-      // Small delay to ensure the component is mounted and ready
       setTimeout(() => {
         inputRef.current?.focus();
       }, 50);
@@ -139,23 +191,50 @@ function DraggableAnnotation({
     liveRotation.value = annotation.rotation || 0;
   }, [annotation.rotation]);
 
+  React.useEffect(() => {
+    cropX.value = annotation.cropX || 0;
+    cropY.value = annotation.cropY || 0;
+    cropScale.value = annotation.cropScale || 1;
+  }, [annotation.cropX, annotation.cropY, annotation.cropScale]);
+
   // ── Drag ──
   const dragGesture = Gesture.Pan()
-    .minDistance(5)
+    .minDistance(2)
     .onStart(() => {
       'worklet';
       runOnJS(onSelect)(annotation.id);
+      if (annotation.isCropping) {
+        startCX.value = cropX.value;
+        startCY.value = cropY.value;
+      }
     })
     .onUpdate((e) => {
       'worklet';
-      offsetX.value = e.translationX;
-      offsetY.value = e.translationY;
+      const dx = e.translationX / canvasScale.value;
+      const dy = e.translationY / canvasScale.value;
+
+      if (annotation.isCropping) {
+        // Move image inside window (local space)
+        const localDelta = rotateVector(dx, dy, -liveRotation.value);
+        cropX.value = startCX.value + localDelta.x;
+        cropY.value = startCY.value + localDelta.y;
+      } else {
+        offsetX.value = dx;
+        offsetY.value = dy;
+      }
     })
     .onEnd(() => {
       'worklet';
-      const newX = baseX.value + offsetX.value;
-      const newY = baseY.value + offsetY.value;
-      runOnJS(onDragEnd)(annotation.id, newX, newY);
+      if (annotation.isCropping) {
+        runOnJS(onUpdate)(annotation.id, {
+          cropX: cropX.value,
+          cropY: cropY.value,
+        });
+      } else {
+        const newX = baseX.value + offsetX.value;
+        const newY = baseY.value + offsetY.value;
+        runOnJS(onDragEnd)(annotation.id, newX, newY);
+      }
       runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
     });
 
@@ -192,56 +271,120 @@ function DraggableAnnotation({
     });
 
   // ── Resize (8 points) ──
+
+
   const createResizeGesture = (edgeX: 0 | 0.5 | 1, edgeY: 0 | 0.5 | 1) => {
     return Gesture.Pan()
       .minDistance(2)
+      .hitSlop(20)
+      .onStart(() => {
+        'worklet';
+        startW.value = resizeW.value;
+        startH.value = resizeH.value;
+        startOX.value = offsetX.value;
+        startOY.value = offsetY.value;
+        startScale.value = cropScale.value;
+        startCX.value = cropX.value;
+        startCY.value = cropY.value;
+      })
       .onUpdate((e) => {
         'worklet';
-        const dx = e.translationX;
-        const dy = e.translationY;
-
         const isFree = annotation.isCropping || annotation.type !== 'image' || annotation.originalWidth <= 0;
-        
-        let newW = annotation.width;
-        let newH = annotation.height;
-        let pOffsetX = 0;
-        let pOffsetY = 0;
+        const startAspect = startH.value / startW.value;
 
-        if (edgeX === 1) { // Right
-          newW = Math.max(40, annotation.width + dx);
-        } else if (edgeX === 0) { // Left
-          newW = Math.max(40, annotation.width - dx);
-          pOffsetX = annotation.width - dx >= 40 ? dx : annotation.width - 40;
-        }
+        // 1. Convert screen delta to local space (agnostic of zoom and rotation)
+        const dx = e.translationX / canvasScale.value;
+        const dy = e.translationY / canvasScale.value;
+        const localDelta = rotateVector(dx, dy, -liveRotation.value);
+        const ldx = localDelta.x;
+        const ldy = localDelta.y;
 
-        if (edgeY === 1) { // Bottom
-          newH = Math.max(20, annotation.height + dy);
-        } else if (edgeY === 0) { // Top
-          newH = Math.max(20, annotation.height - dy);
-          pOffsetY = annotation.height - dy >= 20 ? dy : annotation.height - 20;
-        }
+        let newW = startW.value;
+        let newH = startH.value;
 
         if (isFree) {
-          resizeW.value = newW;
-          resizeH.value = newH;
-          offsetX.value = pOffsetX;
-          offsetY.value = pOffsetY;
+          if (edgeX === 1) newW = startW.value + ldx;
+          else if (edgeX === 0) newW = startW.value - ldx;
+
+          if (edgeY === 1) newH = startH.value + ldy;
+          else if (edgeY === 0) newH = startH.value - ldy;
+
+          newW = Math.max(40, newW);
+          newH = Math.max(20, newH);
         } else {
-          // Lock aspect ratio for normal image mode based on current annotation dimensions
-          const aspect = annotation.height / annotation.width;
-          const newWLock = Math.max(40, annotation.width + dx);
-          resizeW.value = newWLock;
-          resizeH.value = newWLock * aspect;
+          // Aspect Ratio Locked... (omitted for brevity in chunk, but I'll include it)
+          const dirX = (edgeX === 1) ? 1 : (edgeX === 0 ? -1 : 0);
+          const dirY = (edgeY === 1) ? 1 : (edgeY === 0 ? -1 : 0);
+
+          if (edgeX !== 0.5 && edgeY !== 0.5) {
+            const magS = Math.sqrt(startW.value * startW.value + startH.value * startH.value);
+            const ux = (dirX * startW.value) / magS;
+            const uy = (dirY * startH.value) / magS;
+            const growth = (ldx * ux + ldy * uy);
+            newW = startW.value + growth * (startW.value / magS);
+            newH = newW * startAspect;
+          } else {
+            const growth = (edgeX !== 0.5) ? dirX * ldx : dirY * ldy;
+            newW = startW.value + growth;
+            newH = newW * startAspect;
+          }
+
+          if (newW < 40 || newH < 20) {
+            const scaleW = 40 / startW.value;
+            const scaleH = 20 / startH.value;
+            const minScale = Math.max(scaleW, scaleH);
+            newW = startW.value * minScale;
+            newH = startH.value * minScale;
+          }
         }
+
+        // 2. Anchor Point Math
+        const ax = 1 - edgeX;
+        const ay = 1 - edgeY;
+        const dvX = (ax - 0.5) * (startW.value - newW);
+        const dvY = (ay - 0.5) * (startH.value - newH);
+        const parentDisp = rotateVector(dvX, dvY, liveRotation.value);
+
+        const nextOX = startOX.value + parentDisp.x + (startW.value - newW) / 2;
+        const nextOY = startOY.value + parentDisp.y + (startH.value - newH) / 2;
+
+        if (annotation.isCropping) {
+          // When cropping, we WANT the image to stay page-static.
+          const globalChangeX = nextOX - startOX.value;
+          const globalChangeY = nextOY - startOY.value;
+          const localChange = rotateVector(globalChangeX, globalChangeY, -liveRotation.value);
+          
+          cropX.value = startCX.value - localChange.x;
+          cropY.value = startCY.value - localChange.y;
+        } else {
+          // Regular scaling: scales the content to match the new size
+          const scaleFactor = newW / startW.value;
+          cropScale.value = startScale.value * scaleFactor;
+          cropX.value = startCX.value * scaleFactor;
+          cropY.value = startCY.value * scaleFactor;
+        }
+
+        offsetX.value = nextOX;
+        offsetY.value = nextOY;
+        resizeW.value = newW;
+        resizeH.value = newH;
       })
       .onEnd(() => {
         'worklet';
-        runOnJS(onResizeEnd)(annotation.id, resizeW.value, resizeH.value);
-        if (offsetX.value !== 0 || offsetY.value !== 0) {
-          const finalX = baseX.value + offsetX.value;
-          const finalY = baseY.value + offsetY.value;
-          runOnJS(onDragEnd)(annotation.id, finalX, finalY);
-        }
+        const finalW = resizeW.value;
+        const finalH = resizeH.value;
+        const finalX = baseX.value + offsetX.value;
+        const finalY = baseY.value + offsetY.value;
+        
+        runOnJS(onUpdate)(annotation.id, {
+          width: finalW,
+          height: finalH,
+          x: finalX,
+          y: finalY,
+          cropX: cropX.value,
+          cropY: cropY.value,
+          cropScale: cropScale.value,
+        });
         runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
       });
   };
@@ -259,13 +402,14 @@ function DraggableAnnotation({
   const startRotation = useSharedValue(0);
   const rotateGesture = Gesture.Pan()
     .minDistance(2)
+    .hitSlop(15)
     .onStart(() => {
       'worklet';
       startRotation.value = liveRotation.value;
     })
     .onUpdate((e) => {
       'worklet';
-      liveRotation.value = startRotation.value + e.translationX / 1.5;
+      liveRotation.value = startRotation.value + e.translationX / 1.2;
     })
     .onEnd(() => {
       'worklet';
@@ -273,20 +417,14 @@ function DraggableAnnotation({
       runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
     });
 
-  const combinedGesture = Gesture.Exclusive(
+  const combinedGesture = Gesture.Race(
     doubleTapGesture,
     longPressGesture,
-    Gesture.Simultaneous(tapGesture, dragGesture)
+    dragGesture,
+    tapGesture
   );
 
-  // ── Animated style — ALL position via shared values ──
-  const animatedStyle = useAnimatedStyle(() => ({
-    left: baseX.value + offsetX.value,
-    top: baseY.value + offsetY.value,
-    width: resizeW.value,
-    height: resizeH.value,
-    transform: [{ rotate: `${liveRotation.value}deg` }],
-  }));
+
 
   const getBgColor = () => {
     switch (annotation.type) {
@@ -351,11 +489,26 @@ function DraggableAnnotation({
         )}
 
         {annotation.type === 'image' && (
-          <Animated.Image
-            source={{ uri: annotation.content }}
-            style={{ width: '100%', height: '100%', borderRadius: 2 }}
-            resizeMode="cover"
-          />
+          <View style={{ flex: 1, overflow: 'hidden', borderRadius: 2 }}>
+            <Animated.Image
+              source={{ uri: annotation.content }}
+              style={[{ position: 'absolute' }, imageStyle]}
+              resizeMode="cover"
+            />
+          </View>
+        )}
+
+        {/* Cropping Context Visuals (BG Image) */}
+        {annotation.isCropping && isSelected && annotation.type === 'image' && (
+          <View 
+            pointerEvents="none"
+            style={[StyleSheet.absoluteFill, { overflow: 'visible', zIndex: -1 }]}
+          >
+             <Animated.Image
+              source={{ uri: annotation.content }}
+              style={[{ position: 'absolute' }, cropBgStyle]}
+            />
+          </View>
         )}
 
         {/* Border Ring (absolute to prevent layout shift) */}
@@ -395,37 +548,80 @@ function DraggableAnnotation({
         {/* Selected Controls (hide when cropping — handles above are used instead) */}
         {isSelected && !annotation.isCropping && (
           <>
-            {/* Rotation handle — top center */}
-            <GestureDetector gesture={rotateGesture}>
-              <Animated.View
-                className="absolute w-6 h-6 rounded-full items-center justify-center"
-                style={[{
-                  top: -28,
-                  alignSelf: 'center',
-                  left: '50%',
-                  marginLeft: -11,
-                  backgroundColor: '#3B82F6',
-                }, shadows.sm]}
-              >
-                <RefreshCw size={10} color="#FFF" />
-              </Animated.View>
-            </GestureDetector>
+            {/* Rotation stalk and handle */}
+            {/* Rotation stalk and handle */}
+            <View
+              pointerEvents="box-none"
+              style={{
+                position: 'absolute',
+                top: -45,
+                left: 0,
+                right: 0,
+                alignItems: 'center',
+                zIndex: 100,
+              }}
+            >
+              <GestureDetector gesture={rotateGesture}>
+                <Animated.View
+                  className="w-7 h-7 rounded-full items-center justify-center bg-white"
+                  style={[{
+                    borderWidth: 1.5,
+                    borderColor: primaryColor,
+                  }, shadows.sm]}
+                >
+                  <RefreshCw size={14} color={primaryColor} />
+                </Animated.View>
+              </GestureDetector>
+              <View style={{ width: 2, height: 18, backgroundColor: primaryColor }} />
+            </View>
 
-            {/* Resize handle — bottom right */}
-            <GestureDetector gesture={resizeGesture}>
-              <Animated.View
-                className="absolute w-4 h-4 rounded-full right-[-8] bottom-[-8]"
-                style={[{
-                  backgroundColor: primaryColor,
-                }, shadows.sm]}
+            {/* Corner resize handles */}
+            {/* Top Left */}
+            <GestureDetector gesture={resizeTL}>
+              <Animated.View 
+                className="absolute w-4 h-4 rounded-full bg-white z-[60]" 
+                style={[{ 
+                  top: -8, left: -8, 
+                  borderWidth: 1.5, borderColor: primaryColor 
+                }, shadows.sm]} 
               />
+            </GestureDetector>
+            {/* Top Right */}
+            <GestureDetector gesture={resizeTR}>
+              <Animated.View 
+                className="absolute w-4 h-4 rounded-full bg-white z-[60]" 
+                style={[{ 
+                    top: -8, right: -8, 
+                    borderWidth: 1.5, borderColor: primaryColor 
+                }, shadows.sm]} 
+              />
+            </GestureDetector>
+            {/* Bottom Left */}
+            <GestureDetector gesture={resizeBL}>
+              <Animated.View 
+                className="absolute w-4 h-4 rounded-full bg-white z-[60]" 
+                style={[{ 
+                    bottom: -8, left: -8, 
+                    borderWidth: 1.5, borderColor: primaryColor 
+                }, shadows.sm]} 
+              />
+            </GestureDetector>
+            {/* Bottom Right */}
+            <GestureDetector gesture={resizeGesture}>
+                <Animated.View 
+                    className="absolute w-4 h-4 rounded-full bg-white z-[60]" 
+                    style={[{ 
+                        bottom: -8, right: -8, 
+                        borderWidth: 1.5, borderColor: primaryColor 
+                    }, shadows.sm]} 
+                />
             </GestureDetector>
           </>
         )}
       </Animated.View>
     </GestureDetector>
   );
-}
+});
 
 // ─── Form Field Component ─────────────────────────────
 interface FormFieldItemProps {
@@ -944,12 +1140,20 @@ export default function PdfEditorTool() {
       lastSelectTime.current = now;
     }
 
+    // Turn off cropping if we are deselecting or switching selection
+    if (selectedId && selectedId !== id) {
+      const currentAnn = annotations.find(a => a.id === selectedId);
+      if (currentAnn?.isCropping) {
+        updateAnnotation(selectedId, { isCropping: false });
+      }
+    }
+
     selectAnnotation(id);
     if (id !== editingTextId) {
       setEditingTextId(null);
       Keyboard.dismiss();
     }
-  }, [selectAnnotation, editingTextId]);
+  }, [selectAnnotation, editingTextId, selectedId, annotations, updateAnnotation]);
 
   // explicitly change pdf page via ref when `currentPage` updates, only if needed
   React.useEffect(() => {
@@ -1247,13 +1451,26 @@ export default function PdfEditorTool() {
       if (result.canceled || !result.assets || result.assets.length === 0) return;
 
       const asset = result.assets[0];
-      const imgW = Math.min(asset.width || 200, pdfDisplayWidth * 0.6);
-      const imgH = imgW * ((asset.height || 200) / (asset.width || 200));
+      const origW = asset.width || 200;
+      const origH = asset.height || 200;
+      const aspectRatio = origH / origW;
+
+      // Cap to 35% of page dimensions (points)
+      const maxW = pdfDisplayWidth * 0.35;
+      const maxH = pdfDisplayHeight * 0.35;
+
+      let imgW = Math.min(origW, maxW);
+      let imgH = imgW * aspectRatio;
+
+      if (imgH > maxH) {
+        imgH = maxH;
+        imgW = imgH / aspectRatio;
+      }
 
       const centerX = (-translateX.value / scale.value) + (pdfDisplayWidth / scale.value) / 2 - imgW / 2;
       const centerY = (-translateY.value / scale.value) + (pdfDisplayHeight / scale.value) / 2 - imgH / 2;
 
-      addImage(currentPage, Math.max(0, centerX), Math.max(0, centerY), imgW, imgH, asset.uri, asset.width || 200, asset.height || 200);
+      addImage(currentPage, Math.max(0, centerX), Math.max(0, centerY), imgW, imgH, asset.uri, origW, origH);
       setActiveTool(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
@@ -1354,8 +1571,11 @@ export default function PdfEditorTool() {
     updateAnnotation(id, { x: Math.max(0, x), y: Math.max(0, y) });
   }, [updateAnnotation]);
 
-  const handleResizeEnd = useCallback((id: string, w: number, h: number) => {
-    updateAnnotation(id, { width: w, height: h });
+  const handleResizeEnd = useCallback((id: string, w: number, h: number, x?: number, y?: number) => {
+    const updates: any = { width: w, height: h };
+    if (x !== undefined) updates.x = Math.max(0, x);
+    if (y !== undefined) updates.y = Math.max(0, y);
+    updateAnnotation(id, updates);
   }, [updateAnnotation]);
 
   const handleRotateEnd = useCallback((id: string, rotation: number) => {
@@ -1440,7 +1660,7 @@ export default function PdfEditorTool() {
 
   // Pan: 1 finger when zoomed, 2 fingers always (or when something is selected to avoid drag conflict)
   const panGesture = Gesture.Pan()
-    .minPointers((activeTool === 'brush' || activeTool === 'eraser' || selectedId !== null) ? 2 : 1)
+    .minPointers((activeTool === 'brush' || activeTool === 'eraser' || selectedId !== null || annotations.some(a => a.isCropping)) ? 2 : 1)
     .onStart(() => {
       savedTranslateX.value = translateX.value;
       savedTranslateY.value = translateY.value;
@@ -1692,6 +1912,7 @@ export default function PdfEditorTool() {
                       onLongPress={handleLongPress}
                       isDark={isDark}
                       primaryColor={primaryColor}
+                      onUpdate={updateAnnotation}
                     />
                   ))}
                 </View>
@@ -1780,7 +2001,71 @@ export default function PdfEditorTool() {
         className="border-t border-border/10 bg-surface"
         style={{ paddingBottom: Math.max(insets.bottom, 16) }}
       >
-        {selectedId ? (() => {
+        {(activeTool === 'brush' || activeTool === 'eraser') ? (
+          <View className="flex-row items-center justify-around py-3 px-4">
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                setActiveTool('brush');
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+              className="items-center gap-1 px-3 py-2 rounded-2xl"
+              style={{
+                backgroundColor: activeTool === 'brush' ? withOpacity(primaryColor, 0.15) : 'transparent',
+              }}
+            >
+              <Brush size={22} color={activeTool === 'brush' ? primaryColor : (isDark ? '#D4D4D8' : '#52525B')} />
+              <Text className="font-sans-medium text-xs" style={{ color: activeTool === 'brush' ? primaryColor : (isDark ? '#D4D4D8' : '#52525B') }}>
+                Pincel
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                setActiveTool('eraser');
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+              className="items-center gap-1 px-3 py-2 rounded-2xl"
+              style={{
+                backgroundColor: activeTool === 'eraser' ? withOpacity(primaryColor, 0.15) : 'transparent',
+              }}
+            >
+              <Eraser size={22} color={activeTool === 'eraser' ? primaryColor : (isDark ? '#D4D4D8' : '#52525B')} />
+              <Text className="font-sans-medium text-xs" style={{ color: activeTool === 'eraser' ? primaryColor : (isDark ? '#D4D4D8' : '#52525B') }}>
+                Borracha
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                brushSheetRef.current?.present();
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+              className="items-center gap-1 px-4 py-2 rounded-2xl"
+            >
+              <Settings2 size={22} color={isDark ? '#D4D4D8' : '#52525B'} />
+              <Text className="font-sans-medium text-xs" style={{ color: isDark ? '#D4D4D8' : '#52525B' }}>
+                Ajustes
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                setActiveTool(null);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+              className="items-center gap-1 px-4 py-2 rounded-2xl"
+            >
+              <X size={22} color={isDark ? '#D4D4D8' : '#52525B'} />
+              <Text className="font-sans-medium text-xs" style={{ color: isDark ? '#D4D4D8' : '#52525B' }}>
+                Fechar
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : selectedId ? (() => {
           const selectedAnnotation = annotations.find(a => a.id === selectedId);
           if (selectedAnnotation?.type === 'image') {
             return (
@@ -1972,59 +2257,17 @@ export default function PdfEditorTool() {
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => {
-                if (activeTool === 'brush') {
-                  setActiveTool(null);
-                } else {
-                  setActiveTool('brush');
-                  brushSheetRef.current?.present();
-                }
+                setActiveTool('brush');
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               }}
-              onLongPress={() => {
-                if (activeTool === 'brush') {
-                  brushSheetRef.current?.present();
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                }
-              }}
               className="items-center gap-1 px-3 py-2 rounded-2xl"
-              style={{
-                backgroundColor: activeTool === 'brush'
-                  ? withOpacity(primaryColor, 0.15)
-                  : 'transparent',
-              }}
             >
-              <Brush size={22} color={activeTool === 'brush' ? primaryColor : (isDark ? '#D4D4D8' : '#52525B')} />
+              <Brush size={22} color={isDark ? '#D4D4D8' : '#52525B'} />
               <Text
                 className="font-sans-medium text-xs"
-                style={{ color: activeTool === 'brush' ? primaryColor : (isDark ? '#D4D4D8' : '#52525B') }}
+                style={{ color: isDark ? '#D4D4D8' : '#52525B' }}
               >
                 Pincel
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                if (activeTool === 'eraser') {
-                  setActiveTool(null);
-                } else {
-                  setActiveTool('eraser');
-                }
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              }}
-              className="items-center gap-1 px-3 py-2 rounded-2xl"
-              style={{
-                backgroundColor: activeTool === 'eraser'
-                  ? withOpacity(primaryColor, 0.15)
-                  : 'transparent',
-              }}
-            >
-              <Eraser size={22} color={activeTool === 'eraser' ? primaryColor : (isDark ? '#D4D4D8' : '#52525B')} />
-              <Text
-                className="font-sans-medium text-xs"
-                style={{ color: activeTool === 'eraser' ? primaryColor : (isDark ? '#D4D4D8' : '#52525B') }}
-              >
-                Borracha
               </Text>
             </TouchableOpacity>
 
