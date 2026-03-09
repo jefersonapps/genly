@@ -13,14 +13,21 @@ import { useDialog } from '@/providers/DialogProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 import { aiService, validateMindMapJSON } from '@/services/aiService';
 import { withOpacity } from '@/utils/colors';
+import { copyToMediaDir } from '@/utils/file';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useFont } from '@shopify/react-native-skia';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   ChevronLeft,
   Download,
-  Expand, Maximize,
+  Expand,
+  Image as ImageIcon,
+  Maximize,
   Network,
   Palette,
   Plus,
@@ -50,14 +57,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
  
 // ─── Inline Editor Component ──────────────────────────
-const InlineNodeEditor = ({ 
+const InlineNodeEditor = React.memo(({ 
   node, text, onTextChange, onSave, transform, isDark 
 }: { 
   node: MindMapNode; 
   text: string; 
   onTextChange: (t: string) => void; 
   onSave: () => void; 
-  transform: { translateX: any; translateY: any; scale: any };
+  transform: any;
   isDark: boolean;
 }) => {
   // Simple version of the logic in MindMapCanvas
@@ -72,21 +79,36 @@ const InlineNodeEditor = ({
     const s = transform.scale.value;
     return {
       position: 'absolute',
-      left: transform.translateX.value + node.x * s,
-      top: transform.translateY.value + node.y * s,
+      left: 0,
+      top: 0,
       width: node.width * s,
       height: node.height * s,
+      transform: [
+        { translateX: transform.translateX.value + node.x * s },
+        { translateY: transform.translateY.value + node.y * s },
+      ],
       zIndex: 9999,
       justifyContent: 'center',
     };
-  });
+  }, [node, transform]);
 
   const animatedTextStyle = useAnimatedStyle(() => {
     const s = transform.scale.value;
+    const lh = 13 * 1.5 * s; // Match LINE_HEIGHT_FACTOR = 1.5
+    
+    let mb = 0;
+    if (node.imageUri && node.imageAspectRatio) {
+      const imgW = (node.width - 32); 
+      const imgH = imgW / node.imageAspectRatio;
+      mb = (imgH + 16) * s; // 16px gap
+    }
+
     return {
       fontSize: 13 * s,
+      lineHeight: lh,
       paddingHorizontal: 16 * s,
-      paddingVertical: 10 * s,
+      paddingVertical: 0,
+      marginBottom: mb,
     };
   });
 
@@ -101,19 +123,21 @@ const InlineNodeEditor = ({
         placeholderTextColor={isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'}
         style={[
           {
-            flex: 1,
             color: textColor,
             fontFamily: 'Montserrat-SemiBold',
-            textAlign: 'left',
-            textAlignVertical: 'center',
+            textAlign: node.textAlign || 'center',
             backgroundColor: 'transparent',
+            padding: 0,
+            margin: 0,
+            includeFontPadding: false,
+            height: undefined, // Auto-height based on text + lineHeight
           },
           animatedTextStyle
         ]}
       />
     </Animated.View>
   );
-};
+});
 
 export default function MindMapScreen() {
   const insets = useSafeAreaInsets();
@@ -134,6 +158,8 @@ export default function MindMapScreen() {
   const pinNodePosition = useMindMapStore((s) => s.pinNodePosition);
   const resizeNode     = useMindMapStore((s) => s.resizeNode);
   const setNodeColor   = useMindMapStore((s) => s.setNodeColor);
+  const setTextAlign   = useMindMapStore((s) => s.setTextAlign);
+  const setNodeImage   = useMindMapStore((s) => s.setNodeImage);
   const toggleCollapse = useMindMapStore((s) => s.toggleCollapse);
   const toggleCollapseDir = useMindMapStore((s) => s.toggleCollapseDir);
   const expandAll      = useMindMapStore((s) => s.expandAll);
@@ -145,21 +171,28 @@ export default function MindMapScreen() {
   const bgPattern      = useMindMapStore((s) => s.bgPattern);
   const setBgPattern   = useMindMapStore((s) => s.setBgPattern);
 
-  const layoutNodes = useMemo(() => computeLayout(nodes, rootId), [nodes, rootId]);
-  const childDirsMap = useMemo(() => computeChildDirs(layoutNodes), [layoutNodes]);
-  const hiddenNodes = useMemo(() => computeHiddenNodes(layoutNodes), [layoutNodes]);
+
 
   const colorSheetRef  = useRef<BottomSheetModal>(null);
   const exportSheetRef = useRef<BottomSheetModal>(null);
   const bgSheetRef     = useRef<BottomSheetModal>(null);
   
   const [isEditTopicVisible, setIsEditTopicVisible] = useState(false);
-  const colorSnapPoints = useMemo(() => ['40%'], []);
+  const colorSnapPoints = useMemo(() => ['70%'], []);
   const exportSnapPoints = useMemo(() => ['50%'], []);
   const bgSnapPoints   = useMemo(() => ['55%'], []);
   
   const [editText, setEditText] = useState('');
   
+  const layoutNodes = useMemo(() => {
+    const nodesForLayout = nodes.map(n => 
+      n.id === selectedId && isEditTopicVisible ? { ...n, title: editText } : n
+    );
+    return computeLayout(nodesForLayout, rootId);
+  }, [nodes, rootId, selectedId, isEditTopicVisible, editText]);
+  const childDirsMap = useMemo(() => computeChildDirs(layoutNodes), [layoutNodes]);
+  const hiddenNodes = useMemo(() => computeHiddenNodes(layoutNodes), [layoutNodes]);
+
   const [isExporting, setIsExporting] = useState(false);
 
   // AI Generation state
@@ -282,14 +315,43 @@ export default function MindMapScreen() {
           router.setParams({ taskId: newTask.id.toString() });
       }
 
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      dialog.show({ title: 'Sucesso', description: 'Mapa mental salvo no grupo Mapas Mentais!', variant: 'success' });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        dialog.show({ title: 'Sucesso', description: 'Mapa mental salvo no grupo Mapas Mentais!', variant: 'success' });
 
     } catch (e) {
       console.error("Failed to save mind map:", e);
-      dialog.show({ title: 'Erro', description: 'Falha ao salvar o mapa mental.', variant: 'error' });
+      dialog.show({ title: 'Erro', description: 'Ocorreu um erro ao salvar o mapa mental.', variant: 'error' });
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      dialog.show({ title: 'Permissão Negada', description: 'Precisamos de acesso à galeria para adicionar imagens.', variant: 'error' });
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      quality: 1,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const asset = result.assets[0];
+      if (selectedId) {
+        try {
+          const permanentUri = await copyToMediaDir(asset.uri);
+          setNodeImage(selectedId, permanentUri, asset.width / asset.height);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          colorSheetRef.current?.dismiss();
+        } catch (error) {
+          console.error("Failed to copy image:", error);
+          dialog.show({ title: 'Erro', description: 'Não foi possível salvar a imagem permanentemente.', variant: 'error' });
+        }
+      }
     }
   };
 
@@ -437,6 +499,9 @@ export default function MindMapScreen() {
   // renderBackdrop removed, handled by BottomSheet component
 
   const handleAddChild = useCallback(() => {
+    if (isEditTopicVisible) {
+      saveEdit();
+    }
     const parentId = selectedId || rootId;
     if (!parentId) return;
     addNode(parentId, 'Novo tópico');
@@ -449,10 +514,11 @@ export default function MindMapScreen() {
       }
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [selectedId, rootId, addNode, nodes, toggleCollapse, toggleCollapseDir]);
+  }, [selectedId, rootId, addNode, nodes, toggleCollapse, toggleCollapseDir, isEditTopicVisible, saveEdit]);
 
   const handleDelete = useCallback(() => {
     if (!selectedId || selectedId === rootId) return;
+    setIsEditTopicVisible(false);
     deleteNode(selectedId);
     forceClearDrag();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -478,6 +544,7 @@ export default function MindMapScreen() {
 
   const handleAIGenerate = useCallback(async () => {
     if (!aiPrompt.trim()) return;
+    setIsEditTopicVisible(false);
     setIsGenerating(true);
     setIsAiModalVisible(false);
 
@@ -981,6 +1048,71 @@ export default function MindMapScreen() {
             isDark={isDark}
             colors={['#3B82F6', '#6a57e3', '#22c55e', '#f97316', '#ec4899', '#ef4444', '#14b8a6', '#eab308', '#64748B', '#8B5CF6']}
           />
+
+          <BottomSheet.Header 
+            title="Alinhamento" 
+            subtitle="Escolha como o texto deve ser alinhado no nó." 
+          />
+          <View className="flex-row gap-3">
+            {[
+              { id: 'left', icon: AlignLeft, label: 'Esquerda' },
+              { id: 'center', icon: AlignCenter, label: 'Centro' },
+              { id: 'right', icon: AlignRight, label: 'Direita' }
+            ].map((align) => {
+              const isSelected = (selectedNode?.textAlign || 'center') === align.id;
+              const Icon = align.icon;
+              return (
+                <TouchableOpacity
+                  key={align.id}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    if (selectedId) {
+                      setTextAlign(selectedId, align.id as any);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }
+                  }}
+                  className={`flex-1 flex-row py-3 items-center justify-center rounded-xl border ${isSelected ? 'border-primary bg-primary/10' : 'border-border bg-surface-secondary'}`}
+                >
+                  <Icon size={18} color={isSelected ? primaryColor : (isDark ? '#A1A1AA' : '#71717A')} />
+                  <Text className={`ml-2 font-sans-medium text-xs ${isSelected ? 'text-primary' : 'text-on-surface-secondary'}`}>
+                    {align.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <BottomSheet.Header 
+            title="Imagem" 
+            subtitle="Adicione uma imagem para ilustrar este tópico." 
+          />
+          <View className="flex-row gap-3">
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={pickImage}
+              className="flex-1 flex-row py-3 items-center justify-center rounded-xl border border-border bg-surface-secondary"
+            >
+              <ImageIcon size={18} color={isDark ? '#A1A1AA' : '#71717A'} />
+              <Text className="ml-2 font-sans-medium text-xs text-on-surface-secondary">
+                {selectedNode?.imageUri ? 'Trocar Imagem' : 'Adicionar Imagem'}
+              </Text>
+            </TouchableOpacity>
+            
+            {selectedNode?.imageUri && (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => {
+                  if (selectedId) {
+                    setNodeImage(selectedId, null);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                }}
+                className="flex-row px-4 py-3 items-center justify-center rounded-xl border border-border bg-surface-secondary"
+              >
+                <Trash2 size={18} color={isDark ? '#A1A1AA' : '#71717A'} />
+              </TouchableOpacity>
+            )}
+          </View>
         </BottomSheet.View>
       </BottomSheet>
 

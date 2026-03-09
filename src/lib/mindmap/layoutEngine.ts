@@ -21,30 +21,59 @@ export const DEFAULT_LAYOUT_CONFIG: LayoutConfig = {
 // Text-wrap height estimation (JS-side, no Skia font needed)
 // ---------------------------------------------------------------------------
 const FONT_SIZE = 13;
-const LINE_HEIGHT = FONT_SIZE * 1.45;
+const LINE_HEIGHT_FACTOR = 1.5;
+const LINE_HEIGHT = FONT_SIZE * LINE_HEIGHT_FACTOR;
 const H_PADDING = 32; // 16px each side
-const V_PADDING = 20; // 10px each side
-const CHARS_PER_PX = 1 / (FONT_SIZE * 0.55); // approx char width
+const V_PADDING = 32; // 16px each side (V_PAD=16 in Canvas)
+const CHARS_PER_PX = 1 / (FONT_SIZE * 0.60); // approx char width
 
-export function estimateNodeHeight(title: string, nodeWidth: number): number {
+export function estimateNodeHeight(title: string, nodeWidth: number, imageAspectRatio?: number): number {
   const maxCharsPerLine = Math.floor((nodeWidth - H_PADDING) * CHARS_PER_PX);
   if (maxCharsPerLine <= 0) return NODE_DEFAULT_HEIGHT;
 
-  // Simple greedy word-wrap
-  const words = title.split(' ');
-  let lines = 1;
-  let currentLen = 0;
-  for (const word of words) {
-    const needed = currentLen === 0 ? word.length : currentLen + 1 + word.length;
-    if (needed > maxCharsPerLine && currentLen > 0) {
-      lines++;
-      currentLen = word.length;
-    } else {
-      currentLen = needed;
+  // Simple greedy word-wrap per manual line
+  const rawLines = title.replace(/\r/g, '').split('\n');
+  let totalLines = 0;
+
+  for (const line of rawLines) {
+    if (line === '') {
+      totalLines++;
+      continue;
     }
+    const words = line.split(' ');
+    let lineCount = 1;
+    let currentLen = 0;
+    for (const word of words) {
+      if (word.length > maxCharsPerLine) {
+        if (currentLen > 0) {
+          lineCount++;
+          currentLen = 0;
+        }
+        lineCount += Math.ceil(word.length / maxCharsPerLine) - 1;
+        currentLen = word.length % maxCharsPerLine;
+        if (currentLen === 0) currentLen = maxCharsPerLine;
+        continue;
+      }
+
+      const needed = currentLen === 0 ? word.length : currentLen + 1 + word.length;
+      if (needed > maxCharsPerLine && currentLen > 0) {
+        lineCount++;
+        currentLen = word.length;
+      } else {
+        currentLen = needed;
+      }
+    }
+    totalLines += lineCount;
   }
 
-  const h = Math.ceil(lines * LINE_HEIGHT + V_PADDING);
+  let h = Math.ceil(totalLines * LINE_HEIGHT + V_PADDING);
+  
+  if (imageAspectRatio && imageAspectRatio > 0) {
+    const imgW = nodeWidth - H_PADDING;
+    const imgH = imgW / imageAspectRatio;
+    h += imgH + 16; // image height + 16px gap
+  }
+
   return Math.max(h, NODE_MIN_HEIGHT);
 }
 
@@ -69,8 +98,8 @@ function resolveNodeSize(
   cfg: LayoutConfig,
 ): { width: number; height: number } {
   const width = node.customWidth ?? cfg.nodeWidth;
-  // If user hasn't manually resized height, auto-compute from text wrapping
-  const height = node.customHeight ?? estimateNodeHeight(node.title, width);
+  // If user hasn't manually resized height, auto-compute from text wrapping + image
+  const height = node.customHeight ?? estimateNodeHeight(node.title, width, node.imageAspectRatio);
   return { width, height };
 }
 

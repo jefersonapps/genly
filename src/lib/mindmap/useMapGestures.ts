@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { Gesture } from 'react-native-gesture-handler';
 import {
-    runOnJS,
-    useSharedValue,
-    withDecay,
-    type SharedValue,
+  cancelAnimation,
+  runOnJS,
+  useSharedValue,
+  withDecay,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { RESIZE_HANDLE_SIZE } from './MindMapCanvas';
 import { computeChildDirsWorklet } from './layoutEngine';
@@ -112,11 +113,10 @@ export function useMapGestures(nodes: MindMapNode[], callbacks: GestureCallbacks
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const scale      = useSharedValue(1);
-  const savedTX    = useSharedValue(0);
-  const savedTY    = useSharedValue(0);
-  const savedScale = useSharedValue(1);
-  const focalWX    = useSharedValue(0);
-  const focalWY    = useSharedValue(0);
+
+  // Used for calculating exact frame-by-frame focal point movement
+  const prevFocalX = useSharedValue(0);
+  const prevFocalY = useSharedValue(0);
 
   // Drag
   const dragNodeId  = useSharedValue<string | null>(null);
@@ -133,12 +133,11 @@ export function useMapGestures(nodes: MindMapNode[], callbacks: GestureCallbacks
   const resizeOriginH = useSharedValue(0);
 
   /**
-   * Mutual exclusion flag set on long-press start.
-   * 0 = nothing active  |  1 = drag active  |  2 = resize active
+   * 0 = nothing active  |  1 = drag active  |  2 = resize active  |  3 = pinch active
    * Both gestures use the same activateAfterLongPress duration so only one
    * will find a hit and set the flag; the other bails in onUpdate.
    */
-  const activeGesture = useSharedValue<0 | 1 | 2>(0);
+  const activeGesture = useSharedValue<0 | 1 | 2 | 3>(0);
 
   const transform   = useMemo(() => ({ translateX, translateY, scale }), [translateX, translateY, scale]);
   const dragState   = useMemo(() => ({ dragNodeId, dragAbsX, dragAbsY }), [dragNodeId, dragAbsX, dragAbsY]);
@@ -157,18 +156,14 @@ export function useMapGestures(nodes: MindMapNode[], callbacks: GestureCallbacks
   // ---------------------------------------------------------------------------
   const panGesture = useMemo(() =>
     Gesture.Pan()
-      .minDistance(8).minPointers(1).maxPointers(2)
-      .onStart(() => {
+      .minDistance(8).minPointers(1).maxPointers(1)
+      .onChange((e) => {
         'worklet';
-        savedTX.value = translateX.value;
-        savedTY.value = translateY.value;
-      })
-      .onUpdate((e) => {
-        'worklet';
-        // Don't pan while a node drag or resize is active
+        // Don't pan while a node drag, resize or pinch is active
         if (activeGesture.value !== 0) return;
-        translateX.value = savedTX.value + e.translationX;
-        translateY.value = savedTY.value + e.translationY;
+        
+        translateX.value += e.changeX;
+        translateY.value += e.changeY;
       })
       .onEnd((e) => {
         'worklet';
@@ -176,7 +171,7 @@ export function useMapGestures(nodes: MindMapNode[], callbacks: GestureCallbacks
         translateX.value = withDecay({ velocity: e.velocityX, deceleration: 0.994 });
         translateY.value = withDecay({ velocity: e.velocityY, deceleration: 0.994 });
       }),
-  [translateX, translateY, savedTX, savedTY, activeGesture]);
+  [translateX, translateY, activeGesture]);
 
   // ---------------------------------------------------------------------------
   // Pinch
@@ -185,18 +180,55 @@ export function useMapGestures(nodes: MindMapNode[], callbacks: GestureCallbacks
     Gesture.Pinch()
       .onStart((e) => {
         'worklet';
-        savedScale.value = scale.value;
-        focalWX.value = (e.focalX - translateX.value) / scale.value;
-        focalWY.value = (e.focalY - translateY.value) / scale.value;
+        if (activeGesture.value !== 0 && activeGesture.value !== 3) return;
+        activeGesture.value = 3;
+        cancelAnimation(translateX);
+        cancelAnimation(translateY);
+        cancelAnimation(scale);
+        
+        // Save initial focal point for delta calculations
+        prevFocalX.value = e.focalX;
+        prevFocalY.value = e.focalY;
       })
-      .onUpdate((e) => {
+      .onChange((e) => {
         'worklet';
-        const s = Math.min(Math.max(savedScale.value * e.scale, 0.1), 5);
-        scale.value = s;
-        translateX.value = e.focalX - focalWX.value * s;
-        translateY.value = e.focalY - focalWY.value * s;
+        if (activeGesture.value !== 3) return;
+
+        // Skip wild focal jumps that occur when a finger is lifted or added midway
+        const diffX = Math.abs(e.focalX - prevFocalX.value);
+        const diffY = Math.abs(e.focalY - prevFocalY.value);
+        if (diffX > 50 || diffY > 50 || e.numberOfPointers !== 2) {
+          prevFocalX.value = e.focalX;
+          prevFocalY.value = e.focalY;
+          return;
+        }
+
+        // 1. Apply scale delta tightly clamped
+        const nextScale = Math.min(Math.max(scale.value * e.scaleChange, 0.1), 5);
+        const scaleRatio = nextScale / scale.value;
+        scale.value = nextScale;
+
+        // 2. Adjust translation to keep the current focal point stationary while zooming
+        translateX.value = e.focalX - (e.focalX - translateX.value) * scaleRatio;
+        translateY.value = e.focalY - (e.focalY - translateY.value) * scaleRatio;
+
+        // 3. Apply translation delta from focal point movement (two-finger panning)
+        translateX.value += e.focalX - prevFocalX.value;
+        translateY.value += e.focalY - prevFocalY.value;
+
+        // Save current focal point for the next frame
+        prevFocalX.value = e.focalX;
+        prevFocalY.value = e.focalY;
+      })
+      .onEnd(() => {
+        'worklet';
+        if (activeGesture.value === 3) activeGesture.value = 0;
+      })
+      .onFinalize(() => {
+        'worklet';
+        if (activeGesture.value === 3) activeGesture.value = 0;
       }),
-  [scale, translateX, translateY, savedScale, focalWX, focalWY]);
+  [scale, translateX, translateY, activeGesture, prevFocalX, prevFocalY]);
 
   // ---------------------------------------------------------------------------
   // Tap / double-tap
@@ -313,9 +345,9 @@ export function useMapGestures(nodes: MindMapNode[], callbacks: GestureCallbacks
         // Approximate min height so text never clips vertically.
         // We can't use the Skia font here, so we use char-width estimation
         // (same approximation as the JS-side layoutEngine).
-        const APPROX_CW = 13 * 0.58;
-        const LINE_H    = 13 * 1.55;
-        const V_PAD     = 10;
+        const APPROX_CW = 13 * 0.60;
+        const LINE_H    = 13 * 1.5;
+        const V_PAD     = 16;
         const H_PAD     = 16;
         const maxTextW  = newW - H_PAD * 2;
         const id = resizeNodeId.value;
@@ -323,26 +355,52 @@ export function useMapGestures(nodes: MindMapNode[], callbacks: GestureCallbacks
           ? nodesSV.value.find((n: MindMapNode) => n.id === id)
           : null;
         const title = resizingNode ? resizingNode.title : '';
-        const words = title.split(' ');
-        let lineCount = 1;
-        let cur = '';
-        for (let wi = 0; wi < words.length; wi++) {
-          const word = words[wi];
-          const wordW = word.length * APPROX_CW;
-          if (wordW > maxTextW) {
-            if (cur) { lineCount++; cur = ''; }
-            lineCount += Math.ceil(wordW / maxTextW) - 1;
-          } else {
-            const joined = cur ? cur + ' ' + word : word;
-            if (joined.length * APPROX_CW > maxTextW && cur) {
-              lineCount++;
-              cur = word;
+        const rawLines = title.split('\r').join('').split('\n');
+        let lineCount = 0;
+        const charsPerLine = Math.floor(maxTextW / APPROX_CW) || 1;
+
+        for (const line of rawLines) {
+          if (line === '') {
+            lineCount++;
+            continue;
+          }
+          const words = line.split(' ');
+          let currentLineCount = 1;
+          let currentLen = 0;
+
+          for (const word of words) {
+            if (word.length * APPROX_CW > maxTextW) {
+              if (currentLen > 0) {
+                currentLineCount++;
+                currentLen = 0;
+              }
+              const wordLines = Math.ceil(word.length / charsPerLine);
+              currentLineCount += wordLines - 1;
+              currentLen = word.length % charsPerLine;
+              if (currentLen === 0) currentLen = charsPerLine;
+              continue;
+            }
+
+            const needed = currentLen === 0 ? word.length : currentLen + 1 + word.length;
+            if (needed > charsPerLine && currentLen > 0) {
+              currentLineCount++;
+              currentLen = word.length;
             } else {
-              cur = joined;
+              currentLen = needed;
             }
           }
+          lineCount += currentLineCount;
         }
-        const minH = Math.max(NODE_MIN_HEIGHT, Math.ceil(lineCount * LINE_H + V_PAD * 2));
+        let minH = Math.ceil(lineCount * LINE_H + V_PAD * 2);
+        
+        const ar = resizingNode?.imageAspectRatio;
+        if (ar && ar > 0) {
+          const imgW = newW - 32; // H_PAD * 2
+          const imgH = imgW / ar;
+          minH += imgH + 16; // image height + 16px gap
+        }
+
+        minH = Math.max(NODE_MIN_HEIGHT, Math.ceil(minH));
 
         resizeLiveW.value = newW;
         resizeLiveH.value = Math.max(minH, resizeOriginH.value + e.translationY / scale.value);

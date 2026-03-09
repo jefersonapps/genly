@@ -95,9 +95,7 @@ function wrapText(title: string, maxW: number, font?: SkFont | null): string[] {
       continue;
     }
     if (result.length === 0) { result.push(word); continue; }
-    const joined = result[result.length - 1]
-      ? `${result[result.length - 1]} ${word}`
-      : word;
+    const joined = result[result.length - 1] ? `${result[result.length - 1]} ${word}` : word;
     if (measure(joined) <= maxW) {
       result[result.length - 1] = joined;
     } else {
@@ -240,6 +238,22 @@ export async function exportToImage(
     const fillP = Skia.Paint(); fillP.setStyle(0); fillP.setAntiAlias(true);
     const strokeP = Skia.Paint(); strokeP.setStyle(1); strokeP.setAntiAlias(true);
 
+    // Pre-load images
+    const nodeImages: Record<string, any> = {};
+    for (const n of visibleNodes) {
+      if (n.imageUri) {
+        try {
+          const data = await Skia.Data.fromURI(n.imageUri);
+          if (data) {
+            const img = Skia.Image.MakeImageFromEncoded(data);
+            if (img) nodeImages[n.id] = img;
+          }
+        } catch (e) {
+          console.warn(`Failed to lead image for node ${n.id}:`, e);
+        }
+      }
+    }
+
     for (const n of visibleNodes) {
         const rrect = Skia.RRectXY(Skia.XYWHRect(n.x, n.y, n.width, n.height), 12, 12);
         
@@ -250,22 +264,86 @@ export async function exportToImage(
         strokeP.setStrokeWidth(1);
         canvas.drawRRect(rrect, strokeP);
 
+        const H_PAD = 16;
+        const V_PAD = 16;
+        const LINE_HEIGHT = FONT_SIZE * 1.5;
+
+        const lines = wrapText(n.title, n.width - H_PAD * 2, customFont);
+        const totalTextH = lines.length * LINE_HEIGHT;
+        
+        let totalContentH = totalTextH;
+        let imgH = 0;
+        const img = nodeImages[n.id];
+        if (img && n.imageAspectRatio) {
+          imgH = (n.width - H_PAD * 2) / n.imageAspectRatio;
+          totalContentH += imgH + 16;
+        }
+
+        const firstLineTop = n.y + (n.height - totalContentH) / 2;
+
         // Text
         if (customFont) {
-            const H_PAD = 16;
             const textPaint = Skia.Paint();
             textPaint.setColor(Skia.Color(getNodeTextColor(n.depth, isBgDark, n.color)));
             textPaint.setAntiAlias(true);
             
-            const lines = wrapText(n.title, n.width - H_PAD * 2, customFont);
-            const LINE_HEIGHT = FONT_SIZE * 1.55;
-            const totalH = lines.length * LINE_HEIGHT;
-            let currentY = n.y + (n.height - totalH) / 2 + FONT_SIZE;
+            // Standard baseline offset: 
+            // center the font box (FONT_SIZE) within the line-height box (LINE_HEIGHT)
+            const lineMargin = (LINE_HEIGHT - FONT_SIZE) / 2;
+            let currentY = firstLineTop + lineMargin + (FONT_SIZE * 0.8) - 1;
 
             for (const line of lines) {
-                canvas.drawText(line, n.x + H_PAD, currentY, textPaint, customFont);
+                const lineWidth = customFont.measureText(line).width;
+                const align = n.textAlign || 'center';
+                let x = n.x + H_PAD;
+                if (align === 'center') x = n.x + (n.width - lineWidth) / 2;
+                else if (align === 'right') x = n.x + n.width - H_PAD - lineWidth;
+
+                canvas.drawText(line, x, currentY, textPaint, customFont);
                 currentY += LINE_HEIGHT;
             }
+        }
+
+        // Image
+        if (img && imgH > 0) {
+          const imgX = n.x + H_PAD;
+          const imgY = firstLineTop + totalTextH + 16;
+          const imgW = n.width - H_PAD * 2;
+          
+          canvas.save();
+          // Clip to match UI's rounded corners
+          const imgRRect = Skia.RRectXY(Skia.XYWHRect(imgX, imgY, imgW, imgH), 12, 12);
+          // 1 = Intersect, true = Antialias
+          canvas.clipRRect(imgRRect, 1, true);
+          
+          // Draw image with 'cover' logic
+          const srcW = img.width();
+          const srcH = img.height();
+          const srcAR = srcW / srcH;
+          const dstAR = imgW / imgH;
+          
+          let drawSrcW = srcW;
+          let drawSrcH = srcH;
+          let srcX = 0;
+          let srcY = 0;
+          
+          if (srcAR > dstAR) {
+            drawSrcW = srcH * dstAR;
+            srcX = (srcW - drawSrcW) / 2;
+          } else {
+            drawSrcH = srcW / dstAR;
+            srcY = (srcH - drawSrcH) / 2;
+          }
+          
+          const imagePaint = Skia.Paint();
+          imagePaint.setAntiAlias(true);
+          canvas.drawImageRect(
+            img,
+            Skia.XYWHRect(srcX, srcY, drawSrcW, drawSrcH),
+            Skia.XYWHRect(imgX, imgY, imgW, imgH),
+            imagePaint
+          );
+          canvas.restore();
         }
     }
 

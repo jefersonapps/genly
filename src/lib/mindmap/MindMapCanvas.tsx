@@ -1,13 +1,15 @@
 import {
-    Canvas,
-    Group,
-    Path,
-    Picture,
-    Rect,
-    Skia,
-    Text as SkiaText,
-    useFont,
-    type SkFont
+  Canvas,
+  Group,
+  Image,
+  Path,
+  Picture,
+  Rect,
+  Skia,
+  Text as SkiaText,
+  useFont,
+  useImage,
+  type SkFont
 } from '@shopify/react-native-skia';
 import React, { useMemo } from 'react';
 import { useWindowDimensions } from 'react-native';
@@ -131,10 +133,11 @@ const BackgroundLayer = React.memo(function BackgroundLayer({
 export const RESIZE_HANDLE_SIZE = 22;
 const HANDLE_VISUAL_R = 5;
 const FONT_SIZE = 13;
-const LINE_HEIGHT = FONT_SIZE * 1.55;
+const LINE_HEIGHT_FACTOR = 1.5;
+const LINE_HEIGHT = FONT_SIZE * LINE_HEIGHT_FACTOR;
 const H_PAD = 16;
-const V_PAD = 10;
-const APPROX_CHAR_W = FONT_SIZE * 0.58;
+const V_PAD = 16;
+const APPROX_CHAR_W = FONT_SIZE * 0.60;
 
 // ---------------------------------------------------------------------------
 // Worklet helpers
@@ -222,33 +225,47 @@ function wrapText(title: string, maxW: number, font: SkFont | null): string[] {
     font ? font.measureText(s).width : s.length * APPROX_CHAR_W;
 
   const result: string[] = [];
-  const words = (title || 'Sem título').split(' ');
+  const rawLines = (title || 'Sem título').split('\r').join('').split('\n');
 
-  for (const word of words) {
-    if (measure(word) > maxW) {
-      let buf = '';
-      for (let i = 0; i < word.length; i++) {
-        const next = buf + word[i];
-        if (measure(next) > maxW && buf.length > 0) {
-          result.push(buf);
-          buf = word[i];
-        } else {
-          buf = next;
-        }
-      }
-      if (buf.length > 0) result.push(buf);
+  for (const line of rawLines) {
+    if (line === '') {
+      result.push('');
       continue;
     }
-    if (result.length === 0) { result.push(word); continue; }
-    const joined = result[result.length - 1]
-      ? `${result[result.length - 1]} ${word}`
-      : word;
-    if (measure(joined) <= maxW) {
-      result[result.length - 1] = joined;
-    } else {
-      result.push(word);
+    const words = line.split(' ');
+    let currentLine = '';
+
+    for (const word of words) {
+      if (measure(word) > maxW) {
+        if (currentLine) result.push(currentLine);
+        currentLine = '';
+        
+        let buf = '';
+        for (let i = 0; i < word.length; i++) {
+          const char = word[i];
+          const next = buf + char;
+          if (measure(next) > maxW && buf.length > 0) {
+            result.push(buf);
+            buf = char;
+          } else {
+            buf = next;
+          }
+        }
+        currentLine = buf;
+        continue;
+      }
+
+      const joined = currentLine ? `${currentLine} ${word}` : word;
+      if (measure(joined) <= maxW) {
+        currentLine = joined;
+      } else {
+        result.push(currentLine);
+        currentLine = word;
+      }
     }
+    result.push(currentLine);
   }
+  
   return result.length ? result : [''];
 }
 
@@ -418,6 +435,80 @@ const NodeShell = React.memo(function NodeShell({
   return <Picture picture={picture} />;
 });
 
+const NodeImage = React.memo(function NodeImage({ 
+  uri, x, y, width, height, opacity 
+}: { 
+  uri: string, x: any, y: any, width: any, height: any, opacity: any 
+}) {
+  const image = useImage(uri);
+  const clip = useDerivedValue(() => {
+    'worklet';
+    return Skia.RRectXY(Skia.XYWHRect(x.value, y.value, width.value, height.value), 12, 12);
+  }, [x, y, width, height]);
+
+  if (!image) return null;
+  return (
+    <Group clip={clip}>
+      <Image image={image} x={x} y={y} width={width} height={height} fit="cover" opacity={opacity} />
+    </Group>
+  );
+});
+
+const MAX_LINES = 15;
+
+/** Single line of text within a node */
+const SingleLine = React.memo(function SingleLine({
+  index, allLines, font, textColor, textOpacity, node, resizeState
+}: {
+  index: number;
+  allLines: any;
+  font: SkFont;
+  textColor: string;
+  textOpacity: any;
+  node: MindMapNode;
+  resizeState: ResizeState;
+}) {
+  const x = useDerivedValue(() => {
+    'worklet';
+    const lines = allLines.value.lines || [];
+    if (!lines || index >= lines.length) return 0;
+    const lineStr = lines[index]?.text || '';
+    
+    const align = node.textAlign || 'center';
+    if (align === 'left') return H_PAD;
+    
+    const w = resizeState.resizeNodeId.value === node.id
+      ? Math.max(120, resizeState.resizeLiveW.value) : node.width;
+    
+    const lineWidth = font.measureText(lineStr).width;
+    if (align === 'center') return (w - lineWidth) / 2;
+    return w - H_PAD - lineWidth;
+  }, [node]);
+
+  const y = useDerivedValue(() => {
+    'worklet';
+    const lines = allLines.value.lines || [];
+    return index < lines.length ? lines[index].y : 0;
+  });
+
+  const t = useDerivedValue(() => {
+    'worklet';
+    const lines = allLines.value.lines || [];
+    return index < lines.length ? lines[index].text : '';
+  });
+
+  const opacity = useDerivedValue(() => {
+    'worklet';
+    const lines = allLines.value.lines || [];
+    const visible = index < lines.length;
+    return (visible ? 1 : 0) * textOpacity.value;
+  });
+
+  return (
+    <SkiaText x={x} y={y} text={t} font={font} color={textColor} opacity={opacity} />
+  );
+});
+
 // ---------------------------------------------------------------------------
 // NodeText — rendered using Skia's JSX Text components (correct font fill)
 // Positions recompute via useDerivedValue when live size changes
@@ -434,103 +525,80 @@ const NodeText = React.memo(function NodeText({
   const textColor = getNodeTextColor(node.depth, isDark, node.color);
 
   // If we are editing this node inline, hide the Skia text to avoid overlap with TextInput
-  const textOpacity = useDerivedValue(() => isEditing ? 0 : 1);
+  const textOpacity = useDerivedValue(() => isEditing ? 0 : 1, [isEditing]);
 
   /**
    * Compute wrapped lines + Y positions as a derived value (worklet).
-   * Returns a plain array — SkiaText components are rendered in JSX
-   * using this array, but we read it via .value only inside a child
-   * component's own render cycle triggered by Skia's subscription.
-   *
    * To avoid reading .value in JSX we use a trick: render a fixed max
    * number of SkiaText slots (up to MAX_LINES) and use opacity 0 for
    * unused slots. Each slot reads only its own derived value.
    */
-  const line0 = useDerivedValue(() => {
+  const allLines = useDerivedValue(() => {
     'worklet';
     const w = resizeState.resizeNodeId.value === node.id
       ? Math.max(120, resizeState.resizeLiveW.value) : node.width;
     const h = resizeState.resizeNodeId.value === node.id
       ? Math.max(44, resizeState.resizeLiveH.value)  : node.height;
-    const lines  = wrapText(node.title, w - H_PAD * 2, font);
-    const totalH = lines.length * LINE_HEIGHT;
-    const startY = (h - totalH) / 2 + FONT_SIZE;
-    return { text: lines[0] ?? '', y: startY };
-  });
-  const line1 = useDerivedValue(() => {
-    'worklet';
-    const w = resizeState.resizeNodeId.value === node.id
-      ? Math.max(120, resizeState.resizeLiveW.value) : node.width;
-    const h = resizeState.resizeNodeId.value === node.id
-      ? Math.max(44, resizeState.resizeLiveH.value)  : node.height;
-    const lines  = wrapText(node.title, w - H_PAD * 2, font);
-    const totalH = lines.length * LINE_HEIGHT;
-    const startY = (h - totalH) / 2 + FONT_SIZE;
-    return { text: lines[1] ?? '', y: startY + LINE_HEIGHT, visible: lines.length > 1 };
-  });
-  const line2 = useDerivedValue(() => {
-    'worklet';
-    const w = resizeState.resizeNodeId.value === node.id
-      ? Math.max(120, resizeState.resizeLiveW.value) : node.width;
-    const h = resizeState.resizeNodeId.value === node.id
-      ? Math.max(44, resizeState.resizeLiveH.value)  : node.height;
-    const lines  = wrapText(node.title, w - H_PAD * 2, font);
-    const totalH = lines.length * LINE_HEIGHT;
-    const startY = (h - totalH) / 2 + FONT_SIZE;
-    return { text: lines[2] ?? '', y: startY + LINE_HEIGHT * 2, visible: lines.length > 2 };
-  });
-  const line3 = useDerivedValue(() => {
-    'worklet';
-    const w = resizeState.resizeNodeId.value === node.id
-      ? Math.max(120, resizeState.resizeLiveW.value) : node.width;
-    const h = resizeState.resizeNodeId.value === node.id
-      ? Math.max(44, resizeState.resizeLiveH.value)  : node.height;
-    const lines  = wrapText(node.title, w - H_PAD * 2, font);
-    const totalH = lines.length * LINE_HEIGHT;
-    const startY = (h - totalH) / 2 + FONT_SIZE;
-    return { text: lines[3] ?? '', y: startY + LINE_HEIGHT * 3, visible: lines.length > 3 };
-  });
-  const line4 = useDerivedValue(() => {
-    'worklet';
-    const w = resizeState.resizeNodeId.value === node.id
-      ? Math.max(120, resizeState.resizeLiveW.value) : node.width;
-    const h = resizeState.resizeNodeId.value === node.id
-      ? Math.max(44, resizeState.resizeLiveH.value)  : node.height;
-    const lines  = wrapText(node.title, w - H_PAD * 2, font);
-    const totalH = lines.length * LINE_HEIGHT;
-    const startY = (h - totalH) / 2 + FONT_SIZE;
-    return { text: lines[4] ?? '', y: startY + LINE_HEIGHT * 4, visible: lines.length > 4 };
-  });
 
-  // Skia's JSX Text accepts SharedValue<number> for x/y and SharedValue<string> for text
-  // — they subscribe on the UI thread without reading .value in React render.
-  const x0 = useDerivedValue(() => H_PAD);
-  const y0 = useDerivedValue(() => { 'worklet'; return line0.value.y; });
-  const t0 = useDerivedValue(() => { 'worklet'; return line0.value.text; });
+    const lines = wrapText(node.title, w - H_PAD * 2, font);
+    // Use full line height for each line to match TextInput content centering
+    const totalTextH = lines.length * LINE_HEIGHT;
+    
+    let totalContentH = totalTextH;
+    let imgH = 0;
+    if (node.imageUri && node.imageAspectRatio) {
+      const imgW = w - H_PAD * 2;
+      imgH = imgW / node.imageAspectRatio;
+      totalContentH += imgH + 16; 
+    }
 
-  const y1 = useDerivedValue(() => { 'worklet'; return line1.value.y; });
-  const t1 = useDerivedValue(() => { 'worklet'; return line1.value.text; });
-  const op1 = useDerivedValue(() => { 'worklet'; return line1.value.visible ? 1 : 0; });
+    const firstLineTop = (h - totalContentH) / 2;
+    // Standard baseline offset: 
+    // center the font box (FONT_SIZE) within the line-height box (LINE_HEIGHT)
+    const lineMargin = (LINE_HEIGHT - FONT_SIZE) / 2;
+    // baseline is ~0.8 * font size from the top of the font box
+    const firstLineBaseline = firstLineTop + lineMargin + (FONT_SIZE * 0.8) - 1;
+    
+    return {
+      lines: lines.map((text, i) => ({
+        text,
+        y: firstLineBaseline + i * LINE_HEIGHT
+      })),
+      imageY: firstLineTop + totalTextH + 16,
+      imageH: imgH,
+      imageW: w - H_PAD * 2
+    };
+  }, [node]);
 
-  const y2 = useDerivedValue(() => { 'worklet'; return line2.value.y; });
-  const t2 = useDerivedValue(() => { 'worklet'; return line2.value.text; });
-  const op2 = useDerivedValue(() => { 'worklet'; return line2.value.visible ? 1 : 0; });
-
-  const y3 = useDerivedValue(() => { 'worklet'; return line3.value.y; });
-  const t3 = useDerivedValue(() => { 'worklet'; return line3.value.text; });
-  const op3 = useDerivedValue(() => { 'worklet'; return line3.value.visible ? 1 : 0; });
-
-  const y4 = useDerivedValue(() => { 'worklet'; return line4.value.y; });
-  const t4 = useDerivedValue(() => { 'worklet'; return line4.value.text; });
-  const op4 = useDerivedValue(() => { 'worklet'; return line4.value.visible ? 1 : 0; });
+  const imgX = useDerivedValue(() => H_PAD, [node]);
+  const imgY = useDerivedValue(() => allLines.value.imageY, [node]);
+  const imgW = useDerivedValue(() => allLines.value.imageW, [node]);
+  const imgH = useDerivedValue(() => allLines.value.imageH, [node]);
 
   return (
     <>
-      <SkiaText x={x0} y={y0} text={t0} font={font} color={textColor} opacity={textOpacity} />
-      <SkiaText x={x0} y={y1} text={t1} font={font} color={textColor} opacity={useDerivedValue(() => op1.value * textOpacity.value)} />
-      <SkiaText x={x0} y={y2} text={t2} font={font} color={textColor} opacity={useDerivedValue(() => op2.value * textOpacity.value)} />
-      <SkiaText x={x0} y={y3} text={t3} font={font} color={textColor} opacity={useDerivedValue(() => op3.value * textOpacity.value)} />
-      <SkiaText x={x0} y={y4} text={t4} font={font} color={textColor} opacity={useDerivedValue(() => op4.value * textOpacity.value)} />
+      {Array.from({ length: MAX_LINES }).map((_, i) => (
+        <SingleLine
+          key={i}
+          index={i}
+          allLines={allLines}
+          font={font}
+          textColor={textColor}
+          textOpacity={textOpacity}
+          node={node}
+          resizeState={resizeState}
+        />
+      ))}
+      {node.imageUri && (
+        <NodeImage
+          uri={node.imageUri}
+          x={imgX}
+          y={imgY}
+          width={imgW}
+          height={imgH}
+          opacity={1}
+        />
+      )}
     </>
   );
 });
@@ -560,7 +628,7 @@ const NodeItem = React.memo(function NodeItem({
       return [{ translateX: dragState.dragAbsX.value }, { translateY: dragState.dragAbsY.value }];
     }
     return [{ translateX: node.x }, { translateY: node.y }];
-  });
+  }, [node]);
 
   return (
     <Group transform={nodeTransform}>

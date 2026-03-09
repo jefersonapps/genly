@@ -24,6 +24,9 @@ export interface MindMapNode {
   /** User-defined size — overrides layout defaults when set */
   customWidth?: number;
   customHeight?: number;
+  imageUri?: string;
+  imageAspectRatio?: number;
+  textAlign?: 'left' | 'center' | 'right';
 }
 
 export type BackgroundPattern = 'none' | 'grid' | 'dots' | 'lines';
@@ -42,6 +45,7 @@ interface MindMapState {
   pinNodePosition: (id: string, x: number, y: number) => void;
   resizeNode: (id: string, width: number, height: number) => void;
   setNodeColor: (id: string, color: string) => void;
+  setNodeImage: (id: string, uri: string | null, aspectRatio?: number) => void;
   toggleCollapse: (id: string) => void;
   toggleCollapseDir: (id: string, dir: string) => void;
   expandAll: () => void;
@@ -51,6 +55,7 @@ interface MindMapState {
   initRoot: (title: string) => void;
   setCanvasBgColor: (color: string | null) => void;
   setBgPattern: (pattern: BackgroundPattern) => void;
+  setTextAlign: (id: string, align: 'left' | 'center' | 'right') => void;
   setWholeState: (state: Partial<MindMapState>) => void;
   reset: () => void;
 }
@@ -80,6 +85,7 @@ export const useMindMapStore = create<MindMapState>((set) => ({
         x: 0, y: 0,
         width: NODE_DEFAULT_WIDTH,
         height: NODE_DEFAULT_HEIGHT,
+        textAlign: 'center',
       }],
       rootId,
       selectedId: rootId,
@@ -111,6 +117,7 @@ export const useMindMapStore = create<MindMapState>((set) => ({
         x: 0, y: 0,
         width: NODE_DEFAULT_WIDTH,
         height: NODE_DEFAULT_HEIGHT,
+        textAlign: 'center',
       };
       // Auto-expand parent if it had collapsed its boolean flag
       const updatedNodes = state.nodes.map((n) =>
@@ -166,6 +173,21 @@ export const useMindMapStore = create<MindMapState>((set) => ({
       ),
     })),
 
+  setNodeImage: (id, uri, aspectRatio) =>
+    set((state) => ({
+      nodes: state.nodes.map((n) =>
+        n.id === id 
+          ? { 
+              ...n, 
+              imageUri: uri || undefined, 
+              imageAspectRatio: uri ? aspectRatio : undefined,
+              // If removing image, clear custom height to allow re-estimation
+              customHeight: uri ? n.customHeight : undefined 
+            } 
+          : n,
+      ),
+    })),
+
   toggleCollapse: (id) =>
     set((state) => ({
       nodes: state.nodes.map((n) => n.id === id ? { ...n, collapsed: !n.collapsed } : n),
@@ -205,6 +227,10 @@ export const useMindMapStore = create<MindMapState>((set) => ({
   setRootId: (id) => set({ rootId: id }),
   setCanvasBgColor: (color) => set({ canvasBgColor: color }),
   setBgPattern: (pattern) => set({ bgPattern: pattern }),
+  setTextAlign: (id, textAlign) =>
+    set((state) => ({
+      nodes: state.nodes.map((n) => (n.id === id ? { ...n, textAlign } : n)),
+    })),
   setWholeState: (newState) => set(newState),
   reset: () => set({ nodes: [], rootId: null, selectedId: null, canvasBgColor: null, bgPattern: 'none' }),
 }));
