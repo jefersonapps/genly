@@ -15,9 +15,11 @@ import {
   FileStack,
   Grid3X3,
   ImageDown,
+  Info,
   Library,
   Network,
   Paperclip,
+  Pipette,
   QrCode,
   ScanText,
   Share2,
@@ -29,13 +31,14 @@ import {
 } from "lucide-react-native";
 import React, { useCallback, useRef, useState } from "react";
 import {
+  Animated,
   FlatList,
   ScrollView,
   Text,
   TouchableOpacity,
   useWindowDimensions,
   View,
-  type ViewToken,
+  type ViewToken
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -51,12 +54,12 @@ const TOOL_ITEMS = [
   { icon: Timer, label: "Pomodoro", color: "#F97316" },
   { icon: QrCode, label: "QR Code", color: "#6366F1" },
   { icon: ArrowRightLeft, label: "Medidas", color: "#14B8A6" },
+  { icon: Pipette, label: "Conta-gotas", color: "#3B82F6" },
 ];
 
 const AI_MODES = [
-  { label: "Resumir", emoji: "📝" },
   { label: "Corrigir", emoji: "✏️" },
-  { label: "Expandir", emoji: "📖" },
+  { label: "Formatar", emoji: "📝" },
   { label: "Mapa Mental via IA", emoji: "🧠" },
   { label: "Flashcards via IA", emoji: "🃏" },
 ];
@@ -294,7 +297,7 @@ function SlideAI({ isDark, primaryColor, width }: { isDark: boolean; primaryColo
         Inteligência Artificial
       </Text>
       <Text className="font-sans text-base text-on-surface-secondary text-center leading-relaxed px-4">
-        Use IA para resumir, corrigir, expandir textos ou gerar mapas mentais e flashcards automaticamente.
+        Use IA para corrigir, formatar textos, gerar mapas mentais e flashcards automaticamente.
       </Text>
     </ScrollView>
   );
@@ -309,8 +312,19 @@ function SlideFinances({ isDark, primaryColor, width }: { isDark: boolean; prima
     >
       <View className="w-full mb-8">
         {/* Balance card */}
-        <View className="rounded-3xl overflow-hidden mb-4 h-[120px]">
+        <View className="rounded-3xl overflow-hidden mb-4 h-[120px] relative">
           <CardGradient color="#10B981" className="absolute inset-0" hasSolidBackground />
+          
+          {/* Coins Image Background */}
+          <Animated.Image 
+              source={require("../../assets/images/coins.png")} 
+              className="absolute -right-4 -bottom-8 w-[110] h-[110] opacity-90"
+              style={{
+                  transform: [{ rotate: '-15deg' }]
+              }}
+              resizeMode="contain"
+          />
+
           <View className="flex-1 p-5 justify-center">
             <View className="flex-row items-center mb-1">
               <Wallet size={18} color="rgba(255,255,255,0.8)" />
@@ -404,9 +418,24 @@ function SlideSharing({ isDark, primaryColor, width }: { isDark: boolean; primar
       <Text className="font-sans-bold text-2xl text-on-surface text-center mb-3">
         Compartilhamento Nativo
       </Text>
-      <Text className="font-sans text-base text-on-surface-secondary text-center leading-relaxed px-4">
+      <Text className="font-sans text-base text-on-surface-secondary text-center leading-relaxed px-4 mb-8">
         Compartilhe arquivos de qualquer app diretamente para o Genly. PDFs, imagens e textos são recebidos automaticamente.
       </Text>
+
+      {/* First-time tip */}
+      <View 
+        className="w-full flex-row items-center p-4 rounded-2xl border"
+        style={{ 
+          backgroundColor: withOpacity(primaryColor, 0.05),
+          borderColor: withOpacity(primaryColor, 0.1),
+        }}
+      >
+        <Info size={16} color={primaryColor} style={{ marginRight: 12 }} />
+        <Text className="flex-1 font-sans text-[12px] leading-relaxed" style={{ color: isDark ? "#A1A1AA" : "#71717A" }}>
+          <Text className="font-sans-bold" style={{ color: primaryColor }}>Dica: </Text>
+          No primeiro uso, talvez precise procurar o Genly no menu <Text className="font-sans-bold" style={{ color: isDark ? "#E4E4E7" : "#3F3F46" }}>"Mais"</Text> ao compartilhar. Depois, ele aparecerá sempre no topo!
+        </Text>
+      </View>
     </ScrollView>
   );
 }

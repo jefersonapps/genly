@@ -9,8 +9,8 @@ import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { exportBackup, importBackup } from "@/services/backupService";
 import {
-  getSetting,
-  setSetting,
+    getSetting,
+    setSetting,
 } from "@/services/settingsService";
 import { withOpacity } from "@/utils/colors";
 import { copyToProfileDir, pickImages } from "@/utils/file";
@@ -21,16 +21,17 @@ import * as LocalAuthentication from "expo-local-authentication";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import {
-  Download,
-  FolderPlus,
-  Palette,
-  Share2,
-  Shield,
-  Sparkles,
-  Upload
+    Compass,
+    Download,
+    FolderPlus,
+    Palette,
+    Share2,
+    Shield,
+    Sparkles,
+    Upload
 } from "lucide-react-native";
 import React, { useCallback, useRef, useState } from "react";
-import { Text, View } from "react-native";
+import { Linking, Text, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -219,7 +220,7 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ 
             paddingTop: 0,
-            paddingBottom: 40 
+            paddingBottom: 120 
         }}
       >
         <View style={{ height: insets.top + 16 }} />
@@ -311,12 +312,37 @@ export default function SettingsScreen() {
             disabled={isExporting}
           />
           <Divider className="opacity-50" />
-           <SettingsRow
+          <SettingsRow
             icon={<Upload size={20} color={iconColor} />}
             title="Importar Backup"
             subtitle="Restaurar de um arquivo"
             onPress={handleImport}
           />
+        </View>
+
+        <View className="px-5 pb-2 mt-6">
+            <Text className="font-sans-bold text-lg text-on-surface mb-2">Sobre</Text>
+        </View>
+        <View className="mx-5 overflow-hidden rounded-2xl bg-surface-secondary">
+           <SettingsRow
+            icon={<Compass size={20} color={iconColor} />}
+            title="Guia de Boas-vindas"
+            subtitle="Rever o tutorial do aplicativo"
+            onPress={() => router.push("/onboarding")}
+          />
+        </View>
+
+        {/* Footer */}
+        <View className="items-center mt-12 mb-8">
+            <Text className="font-sans text-sm text-on-surface-secondary">
+                Developed by{" "}
+                <Text 
+                    className="font-sans-bold text-primary" 
+                    onPress={() => Linking.openURL("https://github.com/jefersonapps")}
+                >
+                    jefersonapps
+                </Text>
+            </Text>
         </View>
 
       </Animated.ScrollView>

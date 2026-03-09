@@ -81,10 +81,12 @@ export function MediaPreview({
                       math: {
                           color: isDark ? "#FFFFFF" : "#000000",
                           fontSize: 14,
-                      },
+                          backgroundColor: "transparent",
+                      } as any,
                       inlineMath: {
                           color: isDark ? "#FFFFFF" : "#000000",
-                      }
+                          backgroundColor: "transparent",
+                      } as any
                   }}
                 />
               </View>

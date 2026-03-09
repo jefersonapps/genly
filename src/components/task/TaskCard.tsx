@@ -427,10 +427,12 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
                                             fontSize: 14,
                                             marginTop: 2,
                                             marginBottom: 2,
-                                        },
+                                            backgroundColor: "transparent",
+                                        } as any,
                                         inlineMath: {
                                             color: isDark ? "rgb(212, 212, 216)" : "rgb(63, 63, 70)",
-                                        }
+                                            backgroundColor: "transparent",
+                                        } as any
                                     }}
                                 />
                             </View>

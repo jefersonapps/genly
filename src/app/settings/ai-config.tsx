@@ -4,20 +4,20 @@ import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import {
-  getSetting,
-  setSetting,
+    getSetting,
+    setSetting,
 } from "@/services/settingsService";
 import { useRouter } from "expo-router";
 import { openBrowserAsync } from "expo-web-browser";
 import { ArrowLeft, Bot, Check, Info, KeyRound } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Platform,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -133,12 +133,12 @@ export default function AIConfigScreen() {
         <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 50 }}>
           <View>
             <View
-              className="flex-row items-center mb-5 p-4 rounded-xl"
+              className="flex-row items-center gap-x-3 mb-5 p-4 rounded-xl"
               style={{
                 backgroundColor: colors.surfaceSecondary,
               }}
             >
-              <Info size={24} color={colors.primary} className="mr-3" />
+              <Info size={24} color={colors.primary} />
               <Text className="flex-1 text-sm font-sans" style={{ color: colors.textSecondary }}>
                 Configure as chaves e modelos para habilitar a IA no editor.
                 Digite o nome exato do modelo (sem espaços).
