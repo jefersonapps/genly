@@ -23,6 +23,7 @@ import {
   Download,
   Eraser,
   FilePen,
+  FilePlus,
   FileText,
   Image as ImageIcon,
   ImagePlus,
@@ -61,12 +62,16 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+// Internal components
 import { PdfDrawingCanvas } from "@/components/pdf/PdfDrawingCanvas";
 import { PdfEyedropperOverlay } from "@/components/pdf/PdfEyedropperOverlay";
 import { ColorPicker } from "@/components/ui/ColorPicker";
+import { Dropdown } from '@/components/ui/Dropdown';
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { ToolActions } from "@/components/ui/ToolActions";
-import { exportEditedPdf } from '@/lib/pdfEditor/pdfExportUtils';
+
+// PDF Logic & Store
+import { addBlankPageToPdf, createBlankPdf, exportEditedPdf } from '@/lib/pdfEditor/pdfExportUtils';
 import { usePdfEditorStore, type Annotation, type FormField } from '@/lib/pdfEditor/usePdfEditorStore';
 import { shadows } from '@/theme/shadows';
 
@@ -1491,6 +1496,93 @@ export default function PdfEditorTool() {
     }
   }, [sharedUri, handleImportPdf]);
 
+  const handleCreateBlankPdf = useCallback(async () => {
+    try {
+      setIsProcessing(true);
+      const base64 = await createBlankPdf();
+      if (!base64) throw new Error('Failed to generate blank PDF');
+      
+      const fileUri = `${FileSystem.cacheDirectory}blank-${Date.now()}.pdf`;
+      await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+      
+      scale.value = 1;
+      translateX.value = 0;
+      translateY.value = 0;
+      savedScale.value = 1;
+      savedTranslateX.value = 0;
+      savedTranslateY.value = 0;
+      
+      setPdf(fileUri, 'Novo PDF em Branco', 1, []);
+      setPagesDimensions([{ width: 595.28, height: 841.89 }]);
+      
+      setIsProcessing(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e) {
+      setIsProcessing(false);
+      console.error('Create blank PDF error:', e);
+      dialog.show({ title: 'Erro', description: 'Não foi possível criar o PDF.' });
+    }
+  }, [setIsProcessing, scale, translateX, translateY, savedScale, savedTranslateX, savedTranslateY, setPdf, setPagesDimensions, dialog]);
+
+  const handleAddBlankPage = useCallback(async (position: 'before' | 'after') => {
+    if (!pdfUri) return;
+    try {
+      setIsProcessing(true);
+      
+      const insertAtIndex = position === 'before' ? currentPage : currentPage + 1;
+      const base64 = await addBlankPageToPdf(pdfUri, insertAtIndex);
+      if (!base64) throw new Error('Failed to append blank page');
+      
+      const fileUri = `${FileSystem.cacheDirectory}appended-${Date.now()}.pdf`;
+      await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+      
+      // Update store: shift annotations and form fields
+      const newAnnotations = annotations.map(ann => {
+        if (ann.page >= insertAtIndex) return { ...ann, page: ann.page + 1 };
+        return ann;
+      });
+      const newFormFields = formFields.map(field => {
+        if (field.page >= insertAtIndex) return { ...field, page: field.page + 1 };
+        return field;
+      });
+      
+      const newDimensions = [...pagesDimensions];
+      newDimensions.splice(insertAtIndex, 0, { width: 595.28, height: 841.89 });
+
+      // We use setPdf to fully replace the base PDF and trigger the re-render.
+      // We must inject back our shifted annotations.
+      usePdfEditorStore.setState(state => {
+        const newPast = [...state.past, { annotations: state.annotations, formFields: state.formFields }];
+        if (newPast.length > 50) newPast.shift();
+        
+        return {
+          pdfUri: fileUri,
+          pageCount: state.pageCount + 1,
+          currentPage: position === 'after' ? currentPage + 1 : currentPage, // go to new page
+          pagesDimensions: newDimensions,
+          annotations: newAnnotations,
+          formFields: newFormFields,
+          past: newPast,
+          future: []
+        };
+      });
+      
+      scale.value = 1;
+      translateX.value = 0;
+      translateY.value = 0;
+      savedScale.value = 1;
+      savedTranslateX.value = 0;
+      savedTranslateY.value = 0;
+      
+      setIsProcessing(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e) {
+      setIsProcessing(false);
+      console.error('Add blank page error:', e);
+      dialog.show({ title: 'Erro', description: 'Não foi possível adicionar a nova página.' });
+    }
+  }, [pdfUri, currentPage, annotations, formFields, pagesDimensions, setIsProcessing, scale, translateX, translateY, savedScale, savedTranslateX, savedTranslateY, dialog]);
+
   // ─── Add Annotation ───────────────────────────────
   const handleAddText = useCallback(() => {
     if (!pdfUri) return;
@@ -1806,6 +1898,13 @@ export default function PdfEditorTool() {
               title="Abrir PDF"
               description="Selecionar arquivo para editar"
             />
+            <ToolActions.Button
+              onPress={() => handleCreateBlankPdf()}
+              icon={<FilePlus size={24} color="#3B82F6" />}
+              color="#3B82F6"
+              title="Adicionar PDF em branco"
+              description="Abre um arquivo PDF A4 em branco"
+            />
           </ToolActions>
         </View>
       </View>
@@ -1857,6 +1956,20 @@ export default function PdfEditorTool() {
           >
             <Redo2 size={22} color={isDark ? '#D4D4D8' : '#52525B'} />
           </TouchableOpacity>
+          <Dropdown>
+            <Dropdown.Trigger>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                className="p-2"
+              >
+                <Plus size={22} color={isDark ? '#D4D4D8' : '#52525B'} />
+              </TouchableOpacity>
+            </Dropdown.Trigger>
+            <Dropdown.Content align="end" width={220}>
+              <Dropdown.Item icon={Plus} label="Adicionar antes desta" onPress={() => handleAddBlankPage('before')} />
+              <Dropdown.Item icon={Plus} label="Adicionar depois desta" onPress={() => handleAddBlankPage('after')} />
+            </Dropdown.Content>
+          </Dropdown>
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => {

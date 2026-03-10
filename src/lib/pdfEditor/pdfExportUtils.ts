@@ -33,6 +33,35 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   };
 }
 
+export async function createBlankPdf(): Promise<string | null> {
+  try {
+    const pdfDoc = await PDFDocument.create();
+    // A4 dimensions are 595.28 x 841.89 points
+    pdfDoc.addPage([595.28, 841.89]);
+    return await pdfDoc.saveAsBase64({ dataUri: false });
+  } catch (e) {
+    console.error('Create Blank PDF Error:', e);
+    return null;
+  }
+}
+
+export async function addBlankPageToPdf(pdfUri: string, insertAtIndex: number): Promise<string | null> {
+  try {
+    const pdfBase64 = await FileSystem.readAsStringAsync(pdfUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    const pdfDoc = await PDFDocument.load(pdfBase64);
+    
+    // A4 dimensions
+    const page = pdfDoc.insertPage(insertAtIndex, [595.28, 841.89]);
+    
+    return await pdfDoc.saveAsBase64({ dataUri: false });
+  } catch (e) {
+    console.error('Add Blank Page Error:', e);
+    return null;
+  }
+}
+
 /**
  * Export an edited PDF by drawing annotations on top of the original.
  *
