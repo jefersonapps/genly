@@ -104,6 +104,9 @@ importers:
       expo-image-picker:
         specifier: ~55.0.10
         version: 55.0.10(expo@55.0.4)
+      expo-intent-launcher:
+        specifier: ~55.0.8
+        version: 55.0.8(expo@55.0.4)
       expo-linking:
         specifier: ~55.0.7
         version: 55.0.7(expo@55.0.4)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
@@ -188,6 +191,9 @@ importers:
       react-native-get-random-values:
         specifier: ^1.11.0
         version: 1.11.0(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))
+      react-native-markdown-renderer:
+        specifier: ^4.0.1
+        version: 4.0.1(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)
       react-native-material-palette:
         specifier: ^0.2.0
         version: 0.2.0(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)
@@ -3177,6 +3183,11 @@ packages:
       react-native-web:
         optional: true
 
+  expo-intent-launcher@55.0.8:
+    resolution: {integrity: sha512-MrgQoHC+2AGMDfwg+X+zF/lp0N2tIa7zVtMmPJksyAvOUpgZXN8B5IZaW8JLGSnFhNCYF3eEzJkQiUzXcgX7CA==}
+    peerDependencies:
+      expo: '*'
+
   expo-keep-awake@55.0.4:
     resolution: {integrity: sha512-vwfdMtMS5Fxaon8gC0AiE70SpxTsHJ+rjeoVJl8kdfdbxczF7OIaVmfjFJ5Gfigd/WZiLqxhfZk34VAkXF4PNg==}
     peerDependencies:
@@ -4085,6 +4096,9 @@ packages:
   lines-and-columns@1.2.4:
     resolution: {integrity: sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg==}
 
+  linkify-it@5.0.0:
+    resolution: {integrity: sha512-5aHCbzQRADcdP+ATqnDuhhJ/MRIqDkZX5pyjFHRRysS8vZ5AbqGEoFIb6pYHPZ+L/OC2Lc+xT8uHVVR5CAK/wQ==}
+
   localforage@1.10.0:
     resolution: {integrity: sha512-14/H1aX7hzBBmmh7sGPd+AOMkkIrHM3Z1PAyGgZigA1H1p5O5ANnMyWzvpAETtG68/dC4pC0ncy3+PPGzXZHPg==}
 
@@ -4144,6 +4158,10 @@ packages:
   makeerror@1.0.12:
     resolution: {integrity: sha512-JmqCvUhmt43madlpFzG4BQzG2Z3m6tvQDNKdClZnO3VbIudJYmxsT0FNJMeiB2+JTSlTQTSbU8QdesVmwJcmLg==}
 
+  markdown-it@14.1.1:
+    resolution: {integrity: sha512-BuU2qnTti9YKgK5N+IeMubp14ZUKUUw7yeJbkjtosvHiP0AZ5c8IAgEMk79D0eC8F23r4Ac/q8cAIFdm2FtyoA==}
+    hasBin: true
+
   marky@1.3.0:
     resolution: {integrity: sha512-ocnPZQLNpvbedwTy9kNrQEsknEfgvcLMvOtz3sFeWApDq1MXH1TqkCIx58xlpESsfwQOnuBO9beyQuNGzVvuhQ==}
 
@@ -4153,6 +4171,9 @@ packages:
 
   mdn-data@2.0.14:
     resolution: {integrity: sha512-dn6wd0uw5GsdswPFfsgMp5NSB0/aDe6fK94YJV/AJDYXL6HVLWBsxeq7js7Ad+mU2K9LAlwpk6kN2D5mwCPVow==}
+
+  mdurl@2.0.0:
+    resolution: {integrity: sha512-Lf+9+2r+Tdp5wXDXC4PcIBjTDtq4UKjCPMQhKIuzpJNW0b96kVqSwW0bT7FhRSfmAiFYgP+SCRvdrDozfh0U5w==}
 
   media-typer@0.3.0:
     resolution: {integrity: sha512-dq+qelQ9akHpcOl/gUVRTxVIOkAJ1wR3QAvb4RsVjS8oVoFjDGTc679wJYmUmknUF5HwMLOgb5O+a3KxfWapPQ==}
@@ -4688,6 +4709,10 @@ packages:
     resolution: {integrity: sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg==}
     engines: {node: '>= 0.10'}
 
+  punycode.js@2.3.1:
+    resolution: {integrity: sha512-uxFIHU0YlHYhDQtV4R9J6a52SLx28BCjT+4ieh7IGbgwVJWO+km431c4yRlREUAsAmt/uMjQUyQHNEPf0M39CA==}
+    engines: {node: '>=6'}
+
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
@@ -4821,6 +4846,12 @@ packages:
     peerDependencies:
       react: '*'
       react-native: '*'
+
+  react-native-markdown-renderer@4.0.1:
+    resolution: {integrity: sha512-K3pfDM5DOjGcsu3ET3yjV5X2WCBT+R7XP7HBGGKCzp17O4eIXt2eccdtvoEi5AKPWVFZ35J5yUUWNkv4gM9M0Q==}
+    peerDependencies:
+      react: '>=18.0.0'
+      react-native: '>=0.73.0'
 
   react-native-material-palette@0.2.0:
     resolution: {integrity: sha512-M8JZE7Q3MXAuAcauaydl0g6PYR34Pmlgg1CiPLud+bBC+JDEOMqMFPyRazYbAoSTe7+W6QpGMPjMiZBv6mJBbA==}
@@ -5509,6 +5540,9 @@ packages:
   ua-parser-js@1.0.41:
     resolution: {integrity: sha512-LbBDqdIC5s8iROCUjMbW1f5dJQTEFB1+KO9ogbvlb3nm9n4YHa5p4KTvFPWvh2Hs8gZMBuiB1/8+pdfe/tDPug==}
     hasBin: true
+
+  uc.micro@2.1.0:
+    resolution: {integrity: sha512-ARDJmphmdvUk6Glw7y9DQ2bFkKBHwQHLi2lsaH6PPmz/Ka9sFOBsBluozhDltWmnv9u/cF6Rt87znRTPV+yp/A==}
 
   unbox-primitive@1.1.0:
     resolution: {integrity: sha512-nWJ91DjeOkej/TA8pXQ3myruKpKEYgqvpw9lz4OPHj/NWFNluYrjbz9j01CJ8yKQd2g4jFoOkINCTW2I5LEEyw==}
@@ -9139,6 +9173,10 @@ snapshots:
     optionalDependencies:
       react-native-web: 0.21.2(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
 
+  expo-intent-launcher@55.0.8(expo@55.0.4):
+    dependencies:
+      expo: 55.0.4(@babel/core@7.29.0)(@expo/dom-webview@55.0.3)(@expo/metro-runtime@55.0.6)(expo-router@55.0.3)(react-dom@19.2.0(react@19.2.0))(react-native-webview@13.16.0(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0))(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
+
   expo-keep-awake@55.0.4(expo@55.0.4)(react@19.2.0):
     dependencies:
       expo: 55.0.4(@babel/core@7.29.0)(@expo/dom-webview@55.0.3)(@expo/metro-runtime@55.0.6)(expo-router@55.0.3)(react-dom@19.2.0(react@19.2.0))(react-native-webview@13.16.0(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0))(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
@@ -10157,6 +10195,10 @@ snapshots:
 
   lines-and-columns@1.2.4: {}
 
+  linkify-it@5.0.0:
+    dependencies:
+      uc.micro: 2.1.0
+
   localforage@1.10.0:
     dependencies:
       lie: 3.1.1
@@ -10207,11 +10249,22 @@ snapshots:
     dependencies:
       tmpl: 1.0.5
 
+  markdown-it@14.1.1:
+    dependencies:
+      argparse: 2.0.1
+      entities: 4.5.0
+      linkify-it: 5.0.0
+      mdurl: 2.0.0
+      punycode.js: 2.3.1
+      uc.micro: 2.1.0
+
   marky@1.3.0: {}
 
   math-intrinsics@1.1.0: {}
 
   mdn-data@2.0.14: {}
+
+  mdurl@2.0.0: {}
 
   media-typer@0.3.0: {}
 
@@ -10799,6 +10852,8 @@ snapshots:
       forwarded: 0.2.0
       ipaddr.js: 1.9.1
 
+  punycode.js@2.3.1: {}
+
   punycode@2.3.1: {}
 
   qrcode@1.5.4:
@@ -10938,6 +10993,12 @@ snapshots:
 
   react-native-is-edge-to-edge@1.2.1(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0):
     dependencies:
+      react: 19.2.0
+      react-native: 0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0)
+
+  react-native-markdown-renderer@4.0.1(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0):
+    dependencies:
+      markdown-it: 14.1.1
       react: 19.2.0
       react-native: 0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0)
 
@@ -11729,6 +11790,8 @@ snapshots:
   ua-parser-js@0.7.41: {}
 
   ua-parser-js@1.0.41: {}
+
+  uc.micro@2.1.0: {}
 
   unbox-primitive@1.1.0:
     dependencies:

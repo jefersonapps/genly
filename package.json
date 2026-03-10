@@ -1,7 +1,7 @@
 {
   "name": "genly",
   "main": "index.ts",
-  "version": "1.0.2",
+  "version": "1.0.5",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
@@ -44,6 +44,7 @@
     "expo-haptics": "^55.0.8",
     "expo-image": "~55.0.5",
     "expo-image-picker": "~55.0.10",
+    "expo-intent-launcher": "~55.0.8",
     "expo-linking": "~55.0.7",
     "expo-local-authentication": "^55.0.8",
     "expo-media-library": "^55.0.9",
@@ -72,6 +73,7 @@
     "react-native-enriched-markdown": "0.4.0-nightly-20260306-bc76debc5",
     "react-native-gesture-handler": "~2.30.0",
     "react-native-get-random-values": "^1.11.0",
+    "react-native-markdown-renderer": "^4.0.1",
     "react-native-material-palette": "^0.2.0",
     "react-native-mathjax": "^2.1.2",
     "react-native-pdf": "^7.0.3",

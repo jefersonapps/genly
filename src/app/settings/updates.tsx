@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 import { ArrowLeft, CheckCircle, RefreshCw, Smartphone } from "lucide-react-native";
 import React, { useEffect } from "react";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import Markdown from 'react-native-markdown-renderer';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function UpdatesSettingsScreen() {
@@ -90,7 +91,8 @@ export default function UpdatesSettingsScreen() {
             ) : hasUpdate ? (
                 <View className="py-2">
                     <View className="flex-row items-center mb-3">
-                        <RefreshCw size={24} color={primaryColor} className="mr-3" />
+                        <RefreshCw size={24} color={primaryColor} />
+                        <View style={{ width: 12 }} />
                         <Text className="font-sans-bold text-xl" style={{ color: colors.text }}>Nova versão disponível</Text>
                     </View>
                     <Text className="font-sans mb-6 text-base leading-relaxed" style={{ color: colors.textSecondary }}>
@@ -100,9 +102,40 @@ export default function UpdatesSettingsScreen() {
                     {updateInfo?.releaseNotes ? (
                         <View className="p-4 rounded-xl mb-6 border" style={{ backgroundColor: colors.bg, borderColor: colors.border }}>
                              <Text className="font-sans-bold text-sm mb-2" style={{ color: colors.text }}>Novidades:</Text>
-                            <Text className="font-sans text-sm leading-relaxed" style={{ color: colors.textSecondary }}>
+                            <Markdown 
+                                style={{ 
+                                    body: { color: colors.textSecondary, fontSize: 15, lineHeight: 22 },
+                                    text: { color: colors.textSecondary },
+                                    heading1: { color: colors.text, fontSize: 24, fontWeight: 'bold', marginTop: 16, marginBottom: 8 },
+                                    heading2: { color: colors.text, fontSize: 20, fontWeight: 'bold', marginTop: 16, marginBottom: 8 },
+                                    heading3: { color: colors.text, fontSize: 18, fontWeight: 'bold', marginTop: 12, marginBottom: 8 },
+                                    heading4: { color: colors.text, fontSize: 16, fontWeight: 'bold', marginTop: 12, marginBottom: 8 },
+                                    heading5: { color: colors.text, fontSize: 15, fontWeight: 'bold', marginTop: 8, marginBottom: 4 },
+                                    heading6: { color: colors.text, fontSize: 14, fontWeight: 'bold', marginTop: 8, marginBottom: 4 },
+                                    paragraph: { color: colors.textSecondary, marginTop: 8, marginBottom: 8 },
+                                    strong: { color: colors.text, fontWeight: 'bold' },
+                                    em: { color: colors.textSecondary, fontStyle: 'italic' },
+                                    link: { color: primaryColor, textDecorationLine: 'none' },
+                                    list_item: { color: colors.textSecondary },
+                                    bullet_list: { marginTop: 8, marginBottom: 8 },
+                                    ordered_list: { marginTop: 8, marginBottom: 8 },
+                                    bullet_list_icon: { color: colors.text, marginLeft: 0, marginRight: 8, marginTop: 4 },
+                                    bullet_list_content: { flex: 1, color: colors.textSecondary },
+                                    ordered_list_icon: { color: colors.text, marginLeft: 0, marginRight: 8, marginTop: 0 },
+                                    ordered_list_content: { flex: 1, color: colors.textSecondary },
+                                    blockquote: { borderLeftColor: primaryColor, borderLeftWidth: 4, paddingLeft: 12, backgroundColor: colors.surface, paddingVertical: 8, paddingRight: 8, marginVertical: 8, borderRadius: 4 },
+                                    code_inline: { backgroundColor: colors.surface, color: colors.text, paddingHorizontal: 4, paddingVertical: 2, borderRadius: 4, fontFamily: 'monospace' },
+                                    code_block: { backgroundColor: colors.surface, color: colors.text, padding: 12, borderRadius: 8, fontFamily: 'monospace', marginVertical: 8 },
+                                    fence: { backgroundColor: colors.surface, color: colors.text, padding: 12, borderRadius: 8, fontFamily: 'monospace', marginVertical: 8 },
+                                    hr: { backgroundColor: colors.border, height: 1, marginVertical: 16 },
+                                    table: { borderColor: colors.border, borderWidth: 1, borderRadius: 8 },
+                                    thead: { backgroundColor: colors.surface },
+                                    th: { borderColor: colors.border, padding: 8, fontWeight: 'bold', color: colors.text },
+                                    td: { borderColor: colors.border, padding: 8, color: colors.textSecondary },
+                                }}
+                            >
                                 {updateInfo.releaseNotes}
-                            </Text>
+                            </Markdown>
                         </View>
                     ) : null}
 

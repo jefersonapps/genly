@@ -53,11 +53,23 @@ export const useAppUpdateStore = create<AppUpdateState>((set, get) => ({
 
       const data = await response.json();
       const latestVersion = data.tag_name;
-      const currentVersion = Constants.expoConfig?.version;
+      const currentVersion = Constants.expoConfig?.version || require('../../app.json').expo.version;
 
-      const normalizeVersion = (v: string | undefined) => v?.replace('v', '');
+      const isNewerVersion = (latest: string | undefined, current: string | undefined) => {
+        if (!latest || !current) return false;
+        const lParts = latest.replace(/^v/, '').split('.').map(Number);
+        const cParts = current.replace(/^v/, '').split('.').map(Number);
+        
+        for (let i = 0; i < Math.max(lParts.length, cParts.length); i++) {
+          const l = lParts[i] || 0;
+          const c = cParts[i] || 0;
+          if (l > c) return true;
+          if (l < c) return false;
+        }
+        return false;
+      };
 
-      if (normalizeVersion(latestVersion) !== normalizeVersion(currentVersion)) {
+      if (isNewerVersion(latestVersion, currentVersion)) {
         const apkAsset = data.assets?.find((asset: any) => asset.name.endsWith('.apk'));
         
         if (apkAsset) {
@@ -93,26 +105,22 @@ export const useAppUpdateStore = create<AppUpdateState>((set, get) => ({
     set({ isDownloading: true, downloadProgress: 0, downloadError: null });
 
     const dirs = ReactNativeBlobUtil.fs.dirs;
-    const apkPath = `${dirs.DocumentDir}/genly-update.apk`;
+    const downloadDir = Platform.OS === 'android' ? dirs.DownloadDir : dirs.DocumentDir;
+    
+    // Create a precise clean path in DownloadDir
+    const apkPath = `${downloadDir}/Genly_Update_${updateInfo.version.replace(/[^a-zA-Z0-9.-]/g, '')}.apk`;
 
     try {
-      // Remover APK antigo se existir
+      // Remove previous APK if it exists
       const exists = await ReactNativeBlobUtil.fs.exists(apkPath);
       if (exists) {
          await ReactNativeBlobUtil.fs.unlink(apkPath);
       }
 
+      // Baixar usando ReactNativeBlobUtil
       const result = await ReactNativeBlobUtil.config({
         path: apkPath,
         fileCache: true,
-        addAndroidDownloads: {
-          useDownloadManager: true,
-          notification: true, // Mostra o download na barra de notificações nativa
-          title: 'Baixando Genly',
-          description: `Versão ${updateInfo.version}`,
-          mime: 'application/vnd.android.package-archive',
-          mediaScannable: true,
-        }
       })
       .fetch('GET', updateInfo.downloadUrl)
       .progress((received, total) => {
@@ -122,7 +130,7 @@ export const useAppUpdateStore = create<AppUpdateState>((set, get) => ({
 
       const savedPath = result.path();
       
-      // Aciona a intent nativa de instalação
+      // Aciona a intent nativa de instalação após conclusão do download
       ReactNativeBlobUtil.android.actionViewIntent(
         savedPath,
         'application/vnd.android.package-archive'

@@ -1,9 +1,12 @@
 import { Dialog } from "@/components/ui/Dialog";
 import { useTheme } from "@/providers/ThemeProvider";
+import { getSetting } from "@/services/settingsService";
 import { useAppUpdateStore } from "@/store/useAppUpdateStore";
+import { usePathname } from "expo-router";
 import { AlertCircle, Download } from "lucide-react-native";
-import React, { useEffect } from "react";
-import { Text, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { ScrollView, View } from "react-native";
+import Markdown from 'react-native-markdown-renderer';
 
 export function InAppUpdateDialog() {
   const { primaryColor } = useTheme();
@@ -16,15 +19,36 @@ export function InAppUpdateDialog() {
 
   // We use our own local state to control the dialog visibility,
   // since 'hasUpdate' in the store persists, we don't want to trap the user
-  const [visible, setVisible] = React.useState(false);
-  const [errorVisible, setErrorVisible] = React.useState(false);
+  const [visible, setVisible] = useState(false);
+  const [errorVisible, setErrorVisible] = useState(false);
+  const pathname = usePathname();
+  const { resolvedTheme } = useTheme();
+  
+  const isDark = resolvedTheme === "dark";
+  const colors = {
+    surface: isDark ? "#171717" : "#F5F5F5",
+    text: isDark ? "#FAFAFA" : "#18181B",
+    textSecondary: isDark ? "#A1A1AA" : "#71717A",
+    border: isDark ? "#262626" : "#E5E5E5",
+  };
+
+  const hasShownRef = useRef(false);
 
   useEffect(() => {
-    // Only auto-show if we have an update
-    if (hasUpdate && updateInfo) {
-      setVisible(true);
-    }
-  }, [hasUpdate, updateInfo]);
+    // Only auto-show if we have an update, the user has finished onboarding,
+    // and we haven't already shown the dialog in this session.
+    const checkOnboardingAndShow = async () => {
+      if (hasUpdate && updateInfo && !hasShownRef.current) {
+        const onboardingStatus = await getSetting("has_completed_onboarding");
+        if (onboardingStatus === "1") {
+          hasShownRef.current = true;
+          setVisible(true);
+        }
+      }
+    };
+    
+    checkOnboardingAndShow();
+  }, [hasUpdate, updateInfo, pathname]);
 
   useEffect(() => {
      if (downloadError) {
@@ -63,10 +87,43 @@ export function InAppUpdateDialog() {
           </Dialog.Description>
           
           {updateInfo?.releaseNotes ? (
-             <View className="bg-surface-secondary p-3 rounded-xl mb-4 max-h-40 overflow-hidden">
-                <Text className="font-sans text-sm text-on-surface-secondary" numberOfLines={5}>
-                    {updateInfo.releaseNotes}
-                </Text>
+             <View className="bg-surface-secondary p-3 rounded-xl mb-4" style={{ maxHeight: 240 }}>
+                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={true} style={{ flexGrow: 0 }}>
+                  <Markdown 
+                      style={{ 
+                          body: { color: colors.textSecondary, fontSize: 14, lineHeight: 20 },
+                          text: { color: colors.textSecondary },
+                          heading1: { color: colors.text, fontSize: 20, fontWeight: 'bold', marginTop: 12, marginBottom: 6 },
+                          heading2: { color: colors.text, fontSize: 18, fontWeight: 'bold', marginTop: 12, marginBottom: 6 },
+                          heading3: { color: colors.text, fontSize: 16, fontWeight: 'bold', marginTop: 10, marginBottom: 4 },
+                          heading4: { color: colors.text, fontSize: 15, fontWeight: 'bold', marginTop: 8, marginBottom: 4 },
+                          heading5: { color: colors.text, fontSize: 14, fontWeight: 'bold', marginTop: 8, marginBottom: 4 },
+                          heading6: { color: colors.text, fontSize: 14, fontWeight: 'bold', marginTop: 8, marginBottom: 4 },
+                          paragraph: { color: colors.textSecondary, marginTop: 4, marginBottom: 4 },
+                          strong: { color: colors.text, fontWeight: 'bold' },
+                          em: { color: colors.textSecondary, fontStyle: 'italic' },
+                          link: { color: primaryColor, textDecorationLine: 'none' },
+                          list_item: { color: colors.textSecondary },
+                          bullet_list: { marginTop: 4, marginBottom: 4 },
+                          ordered_list: { marginTop: 4, marginBottom: 4 },
+                          bullet_list_icon: { color: colors.text, marginLeft: 0, marginRight: 6, marginTop: 4 },
+                          bullet_list_content: { flex: 1, color: colors.textSecondary },
+                          ordered_list_icon: { color: colors.text, marginLeft: 0, marginRight: 6, marginTop: 0 },
+                          ordered_list_content: { flex: 1, color: colors.textSecondary },
+                          blockquote: { borderLeftColor: primaryColor, borderLeftWidth: 3, paddingLeft: 10, backgroundColor: colors.surface, paddingVertical: 6, paddingRight: 6, marginVertical: 6, borderRadius: 4 },
+                          code_inline: { backgroundColor: colors.surface, color: colors.text, paddingHorizontal: 4, paddingVertical: 2, borderRadius: 4, fontFamily: 'monospace', fontSize: 12 },
+                          code_block: { backgroundColor: colors.surface, color: colors.text, padding: 8, borderRadius: 6, fontFamily: 'monospace', marginVertical: 6, fontSize: 12 },
+                          fence: { backgroundColor: colors.surface, color: colors.text, padding: 8, borderRadius: 6, fontFamily: 'monospace', marginVertical: 6, fontSize: 12 },
+                          hr: { backgroundColor: colors.border, height: 1, marginVertical: 12 },
+                          table: { borderColor: colors.border, borderWidth: 1, borderRadius: 6 },
+                          thead: { backgroundColor: colors.surface },
+                          th: { borderColor: colors.border, padding: 6, fontWeight: 'bold', color: colors.text, fontSize: 12 },
+                          td: { borderColor: colors.border, padding: 6, color: colors.textSecondary, fontSize: 12 },
+                      }}
+                  >
+                      {updateInfo.releaseNotes}
+                  </Markdown>
+                </ScrollView>
              </View>
           ) : null}
 
