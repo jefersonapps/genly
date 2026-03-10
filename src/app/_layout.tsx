@@ -1,7 +1,9 @@
+import { InAppUpdateDialog } from "@/components/updates/InAppUpdateDialog";
 import { DatabaseProvider } from "@/providers/DatabaseProvider";
 import { DialogProvider } from "@/providers/DialogProvider";
 import { ThemeProvider, useTheme } from "@/providers/ThemeProvider";
 import { getSetting } from "@/services/settingsService";
+import { useAppUpdateStore } from "@/store/useAppUpdateStore";
 import { withOpacity } from "@/utils/colors";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { useFonts } from "expo-font";
@@ -85,6 +87,10 @@ function RootLayoutNav() {
       } catch (e) {
         console.error("Error creating default groups:", e);
       }
+
+      // 3. Check for In-App Updates directly in the background
+      const checkUpdates = useAppUpdateStore.getState().checkForUpdates;
+      checkUpdates();
     }
     initApp();
   }, []);
@@ -345,6 +351,7 @@ export default function RootLayout() {
           <BottomSheetModalProvider>
             <DialogProvider>
               <RootLayoutNav />
+              <InAppUpdateDialog />
             </DialogProvider>
           </BottomSheetModalProvider>
         </ThemeProvider>

@@ -38,7 +38,9 @@ import {
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Platform,
+  ActivityIndicator,
+  Keyboard,
+  Platform,
   Text,
   TextInput,
   TouchableOpacity,
@@ -283,7 +285,17 @@ export default function MindMapScreen() {
   const hasInitializedTemplate = useRef(false);
   const hasCenteredOnLoad = useRef(false);
 
-  const handleSaveToDatabase = async () => {
+  const handleSaveToDatabase = async (createNew = false) => {
+    // Flush any pending text edits to the store before saving
+    if (isEditTopicVisible) {
+      if (selectedId && editText.trim()) {
+        updateNodeTitle(selectedId, editText.trim());
+      }
+      setIsEditTopicVisible(false);
+    }
+    
+    Keyboard.dismiss();
+
     exportSheetRef.current?.dismiss();
     setIsExporting(true);
     try {
@@ -303,20 +315,21 @@ export default function MindMapScreen() {
           bgPattern
       };
 
-      if (taskId) {
+      if (taskId && !createNew) {
           await updateTask(Number(taskId), {
               title: minTitle,
               content: JSON.stringify(mapData),
               groupId: mapsGroup.id
           });
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          dialog.show({ title: 'Sucesso', description: 'Mapa mental atualizado!', variant: 'success' });
       } else {
           // Create new task
           const newTask = await createTask(minTitle, JSON.stringify(mapData), mapsGroup.id);
           router.setParams({ taskId: newTask.id.toString() });
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          dialog.show({ title: 'Sucesso', description: 'Novo mapa salvo no grupo Mapas Mentais!', variant: 'success' });
       }
-
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        dialog.show({ title: 'Sucesso', description: 'Mapa mental salvo no grupo Mapas Mentais!', variant: 'success' });
 
     } catch (e) {
       console.error("Failed to save mind map:", e);
@@ -325,6 +338,8 @@ export default function MindMapScreen() {
       setIsExporting(false);
     }
   };
+
+
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -790,12 +805,19 @@ export default function MindMapScreen() {
           <TouchableOpacity
           activeOpacity={0.8}
             onPress={() => {
+              if (isEditTopicVisible) {
+                if (selectedId && editText.trim()) {
+                  updateNodeTitle(selectedId, editText.trim());
+                }
+                setIsEditTopicVisible(false);
+                Keyboard.dismiss();
+              }
               exportSheetRef.current?.present();
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             }}
             className="p-2"
           >
-            <Share2 size={22} color={isDark ? '#D4D4D8' : '#52525B'} />
+            <Download size={22} color={isDark ? '#D4D4D8' : '#52525B'} />
           </TouchableOpacity>
         </View>
       </View>
@@ -1172,12 +1194,30 @@ export default function MindMapScreen() {
           <BottomSheet.Header title="Opções" />
 
           <BottomSheet.ItemGroup>
-            <BottomSheet.Item
-              icon={<Text style={{ fontSize: 18 }}>🧠</Text>}
-              iconBackgroundColor="rgba(139,92,246,0.15)"
-              title="Salvar no grupo Mapas Mentais"
-              onPress={handleSaveToDatabase}
-            />
+            {taskId ? (
+              <>
+                <BottomSheet.Item
+                  icon={<Text style={{ fontSize: 18 }}>🧠</Text>}
+                  iconBackgroundColor="rgba(139,92,246,0.15)"
+                  title="Atualizar mapa existente"
+                  onPress={() => handleSaveToDatabase(false)}
+                />
+                <BottomSheet.Separator />
+                <BottomSheet.Item
+                  icon={<Text style={{ fontSize: 18 }}>🧠</Text>}
+                  iconBackgroundColor="rgba(139,92,246,0.15)"
+                  title="Salvar como novo Mapa"
+                  onPress={() => handleSaveToDatabase(true)}
+                />
+              </>
+            ) : (
+              <BottomSheet.Item
+                icon={<Text style={{ fontSize: 18 }}>🧠</Text>}
+                iconBackgroundColor="rgba(139,92,246,0.15)"
+                title="Salvar no grupo Mapas Mentais"
+                onPress={() => handleSaveToDatabase(false)}
+              />
+            )}
             <BottomSheet.Separator />
             <BottomSheet.Item
               icon={<Share2 size={20} color="#3B82F6" />}

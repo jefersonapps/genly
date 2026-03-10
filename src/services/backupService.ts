@@ -82,6 +82,24 @@ export async function exportBackup(): Promise<string> {
     if (m.thumbnailUri) mediaToCopy.add(m.thumbnailUri);
   }
 
+  // Extrair imagens embutidas nos mapas mentais (armazenadas no JSON do task.content)
+  for (const task of allTasks) {
+    if (task.content && task.content.includes("imageUri")) {
+      try {
+        const payload = JSON.parse(task.content);
+        if (payload.nodes && Array.isArray(payload.nodes)) {
+          for (const node of payload.nodes) {
+            if (node.imageUri) {
+              mediaToCopy.add(node.imageUri);
+            }
+          }
+        }
+      } catch (e) {
+        // Não é um JSON válido ou payload desconhecido
+      }
+    }
+  }
+
   for (const fileUri of mediaToCopy) {
     try {
       const filename = fileUri.split("/").pop();
@@ -258,10 +276,44 @@ async function restoreData(metadata: BackupMetadata, mediaSourceDir: string) {
 
   // Restore tasks and media
   for (const task of metadata.tasks) {
+    let finalContent = task.content;
+
+    // Restaurar imagens embutidas em mapas mentais antes de inserir a tarefa
+    if (finalContent && finalContent.includes("imageUri")) {
+      try {
+        const payload = JSON.parse(finalContent);
+        if (payload.nodes && Array.isArray(payload.nodes)) {
+           let modified = false;
+           for (const node of payload.nodes) {
+             if (node.imageUri) {
+                const filename = node.imageUri.split("/").pop();
+                if (filename) {
+                   const sourceUri = `${mediaSourceDir}${filename}`;
+                   const uniqueFilename = `restored_${Date.now()}_${filename}`;
+                   const destUri = `${getMediaDir()}${uniqueFilename}`;
+                   
+                   const info = await FileSystem.getInfoAsync(sourceUri);
+                   if (info.exists) {
+                     await copyFile(sourceUri, destUri);
+                     node.imageUri = destUri;
+                     modified = true;
+                   }
+                }
+             }
+           }
+           if (modified) {
+             finalContent = JSON.stringify(payload);
+           }
+        }
+      } catch (e) {
+         // Não é JSON, ignorar
+      }
+    }
+
     const [insertedTask] = await db.insert(tasks).values({
       groupId: task.groupId,
       title: task.title,
-      content: task.content,
+      content: finalContent,
       deliveryDate: task.deliveryDate,
       deliveryTime: task.deliveryTime,
       createdAt: task.createdAt,

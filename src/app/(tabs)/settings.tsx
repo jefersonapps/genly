@@ -9,8 +9,8 @@ import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { exportBackup, importBackup } from "@/services/backupService";
 import {
-    getSetting,
-    setSetting,
+  getSetting,
+  setSetting,
 } from "@/services/settingsService";
 import { withOpacity } from "@/utils/colors";
 import { copyToProfileDir, pickImages } from "@/utils/file";
@@ -21,14 +21,15 @@ import * as LocalAuthentication from "expo-local-authentication";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import {
-    Compass,
-    Download,
-    FolderPlus,
-    Palette,
-    Share2,
-    Shield,
-    Sparkles,
-    Upload
+  Compass,
+  Download,
+  FolderPlus,
+  Palette,
+  RefreshCw,
+  Share2,
+  Shield,
+  Sparkles,
+  Upload
 } from "lucide-react-native";
 import React, { useCallback, useRef, useState } from "react";
 import { Linking, Text, View } from "react-native";
@@ -324,6 +325,14 @@ export default function SettingsScreen() {
             <Text className="font-sans-bold text-lg text-on-surface mb-2">Sobre</Text>
         </View>
         <View className="mx-5 overflow-hidden rounded-2xl bg-surface-secondary">
+           <SettingsRow
+            icon={<RefreshCw size={20} color={iconColor} />}
+            title="Atualizações"
+            subtitle="Buscar nova versão"
+            showChevron
+            onPress={() => router.push("/settings/updates")}
+          />
+           <Divider className="opacity-50" />
            <SettingsRow
             icon={<Compass size={20} color={iconColor} />}
             title="Guia de Boas-vindas"
