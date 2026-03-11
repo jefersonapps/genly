@@ -187,6 +187,11 @@ function RootLayoutNav() {
                             pathname: "/tools/color-picker",
                             params: { sharedUri: uris[0] },
                         });
+                    } else if (component?.endsWith(".BackgroundRemoverActivity")) {
+                         router.push({
+                            pathname: "/tools/background-remover",
+                            params: { sharedUri: uris[0] },
+                        });
                     } else if (component?.endsWith(".ImportBackupActivity")) {
                          router.push({
                             pathname: "/backup/confirm-backup",
@@ -332,6 +337,10 @@ function RootLayoutNav() {
         />
         <Stack.Screen
             name="tools/color-picker"
+            options={{ presentation: "card", animation: "slide_from_right" }}
+        />
+        <Stack.Screen
+            name="tools/background-remover"
             options={{ presentation: "card", animation: "slide_from_right" }}
         />
         <Stack.Screen

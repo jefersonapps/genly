@@ -1,7 +1,7 @@
 {
   "name": "genly",
   "main": "index.ts",
-  "version": "1.0.5",
+  "version": "1.0.7",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
@@ -15,6 +15,7 @@
     "@dariyd/react-native-document-scanner": "^2.0.17",
     "@expo/vector-icons": "^15.0.2",
     "@gorhom/bottom-sheet": "^5.2.8",
+    "@jacobjmc/react-native-background-remover": "^1.0.2",
     "@likashefqet/react-native-image-zoom": "^4.3.0",
     "@react-native-community/datetimepicker": "8.6.0",
     "@react-native-ml-kit/barcode-scanning": "^2.0.0",
@@ -85,6 +86,7 @@
     "react-native-share": "^12.2.5",
     "react-native-sortables": "^1.9.4",
     "react-native-svg": "^15.15.3",
+    "react-native-view-shot": "^4.0.3",
     "react-native-web": "~0.21.0",
     "react-native-webview": "13.16.0",
     "react-native-wifi-reborn": "^4.13.6",

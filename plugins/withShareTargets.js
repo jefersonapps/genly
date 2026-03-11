@@ -58,6 +58,11 @@ module.exports = function withShareTargets(config) {
         name: ".ColorPickerActivity",
         label: "Capturar Cor",
         mimeType: "image/*"
+      },
+      {
+        name: ".BackgroundRemoverActivity",
+        label: "Remover Fundo",
+        mimeType: "image/*"
       }
     ];
 

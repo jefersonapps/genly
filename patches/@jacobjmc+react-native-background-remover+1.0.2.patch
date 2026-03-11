@@ -1,0 +1,38 @@
+diff --git a/node_modules/@jacobjmc/react-native-background-remover/android/src/main/java/com/backgroundremover/BackgroundRemoverModule.kt b/node_modules/@jacobjmc/react-native-background-remover/android/src/main/java/com/backgroundremover/BackgroundRemoverModule.kt
+index c708aae..aa79e0a 100644
+--- a/node_modules/@jacobjmc/react-native-background-remover/android/src/main/java/com/backgroundremover/BackgroundRemoverModule.kt
++++ b/node_modules/@jacobjmc/react-native-background-remover/android/src/main/java/com/backgroundremover/BackgroundRemoverModule.kt
+@@ -50,13 +50,18 @@ class BackgroundRemoverModule internal constructor(context: ReactApplicationCont
+         }
+       }
+ 
++      val outBitmap = Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
++      outBitmap.eraseColor(Color.TRANSPARENT)
++      
++      val canvas = Canvas(outBitmap)
++      canvas.drawBitmap(image, 0f, 0f, null)
++
+       val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+       paint.setXfermode(PorterDuffXfermode(PorterDuff.Mode.DST_IN))
+-      val canvas = Canvas(image)
+       canvas.drawBitmap(mask, 0f, 0f, paint)
+ 
+       val fileName = URI(imageURI).path.split("/").last()
+-      val savedImageURI = saveImage(image, fileName)
++      val savedImageURI = saveImage(outBitmap, fileName)
+       promise.resolve(savedImageURI)
+     }
+   }
+@@ -91,9 +96,10 @@ class BackgroundRemoverModule internal constructor(context: ReactApplicationCont
+   }
+ 
+   private fun saveImage(bitmap: Bitmap, fileName: String): String {
+-    val file = File(reactApplicationContext.filesDir, fileName)
++    val pngFileName = fileName.substringBeforeLast(".") + ".png"
++    val file = File(reactApplicationContext.filesDir, pngFileName)
+     val fileOutputStream = FileOutputStream(file)
+-    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream)
++    bitmap.compress(Bitmap.CompressFormat.PNG, 100, fileOutputStream)
+     fileOutputStream.close()
+     return file.toURI().toString()
+   }

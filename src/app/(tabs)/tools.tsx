@@ -4,7 +4,7 @@ import { useHeaderSnap } from "@/hooks/useHeaderSnap";
 import { useTheme } from "@/providers/ThemeProvider";
 import { withOpacity } from "@/utils/colors";
 import { useRouter } from "expo-router";
-import { ArrowRightLeft, Camera, FilePen, FileStack, ImageDown, Library, Network, Pipette, QrCode, ScanText, Sigma, Timer } from "lucide-react-native";
+import { ArrowRightLeft, Camera, FilePen, FileStack, ImageDown, Library, Network, Pipette, QrCode, ScanText, Sigma, Timer, Wand2 } from "lucide-react-native";
 import React from "react";
 import { Text, View } from "react-native";
 import Animated from "react-native-reanimated";
@@ -165,6 +165,15 @@ export default function ToolsScreen() {
             subtitle="Extraia cores de imagens com conta-gotas"
             showChevron
             onPress={() => router.push("/tools/color-picker")}
+          />
+          <View style={{ height: 1, backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)", marginHorizontal: 16 }} />
+          <SettingsRow
+            icon={<Wand2 size={20} color="#A855F7" />}
+            iconBackgroundColor={withOpacity("#A855F7", isDark ? 0.15 : 0.12)}
+            title="Remover Fundo"
+            subtitle="Isole objetos de fundo de forma inteligente e offline"
+            showChevron
+            onPress={() => router.push("/tools/background-remover")}
           />
         </View>
 

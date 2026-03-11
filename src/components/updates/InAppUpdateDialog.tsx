@@ -2,7 +2,7 @@ import { Dialog } from "@/components/ui/Dialog";
 import { useTheme } from "@/providers/ThemeProvider";
 import { getSetting } from "@/services/settingsService";
 import { useAppUpdateStore } from "@/store/useAppUpdateStore";
-import { usePathname } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import { AlertCircle, Download } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import { ScrollView, View } from "react-native";
@@ -22,6 +22,7 @@ export function InAppUpdateDialog() {
   const [visible, setVisible] = useState(false);
   const [errorVisible, setErrorVisible] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   const { resolvedTheme } = useTheme();
   
   const isDark = resolvedTheme === "dark";
@@ -58,7 +59,13 @@ export function InAppUpdateDialog() {
 
   const handleUpdate = () => {
     setVisible(false);
-    downloadAndInstall();
+    if (pathname !== "/settings/updates") {
+      router.push("/settings/updates");
+    }
+    // Small delay to allow navigation transition to start before blocking the thread with download initialization
+    setTimeout(() => {
+      downloadAndInstall();
+    }, 150);
   };
 
   const handleLater = () => {

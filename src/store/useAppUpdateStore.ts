@@ -111,10 +111,17 @@ export const useAppUpdateStore = create<AppUpdateState>((set, get) => ({
     const apkPath = `${downloadDir}/Genly_Update_${updateInfo.version.replace(/[^a-zA-Z0-9.-]/g, '')}.apk`;
 
     try {
-      // Remove previous APK if it exists
-      const exists = await ReactNativeBlobUtil.fs.exists(apkPath);
-      if (exists) {
-         await ReactNativeBlobUtil.fs.unlink(apkPath);
+      // Remove all previous Genly Update APKs to free up space
+      try {
+        const files = await ReactNativeBlobUtil.fs.ls(downloadDir);
+        for (const file of files) {
+          if (file.startsWith('Genly_Update_') && file.endsWith('.apk')) {
+            const oldApkPath = `${downloadDir}/${file}`;
+            await ReactNativeBlobUtil.fs.unlink(oldApkPath);
+          }
+        }
+      } catch (cleanupError) {
+        console.warn("Failed to cleanup old APKs:", cleanupError);
       }
 
       // Baixar usando ReactNativeBlobUtil
