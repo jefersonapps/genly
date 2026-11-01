@@ -1,3 +1,4 @@
+import { useBackOrHome } from "@/hooks/useBackOrHome";
 import BottomSheet from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { ColorPicker, PRESET_COLORS } from '@/components/ui/ColorPicker';
@@ -144,6 +145,7 @@ const InlineNodeEditor = React.memo(({
 export default function MindMapScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const goBack = useBackOrHome();
   const { resolvedTheme, primaryColor } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
@@ -652,7 +654,7 @@ export default function MindMapScreen() {
     return (
       <View style={{ paddingTop: insets.top }} className="flex-1 bg-surface">
         <View className="flex-row items-center border-b border-border/10 px-4 pb-4 pt-2">
-          <TouchableOpacity activeOpacity={0.8} onPress={() => router.back()} className="mr-3 p-2 -ml-2">
+          <TouchableOpacity activeOpacity={0.8} onPress={goBack} className="mr-3 p-2 -ml-2">
             <ChevronLeft size={28} color={isDark ? '#FFFFFF' : '#000000'} />
           </TouchableOpacity>
           <Text className="font-sans-semibold text-xl text-on-surface">Mapa Mental</Text>
@@ -766,7 +768,7 @@ export default function MindMapScreen() {
       {/* Header */}
       <View className="flex-row items-center justify-between border-b border-border/10 px-4 pb-3 pt-2">
         <View className="flex-row items-center">
-          <TouchableOpacity activeOpacity={0.8} onPress={() => router.back()} className="mr-3 p-2 -ml-2">
+          <TouchableOpacity activeOpacity={0.8} onPress={goBack} className="mr-3 p-2 -ml-2">
             <ChevronLeft size={28} color={isDark ? '#FFFFFF' : '#000000'} />
           </TouchableOpacity>
           <Text className="font-sans-semibold text-xl text-on-surface">Mapa Mental</Text>

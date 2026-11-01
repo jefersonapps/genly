@@ -1,4 +1,8 @@
+/** @jsxImportSource react */
 import React from 'react';
+import type { Group } from '../db/schema';
+import type { WidgetTask } from './types';
+import { WidgetUnavailable } from './WidgetUnavailable';
 import { requestWidgetUpdate, type WidgetTaskHandlerProps } from 'react-native-android-widget';
 
 import {
@@ -21,83 +25,42 @@ import { RemindersWidget } from './RemindersWidget';
 
 export const WIDGET_NAMES = ['Reminders', 'RecentTasks', 'RecentMindMaps', 'RecentFlashcards', 'GroupWidget'];
 
+async function getWidgetContent(widgetName: string, configGroupId?: number): Promise<{ tasks: WidgetTask[]; group?: Group }> {
+  switch (widgetName) {
+    case 'Reminders': return { tasks: await getReminders(10) };
+    case 'RecentTasks': return { tasks: await getRecentTasks(10) };
+    case 'RecentMindMaps': return { tasks: await getRecentByGroupName('Mapas Mentais', 10) };
+    case 'RecentFlashcards': return { tasks: await getRecentByGroupName('Flashcards', 10) };
+    case 'GroupWidget': {
+      let group = configGroupId ? await getGroupById(configGroupId) : undefined;
+      if (!group) group = (await getAllWidgetGroups())[0];
+      return group ? { group, tasks: await getRecentByGroup(group.id, 10) } : { tasks: [] };
+    }
+    default: return { tasks: [] };
+  }
+}
+
 export async function getThemedWidget(
   widgetName: string,
   configGroupId?: number
 ): Promise<React.ReactElement | { light: React.ReactElement; dark: React.ReactElement }> {
-  const { primaryColor, themeMode } = await getThemeSettings();
-  const lightColors = getWidgetColors('light', primaryColor);
-  const darkColors = getWidgetColors('dark', primaryColor);
-
-  const getElement = (light: React.ReactElement, dark: React.ReactElement) => {
-    if (themeMode === 'light') return light;
-    if (themeMode === 'dark') return dark;
-    return { light, dark };
+  const [{ primaryColor, themeMode }, { tasks, group }] = await Promise.all([
+    getThemeSettings(),
+    getWidgetContent(widgetName, configGroupId),
+  ]);
+  const render = (mode: 'light' | 'dark') => {
+    const colors = getWidgetColors(mode, primaryColor);
+    switch (widgetName) {
+      case 'Reminders': return <RemindersWidget tasks={tasks} colors={colors} />;
+      case 'RecentMindMaps': return <RecentMindMapsWidget tasks={tasks} colors={colors} />;
+      case 'RecentFlashcards': return <RecentFlashcardsWidget tasks={tasks} colors={colors} />;
+      case 'GroupWidget':
+        return group ? <GroupWidget group={group} tasks={tasks} colors={colors} /> : <RecentTasksWidget tasks={tasks} colors={colors} />;
+      default: return <RecentTasksWidget tasks={tasks} colors={colors} />;
+    }
   };
-
-  switch (widgetName) {
-    case 'Reminders': {
-      const tasks = await getReminders(10);
-      return getElement(
-        <RemindersWidget tasks={tasks} colors={lightColors} />,
-        <RemindersWidget tasks={tasks} colors={darkColors} />
-      );
-    }
-
-    case 'RecentTasks': {
-      const tasks = await getRecentTasks(10);
-      return getElement(
-        <RecentTasksWidget tasks={tasks} colors={lightColors} />,
-        <RecentTasksWidget tasks={tasks} colors={darkColors} />
-      );
-    }
-
-    case 'RecentMindMaps': {
-      const tasks = await getRecentByGroupName('Mapas Mentais', 10);
-      return getElement(
-        <RecentMindMapsWidget tasks={tasks} colors={lightColors} />,
-        <RecentMindMapsWidget tasks={tasks} colors={darkColors} />
-      );
-    }
-
-    case 'RecentFlashcards': {
-      const tasks = await getRecentByGroupName('Flashcards', 10);
-      return getElement(
-        <RecentFlashcardsWidget tasks={tasks} colors={lightColors} />,
-        <RecentFlashcardsWidget tasks={tasks} colors={darkColors} />
-      );
-    }
-
-    case 'GroupWidget': {
-      const getGroupElement = (group: any, tasks: any[]) => getElement(
-        <GroupWidget group={group} tasks={tasks} colors={lightColors} />,
-        <GroupWidget group={group} tasks={tasks} colors={darkColors} />
-      );
-
-      if (configGroupId) {
-        const group = await getGroupById(configGroupId);
-        if (group) {
-          const tasks = await getRecentByGroup(group.id, 10);
-          return getGroupElement(group, tasks);
-        }
-      }
-      
-      const groups = await getAllWidgetGroups();
-      if (groups.length > 0) {
-        const group = groups[0]!;
-        const tasks = await getRecentByGroup(group.id, 10);
-        return getGroupElement(group, tasks);
-      } else {
-        return getElement(
-          <RecentTasksWidget tasks={[]} colors={lightColors} />,
-          <RecentTasksWidget tasks={[]} colors={darkColors} />
-        );
-      }
-    }
-
-    default:
-      return <RecentTasksWidget tasks={[]} colors={lightColors} />;
-  }
+  if (themeMode === 'light' || themeMode === 'dark') return render(themeMode);
+  return { light: render('light'), dark: render('dark') };
 }
 
 export async function triggerAllWidgetsUpdate() {
@@ -126,23 +89,19 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
     case 'WIDGET_ADDED':
     case 'WIDGET_UPDATE':
     case 'WIDGET_RESIZED': {
-      const configuration = (props.widgetInfo as any).configuration;
-      const widgetProps = (props.widgetInfo as any).props;
-      let configGroupId = (configuration?.groupId || widgetProps?.groupId) as number | undefined;
-      
-      if (!configGroupId) {
-        const storedGroupId = await getWidgetConfig(props.widgetInfo.widgetId);
-        if (storedGroupId) {
-          configGroupId = storedGroupId;
-        }
+      try {
+        // Only group widgets need an instance-specific configuration lookup.
+        const configGroupId = widgetName === 'GroupWidget'
+          ? await getWidgetConfig(props.widgetInfo.widgetId)
+          : undefined;
+        props.renderWidget(await getThemedWidget(widgetName, configGroupId));
+      } catch (error) {
+        console.error(`[WidgetTaskHandler] Failed to render ${widgetName}:`, error);
+        props.renderWidget({
+          light: <WidgetUnavailable colors={getWidgetColors('light')} />,
+          dark: <WidgetUnavailable colors={getWidgetColors('dark')} />,
+        });
       }
-
-      console.log(`[WidgetTaskHandler] Action: ${props.widgetAction}, Widget: ${widgetName}`);
-      console.log(`[WidgetTaskHandler] GroupId (props): ${configuration?.groupId || widgetProps?.groupId}`);
-      console.log(`[WidgetTaskHandler] GroupId (final): ${configGroupId}`);
-      
-      const widgetElement = await getThemedWidget(widgetName, configGroupId);
-      props.renderWidget(widgetElement);
       break;
     }
 

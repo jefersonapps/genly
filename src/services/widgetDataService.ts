@@ -1,42 +1,38 @@
-import { asc, desc, eq, isNotNull, isNull, notInArray, or } from "drizzle-orm";
+import { asc, desc, eq, inArray, isNotNull, isNull, notInArray, or } from "drizzle-orm";
 import { db } from "../db/client";
-import { groups, settings, tasks, type Group, type Task } from "../db/schema";
+import { groups, settings, tasks, type Group } from "../db/schema";
+import type { WidgetTask } from '../widgets/types';
+
+const widgetTaskColumns = {
+  id: tasks.id,
+  title: tasks.title,
+  deliveryDate: tasks.deliveryDate,
+  deliveryTime: tasks.deliveryTime,
+};
 
 // ─── Recent Tasks ─────────────────────────────────────
-export async function getRecentTasks(limit: number = 10): Promise<Task[]> {
+export async function getRecentTasks(limit: number = 10): Promise<WidgetTask[]> {
   const excludedGroupNames = ["Mapas Mentais", "Flashcards"];
 
-  // Fetch IDs for groups to exclude
-  const excludedGroupRows = await db
+  // Exclude specialized groups in the same query as the note titles.
+  const excludedGroups = db
     .select({ id: groups.id })
     .from(groups)
-    .where(or(eq(groups.name, excludedGroupNames[0]), eq(groups.name, excludedGroupNames[1])))
-    .all();
-
-  const excludedIds = excludedGroupRows.map((g) => g.id);
-
-  if (excludedIds.length === 0) {
-    return db
-      .select()
-      .from(tasks)
-      .orderBy(desc(tasks.updatedAt))
-      .limit(limit)
-      .all();
-  }
+    .where(inArray(groups.name, excludedGroupNames));
 
   return db
-    .select()
+    .select(widgetTaskColumns)
     .from(tasks)
-    .where(or(isNull(tasks.groupId), notInArray(tasks.groupId, excludedIds)))
+    .where(or(isNull(tasks.groupId), notInArray(tasks.groupId, excludedGroups)))
     .orderBy(desc(tasks.updatedAt))
     .limit(limit)
     .all();
 }
 
 // ─── Reminders (tasks with delivery date) ─────────────
-export async function getReminders(limit: number = 10): Promise<Task[]> {
+export async function getReminders(limit: number = 10): Promise<WidgetTask[]> {
   return db
-    .select()
+    .select(widgetTaskColumns)
     .from(tasks)
     .where(isNotNull(tasks.deliveryDate))
     .orderBy(asc(tasks.deliveryDate))
@@ -48,9 +44,9 @@ export async function getReminders(limit: number = 10): Promise<Task[]> {
 export async function getRecentByGroup(
   groupId: number,
   limit: number = 10
-): Promise<Task[]> {
+): Promise<WidgetTask[]> {
   return db
-    .select()
+    .select(widgetTaskColumns)
     .from(tasks)
     .where(eq(tasks.groupId, groupId))
     .orderBy(desc(tasks.updatedAt))
@@ -62,7 +58,7 @@ export async function getRecentByGroup(
 export async function getRecentByGroupName(
   groupName: string,
   limit: number = 10
-): Promise<Task[]> {
+): Promise<WidgetTask[]> {
   const group = await getGroupByName(groupName);
   if (!group) return [];
   return getRecentByGroup(group.id, limit);
@@ -119,7 +115,8 @@ export async function getThemeSettings(): Promise<{
   themeMode: string;
   primaryColor: string;
 }> {
-  const rows = await db.select().from(settings).all();
+  const rows = await db.select().from(settings)
+    .where(inArray(settings.key, ['theme_mode', 'primary_color'])).all();
   const map: Record<string, string> = {};
   for (const row of rows) {
     map[row.key] = row.value;

@@ -1,13 +1,17 @@
+import '../global.css';
 import { InAppUpdateDialog } from "@/components/updates/InAppUpdateDialog";
 import { DatabaseProvider } from "@/providers/DatabaseProvider";
 import { DialogProvider } from "@/providers/DialogProvider";
 import { ThemeProvider, useTheme } from "@/providers/ThemeProvider";
 import { getSetting } from "@/services/settingsService";
+import { refreshAllWidgets } from "@/services/widgetRefreshService";
 import { useAppUpdateStore } from "@/store/useAppUpdateStore";
+import { rootNavigationSettings } from "@/navigation/backNavigation";
 import { withOpacity } from "@/utils/colors";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { useFonts } from "expo-font";
 import * as LocalAuthentication from "expo-local-authentication";
+import * as Linking from "expo-linking";
 import * as Notifications from "expo-notifications";
 import { Stack, useRootNavigationState, useRouter } from "expo-router";
 import { useShareIntent } from "expo-share-intent";
@@ -22,6 +26,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
 
+export const unstable_settings = rootNavigationSettings;
+
 function RootLayoutNav() {
   const { resolvedTheme, primaryColor } = useTheme();
   const router = useRouter();
@@ -29,20 +35,6 @@ function RootLayoutNav() {
   const navigationState = useRootNavigationState();
   const isNavigationReady = navigationState?.key !== undefined;
   const lastNotificationResponse = Notifications.useLastNotificationResponse();
-  
-  useEffect(() => {
-    if (!router) return;
-    if (
-      lastNotificationResponse &&
-      lastNotificationResponse.notification.request.content.data?.taskId &&
-      lastNotificationResponse.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER
-    ) {
-      const taskId = lastNotificationResponse.notification.request.content.data?.taskId;
-      if (taskId) {
-        router.push({ pathname: "/task/[id]", params: { id: String(taskId) } });
-      }
-    }
-  }, [lastNotificationResponse]);
   
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
   const [isAuthenticating, setIsAuthenticating] = React.useState(true);
@@ -55,6 +47,28 @@ function RootLayoutNav() {
     "Montserrat-SemiBold": require("../../assets/fonts/Montserrat-SemiBold.ttf"),
     "Montserrat-Bold": require("../../assets/fonts/Montserrat-Bold.ttf"),
   });
+
+  const handledNotification = React.useRef<Notifications.NotificationResponse | null>(null);
+  useEffect(() => {
+    if (!isNavigationReady || !fontsLoaded || !isAuthenticated || !hasCompletedOnboarding) return;
+    if (!lastNotificationResponse || handledNotification.current === lastNotificationResponse) return;
+    handledNotification.current = lastNotificationResponse;
+    const taskId = lastNotificationResponse.notification.request.content.data?.taskId;
+    // An explicit widget/share link takes priority over a retained notification.
+    if (!Linking.getLinkingURL() && taskId && lastNotificationResponse.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) {
+      router.push({ pathname: "/task/[id]", params: { id: String(taskId) } });
+    }
+    void Notifications.clearLastNotificationResponseAsync().catch((error) => {
+      console.warn('Failed to clear the handled notification', error);
+    });
+  }, [lastNotificationResponse, isNavigationReady, fontsLoaded, isAuthenticated, hasCompletedOnboarding, router]);
+
+  useEffect(() => {
+    if (isNavigationReady && fontsLoaded && isAuthenticated && hasCompletedOnboarding) {
+      // The router has consumed the URL. Do not replay it on a later JS restart.
+      Linking.clearInitialURL();
+    }
+  }, [navigationState, isNavigationReady, fontsLoaded, isAuthenticated, hasCompletedOnboarding]);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
@@ -87,6 +101,9 @@ function RootLayoutNav() {
       } catch (e) {
         console.error("Error creating default groups:", e);
       }
+
+      // Replace links in existing widgets after an app update as well.
+      void refreshAllWidgets();
 
       // 3. Check for In-App Updates directly in the background
       const checkUpdates = useAppUpdateStore.getState().checkForUpdates;

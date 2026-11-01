@@ -1,11 +1,13 @@
 'use no memo';
+/** @jsxImportSource react */
 import React from 'react';
+import { createWidgetLink } from './links';
 import { FlexWidget, ListWidget, TextWidget } from 'react-native-android-widget';
-import type { Task } from '../db/schema';
+import type { WidgetTask } from './types';
 import { formatWidgetDate, truncate, type WidgetThemeColors } from './theme';
 
 interface RemindersWidgetProps {
-  tasks: Task[];
+  tasks: WidgetTask[];
   colors: WidgetThemeColors;
 }
 
@@ -65,12 +67,12 @@ export function RemindersWidget({ tasks, colors }: RemindersWidgetProps) {
           }}
           clickAction="OPEN_URI"
           clickActionData={{ 
-            uri: `genly://task/editor?reminderDate=${(() => {
+            uri: createWidgetLink('/task/editor', { reminderDate: (() => {
               const d = new Date();
               d.setDate(d.getDate() + 1);
               d.setHours(9, 0, 0, 0); // Default to 9 AM tomorrow
               return d.toISOString();
-            })()}` 
+            })() })
           }}
         >
           <TextWidget
@@ -142,7 +144,7 @@ export function RemindersWidget({ tasks, colors }: RemindersWidgetProps) {
                       borderColor: colors.border,
                     }}
                     clickAction="OPEN_URI"
-                    clickActionData={{ uri: `genly://task/${task.id}` }}
+                    clickActionData={{ uri: createWidgetLink(`/task/${task.id}`) }}
                     accessibilityLabel={`Lembrete: ${task.title}`}
                   >
                     <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', width: 'match_parent' }}>

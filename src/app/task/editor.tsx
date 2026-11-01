@@ -1,3 +1,4 @@
+import { useBackOrHome } from "@/hooks/useBackOrHome";
 import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
 import { useKeyboard } from "@/hooks/useKeyboard";
 import { useDialog } from "@/providers/DialogProvider";
@@ -201,6 +202,7 @@ function ToolbarButton({
 // ─── Editor ──────────────────────────────────────
 export default function TaskEditor() {
   const router = useRouter();
+  const goBack = useBackOrHome();
   const params = useLocalSearchParams<{
     id?: string;
     sharedText?: string;
@@ -209,6 +211,7 @@ export default function TaskEditor() {
     reminderDate?: string;
     deliveryDate?: string;
     deliveryTime?: string;
+    source?: string;
   }>();
   const insets = useSafeAreaInsets();
   const { primaryColor, resolvedTheme } = useTheme();
@@ -264,8 +267,29 @@ export default function TaskEditor() {
 
   // ─── Load Data ───────────────────────
   useEffect(() => {
-    loadInitialData();
-  }, [taskId]);
+    let active = true;
+    setDataLoaded(false);
+    if (!taskId) {
+      // A widget can target this same screen while another note is open.
+      setTitle('');
+      setHtmlContent('');
+      setInitialContent('');
+      editorRef.current?.setValue('');
+      setMediaItems([]);
+      setTempMedia([]);
+      setSelectedGroupId(params.groupId ? Number(params.groupId) : null);
+      setDeliveryDate(params.deliveryDate ?? null);
+      setDeliveryTime(params.deliveryTime ?? null);
+    }
+    void loadInitialData(() => active).catch((error) => {
+      console.error('Failed to load note editor', error);
+      if (active) {
+        setDataLoaded(true);
+        dialog.show({ title: 'Erro', description: 'Não foi possível carregar a nota.' });
+      }
+    });
+    return () => { active = false; };
+  }, [taskId, params.groupId, params.source]);
 
   useEffect(() => {
     if (params.sharedText) {
@@ -327,8 +351,9 @@ export default function TaskEditor() {
     setFlexToggle(!isKeyboardVisible);
   }, [isKeyboardVisible]);
 
-  const loadInitialData = async () => {
+  const loadInitialData = async (isActive: () => boolean) => {
     const allGroups = await getAllGroups();
+    if (!isActive()) return;
     // Filter out restricted groups dedicated to specific tools
     const filteredGroups = allGroups.filter(
       (g) => g.name !== "Mapas Mentais" && g.name !== "Flashcards"
@@ -336,6 +361,7 @@ export default function TaskEditor() {
     setGroups(filteredGroups);
     if (taskId) {
       const t = await getTaskById(taskId);
+      if (!isActive()) return;
       if (t) {
         setTitle(t.title);
         const content = t.content ?? "";
@@ -345,6 +371,7 @@ export default function TaskEditor() {
         setDeliveryDate(t.deliveryDate || null);
         setDeliveryTime(t.deliveryTime || null);
         const m = await getMediaForTask(taskId);
+        if (!isActive()) return;
         setMediaItems(m);
       }
     }
@@ -430,7 +457,7 @@ export default function TaskEditor() {
           finalThumbnailUri
         );
       }
-      router.back();
+      goBack();
     } catch (e) {
       dialog.show({ title: "Erro", description: "Falha ao salvar a nota." });
       console.error(e);
@@ -798,7 +825,7 @@ export default function TaskEditor() {
         ]}
       >
         <View className="flex-row items-center">
-          <Button variant="icon" onPress={() => router.back()} className="mr-1">
+          <Button variant="icon" onPress={goBack} className="mr-1">
             <Button.Icon icon={<ArrowLeft size={24} color={colors.text} />} />
           </Button>
           <Text className="font-sans-bold text-lg ml-2" style={[{ color: colors.text }]}>

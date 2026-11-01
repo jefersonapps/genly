@@ -1,8 +1,9 @@
+import { useBackOrHome } from "@/hooks/useBackOrHome";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, CheckCircle2, Edit, Trash2 } from "lucide-react-native";
 import React, { useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { MediaPreview } from "@/components/task/MediaPreview";
@@ -56,6 +57,7 @@ function getContrastSafeColor(color: string, isDark: boolean): string {
 
 export default function TaskDetail() {
   const router = useRouter();
+  const goBack = useBackOrHome();
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const dialog = useDialog();
@@ -64,6 +66,8 @@ export default function TaskDetail() {
   const safeAccent = getContrastSafeColor(primaryColor, isDark);
 
   const [task, setTask] = useState<Task | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [mediaItems, setMediaItems] = useState<Media[]>([]);
   const [focusKey, setFocusKey] = useState(0);
 
@@ -91,16 +95,27 @@ export default function TaskDetail() {
       let isActive = true;
 
       const load = async () => {
-        if (!id) return;
-        const taskId = parseInt(id);
-        const t = await getTaskById(taskId);
-        if (isActive && t) {
-          setTask(t);
-          const m = await getMediaForTask(taskId);
-          if (isActive) {
-             setMediaItems(m);
-             setFocusKey(Date.now());
+        setLoading(true);
+        setLoadFailed(false);
+        setTask(null);
+        setMediaItems([]);
+        try {
+          const taskId = Number(id);
+          if (!Number.isSafeInteger(taskId) || taskId <= 0) return;
+          const t = await getTaskById(taskId);
+          if (isActive && t) {
+            setTask(t);
+            const m = await getMediaForTask(taskId);
+            if (isActive) {
+              setMediaItems(m);
+              setFocusKey(Date.now());
+            }
           }
+        } catch (error) {
+          console.error('Failed to load task', error);
+          if (isActive) setLoadFailed(true);
+        } finally {
+          if (isActive) setLoading(false);
         }
       };
 
@@ -129,7 +144,7 @@ export default function TaskDetail() {
                 onPress: async () => {
                     await deleteTask(task.id);
                     dialog.hide();
-                    router.back();
+                    goBack();
                 },
             },
         ],
@@ -218,7 +233,32 @@ export default function TaskDetail() {
       }
   };
 
-  if (!task) return <View className="flex-1 bg-surface" />;
+  if (!task || loading || loadFailed) {
+    return (
+      <View className="flex-1 bg-surface" style={{ paddingTop: insets.top }}>
+        <View className="px-4 py-3">
+          <Button variant="icon" onPress={goBack}>
+            <Button.Icon icon={<ArrowLeft size={24} color={colors.text} />} />
+          </Button>
+        </View>
+        <View className="flex-1 items-center justify-center px-6 gap-4">
+          {loading ? <ActivityIndicator color={primaryColor} /> : (
+            <>
+              <Text className="font-sans-bold text-lg text-on-surface text-center">
+                {loadFailed ? 'Não foi possível carregar a nota' : 'Nota não encontrada'}
+              </Text>
+              <Text className="font-sans text-on-surface-secondary text-center">
+                {loadFailed ? 'Tente abrir a nota novamente pela home.' : 'Esta nota pode ter sido excluída.'}
+              </Text>
+              <Button onPress={() => router.dismissTo('/(tabs)')}>
+                <Button.Text>Ir para a home</Button.Text>
+              </Button>
+            </>
+          )}
+        </View>
+      </View>
+    );
+  }
 
 
 
@@ -227,7 +267,7 @@ export default function TaskDetail() {
       {/* Header */}
       <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
         <View className="flex-row items-center flex-1">
-          <Button variant="icon" onPress={() => router.back()}>
+          <Button variant="icon" onPress={goBack}>
             <Button.Icon icon={<ArrowLeft size={24} color={colors.text} />} />
           </Button>
           <Text className="font-sans-bold text-lg text-on-surface ml-4">Nota</Text>

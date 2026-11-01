@@ -1,12 +1,14 @@
 'use no memo';
+/** @jsxImportSource react */
 import React from 'react';
+import { createWidgetLink } from './links';
 import type { ColorProp } from 'react-native-android-widget';
 import { FlexWidget, ListWidget, TextWidget } from 'react-native-android-widget';
-import type { Task } from '../db/schema';
+import type { WidgetTask } from './types';
 import { truncate, type WidgetThemeColors } from './theme';
 
 interface RecentMindMapsWidgetProps {
-  tasks: Task[];
+  tasks: WidgetTask[];
   colors: WidgetThemeColors;
 }
 
@@ -67,7 +69,7 @@ export function RecentMindMapsWidget({ tasks, colors }: RecentMindMapsWidgetProp
             justifyContent: 'center',
           }}
           clickAction="OPEN_URI"
-          clickActionData={{ uri: 'genly://tools/mind-map' }}
+          clickActionData={{ uri: createWidgetLink('/tools/mind-map') }}
         >
           <TextWidget
             text="+"
@@ -139,7 +141,7 @@ export function RecentMindMapsWidget({ tasks, colors }: RecentMindMapsWidgetProp
                     borderColor: colors.border,
                   }}
                   clickAction="OPEN_URI"
-                  clickActionData={{ uri: `genly://tools/mind-map?taskId=${task.id}` }}
+                  clickActionData={{ uri: createWidgetLink('/tools/mind-map', { taskId: task.id }) }}
                   accessibilityLabel={`Mapa Mental: ${task.title}`}
                 >
                   <FlexWidget

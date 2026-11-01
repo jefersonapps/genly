@@ -56,7 +56,7 @@ function WidgetConfigurationContent({ widgetInfo, renderWidget, setResult }: any
       await saveWidgetConfig(widgetInfo.widgetId, groupId);
 
       // 2. Load the handler dynamically to avoid circular dependencies
-      const { getThemedWidget, triggerAllWidgetsUpdate } = require('./widget-task-handler');
+      const { getThemedWidget } = require('./widget-task-handler');
 
       // 3. Render immediate update for this widget
       // Configuration screen's renderWidget ONLY accepts a single element, not a {light, dark} object.
@@ -66,9 +66,6 @@ function WidgetConfigurationContent({ widgetInfo, renderWidget, setResult }: any
         : themedWidget;
 
       renderWidget(widgetToRender, { groupId: groupId });
-
-      // 4. Trigger global background refresh to sync all instances
-      triggerAllWidgetsUpdate();
 
       // Return success to close screen
       setResult('ok');

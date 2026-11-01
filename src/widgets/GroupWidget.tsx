@@ -1,13 +1,16 @@
 'use no memo';
+/** @jsxImportSource react */
 import React from 'react';
+import { createWidgetLink } from './links';
 import type { ColorProp } from 'react-native-android-widget';
 import { FlexWidget, ListWidget, TextWidget } from 'react-native-android-widget';
-import type { Group, Task } from '../db/schema';
+import type { Group } from '../db/schema';
+import type { WidgetTask } from './types';
 import { truncate, type WidgetThemeColors } from './theme';
 
 interface GroupWidgetProps {
   group: Group;
-  tasks: Task[];
+  tasks: WidgetTask[];
   colors: WidgetThemeColors;
 }
 
@@ -17,14 +20,14 @@ interface GroupWidgetProps {
  * - "Flashcards" → flashcards tool
  * - Otherwise → task preview
  */
-function getDeepLinkForTask(task: Task, group: Group): string {
+function getDeepLinkForTask(task: WidgetTask, group: Group): string {
   if (group.name === 'Mapas Mentais') {
-    return `genly://tools/mind-map?taskId=${task.id}`;
+    return createWidgetLink('/tools/mind-map', { taskId: task.id });
   }
   if (group.name === 'Flashcards') {
-    return `genly://tools/flashcards?taskId=${task.id}`;
+    return createWidgetLink('/tools/flashcards', { taskId: task.id });
   }
-  return `genly://task/${task.id}`;
+  return createWidgetLink(`/task/${task.id}`);
 }
 
 export function GroupWidget({ group, tasks, colors }: GroupWidgetProps) {
@@ -87,10 +90,10 @@ export function GroupWidget({ group, tasks, colors }: GroupWidgetProps) {
           clickAction="OPEN_URI"
           clickActionData={{ 
             uri: group.name === 'Mapas Mentais' 
-              ? 'genly://tools/mind-map' 
+              ? createWidgetLink('/tools/mind-map')
               : group.name === 'Flashcards' 
-                ? 'genly://tools/flashcards' 
-                : `genly://task/editor?groupId=${group.id}`
+                ? createWidgetLink('/tools/flashcards')
+                : createWidgetLink('/task/editor', { groupId: group.id })
           }}
         >
           <TextWidget

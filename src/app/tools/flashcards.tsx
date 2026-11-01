@@ -1,3 +1,4 @@
+import { useBackOrHome } from "@/hooks/useBackOrHome";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
 import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
@@ -27,6 +28,7 @@ type Flashcard = {
 export default function FlashcardsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const goBack = useBackOrHome();
   const { resolvedTheme, primaryColor } = useTheme();
   const isDark = resolvedTheme === "dark";
   const dialog = useDialog();
@@ -37,7 +39,11 @@ export default function FlashcardsScreen() {
   
   useEffect(() => {
     async function hydrate() {
-      if (!taskId) return;
+      if (!taskId) {
+        setCards([]);
+        setDeckTitle('');
+        return;
+      }
       try {
         const t = await getTaskById(Number(taskId));
         if (t) {
@@ -294,7 +300,7 @@ export default function FlashcardsScreen() {
         <View className="flex-row items-center">
           <Button 
             variant="icon" 
-            onPress={() => router.back()} 
+            onPress={goBack}
             className="mr-2"
           >
             <Button.Icon icon={<ArrowLeft size={24} color={isDark ? "#FFF" : "#000"} />} />
