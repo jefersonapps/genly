@@ -187,6 +187,14 @@ export async function deleteTask(id: number): Promise<void> {
 
 // ─── Media Operations ─────────────────────────────────
 
+/** Load the library's attachments in one query rather than one query per note. */
+export async function getAllTaskMedia(): Promise<Record<number, Media[]>> {
+  const rows = await db.select().from(media).all();
+  const byTask: Record<number, Media[]> = {};
+  for (const item of rows) (byTask[item.taskId] ??= []).push(item);
+  return byTask;
+}
+
 export async function getMediaForTask(taskId: number): Promise<Media[]> {
   return db.select().from(media).where(eq(media.taskId, taskId)).all();
 }

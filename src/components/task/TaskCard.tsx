@@ -1,11 +1,13 @@
+import { Image } from "expo-image";
+import { useMappingHelper } from "@shopify/flash-list";
 import { MediaPreview } from "@/components/task/MediaPreview";
 import type { Media, Task } from "@/db/schema";
 import { useTheme } from "@/providers/ThemeProvider";
 import { shadows } from "@/theme/shadows";
 import { withOpacity } from "@/utils/colors";
-import { htmlToMarkdown, stripMarkdown, truncateText } from "@/utils/markdown";
-import { AlertCircle, Brain, Bell, Calendar, Check, CheckCircle2, ChevronDown, Circle, Clock, Paperclip, Trash2 } from "lucide-react-native";
-import React from "react";
+import { decodeNoteText, htmlToMarkdown, stripMarkdown, truncateText } from "@/utils/markdown";
+import { AlertCircle, Brain, Bell, Calendar, FileText, Check, CheckCircle2, ChevronDown, Circle, Clock, Paperclip, Trash2 } from "lucide-react-native";
+import React, { memo, useMemo } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { EnrichedMarkdownText } from "react-native-enriched-markdown";
 
@@ -76,6 +78,7 @@ function truncateMarkdown(text: string, maxLength: number, maxLines: number = 5)
 }
 
 interface TaskCardProps {
+  compact?: boolean;
   task: Task;
   mediaItems?: Media[];
   onPress: () => void;
@@ -87,12 +90,14 @@ interface TaskCardProps {
   onSelect?: (task: Task) => void;
 }
 
-export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPress, onToggleComplete, selectionMode, isSelected, onSelect }: TaskCardProps) {
+export const TaskCard = memo(function TaskCard({ compact = false, task, mediaItems = [], onPress, onDelete, onMediaPress, onToggleComplete, selectionMode, isSelected, onSelect }: TaskCardProps) {
   const { resolvedTheme, primaryColor } = useTheme();
+  const { getMappingKey } = useMappingHelper();
   const isDark = resolvedTheme === "dark";
   const safeAccent = primaryColor || "#3B82F6";
-  const snippet = truncateText(stripMarkdown(task.content ?? ""), 100);
-  const thumbnailMedia = mediaItems.filter((m) => m.type === "image" || m.type === "latex" || m.type === "pdf");
+  const snippet = useMemo(() => truncateText(stripMarkdown(task.content ?? ""), compact ? 180 : 100), [task.content, compact]);
+  const title = useMemo(() => decodeNoteText(task.title), [task.title]);
+  const thumbnailMedia = useMemo(() => mediaItems.filter((m) => m.type === "image" || m.type === "latex" || m.type === "pdf"), [mediaItems]);
   const hasMedia = mediaItems.length > 0;
   const isCompleted = task.completed === 1;
 
@@ -140,7 +145,7 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
       <TouchableOpacity
         onPress={onPress}
         activeOpacity={0.8}
-        className="mb-3 rounded-[24px] p-5 border"
+        className={compact ? "rounded-2xl p-4 border" : "mb-3 rounded-[24px] p-5 border"}
         style={{
           backgroundColor: isSelected ? withOpacity(primaryColor || "#3b82f6", 0.1) : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)"),
           borderColor: isSelected ? withOpacity(primaryColor || "#3b82f6", 0.3) : (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"),
@@ -193,7 +198,7 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
               style={{ color: isDark ? "#FAFAFA" : "#18181B", textDecorationLine: isCompleted ? 'line-through' : 'none' }} 
               numberOfLines={1}
             >
-              {task.title || "Sem título"}
+              {title || "Sem título"}
             </Text>
             <Text 
               className="mt-0.5 text-[13px] font-sans" 
@@ -240,7 +245,7 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.8}
-      className="mb-3 rounded-2xl bg-surface-secondary p-4 border"
+      className={compact ? "rounded-2xl bg-surface-secondary p-4 border" : "mb-3 rounded-2xl bg-surface-secondary p-4 border"}
       style={[{
         backgroundColor: isSelected ? withOpacity(primaryColor || "#3b82f6", 0.08) : (isDark ? "#18181b" : "#f4f4f5"),
         borderColor: isSelected ? withOpacity(primaryColor || "#3b82f6", 0.3) : (isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"),
@@ -248,16 +253,27 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
       }, shadows.sm]}
     >
       {/* Media thumbnails scroll row */}
-      {thumbnailMedia.length > 0 && (
+      {compact && thumbnailMedia.length > 0 ? (
+        <View className="flex-row mb-3" style={{ gap: 8 }}>
+          {thumbnailMedia.slice(0, 3).map((item, index) => {
+            const uri = item.type === 'pdf' ? item.thumbnailUri : item.type === 'image' || item.uri.startsWith('file:') || item.uri.startsWith('/') ? item.uri : null;
+            return (
+              <TouchableOpacity key={getMappingKey(item.id, index)} onPress={(event) => { event.stopPropagation(); onMediaPress?.(item); }} accessibilityLabel="Abrir anexo" style={{ width: 56, height: 56, borderRadius: 10, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+                {uri ? <Image source={{ uri }} recyclingKey={String(item.id)} contentFit="cover" style={{ width: 56, height: 56 }} /> : <FileText size={24} color={safeAccent} />}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ) : thumbnailMedia.length > 0 && (
           <ScrollView 
             horizontal 
             showsHorizontalScrollIndicator={false}
             className="mb-3"
             contentContainerStyle={{ gap: 8 }}
           >
-          {thumbnailMedia.map((m) => (
+          {thumbnailMedia.map((m, index) => (
               <TouchableOpacity 
-                key={m.id} 
+                key={getMappingKey(m.id, index)}
                 activeOpacity={0.8}
                 onPress={(e) => {
                     e.stopPropagation();
@@ -314,7 +330,7 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
                 numberOfLines={1}
                 style={{ textDecorationLine: isCompleted ? 'line-through' : 'none' }}
             >
-                {task.title}
+                {title || "Sem título"}
             </Text>
 
              {/* Content snippet */}
@@ -323,7 +339,8 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
 
                 // Try to detect specialized content
                 try {
-                    const parsed = JSON.parse(task.content);
+                    const first = task.content.trimStart()[0];
+                    const parsed = first === '{' || first === '[' ? JSON.parse(task.content) : null;
                     
                     // Mind Map detection
                     if (parsed && typeof parsed === 'object' && 'nodes' in parsed) {
@@ -344,7 +361,7 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
                     }
 
                     // Flashcard detection
-                    if (Array.isArray(parsed) && parsed.length > 0 && 'front' in parsed[0]) {
+                    if (Array.isArray(parsed) && parsed[0] && typeof parsed[0] === 'object' && 'front' in parsed[0]) {
                         return (
                             <View className="mt-3 p-3 rounded-2xl bg-surface border border-outline/5"
                                 style={{
@@ -357,13 +374,17 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
                                     <Text className="font-sans-bold text-[#3B82F6] text-[10px] uppercase tracking-wider">Primeiro Cartão</Text>
                                 </View>
                                 <Text className="font-sans text-on-surface text-sm leading-relaxed" numberOfLines={2}>
-                                    {parsed[0].front}
+                                    {stripMarkdown(String(parsed[0].front))}
                                 </Text>
                             </View>
                         );
                     }
                 } catch {
                     // Not JSON, continue to standard renderers
+                }
+
+                if (compact) {
+                    return snippet ? <Text className="mt-1 font-sans text-sm text-on-surface-secondary" numberOfLines={2} style={{ lineHeight: 20 }}>{snippet}</Text> : null;
                 }
 
                 if (task.content) {
@@ -496,4 +517,4 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
       </View>
     </TouchableOpacity>
   );
-}
+});

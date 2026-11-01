@@ -1,3 +1,9 @@
+import { decode } from "html-entities";
+
+export function decodeNoteText(text: string): string {
+  return decode(text, { level: "html5", scope: "body" }).normalize("NFC");
+}
+
 /**
  * Strip markdown syntax from text for preview display.
  * Removes common markdown symbols while preserving the readable text content.
@@ -5,19 +11,9 @@
 export function stripMarkdown(text: string): string {
   if (!text) return "";
 
-  return text
+  const plain = text
     // Strip HTML tags
     .replace(/<[^>]*>/g, " ")
-    // Decode numeric HTML entities (&#NNN; and &#xHHH;)
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
-    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
-    // Decode common named HTML entities
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, " ")
     // Strip markdown headers
     .replace(/^#{1,6}\s+/gm, "")
     // Strip bold/italic markers
@@ -39,6 +35,8 @@ export function stripMarkdown(text: string): string {
     // Collapse whitespace
     .replace(/\s+/g, " ")
     .trim();
+
+  return decodeNoteText(plain).replace(/\s+/g, " ").trim();
 }
 
 /**
@@ -92,11 +90,7 @@ export function htmlToMarkdown(html: string): string {
     // Final cleanup of remaining tags (including <html>, <body>, <span>)
     ms = ms.replace(/<[^>]*>/g, "");
     
-    // Decode HTML entities
-    ms = ms.replace(/&nbsp;/g, " ");
-    ms = ms.replace(/&lt;/g, "<");
-    ms = ms.replace(/&gt;/g, ">");
-    ms = ms.replace(/&amp;/g, "&");
+    ms = decodeNoteText(ms);
 
     // Trim excessive newlines
     ms = ms.replace(/\n{3,}/g, "\n\n");
@@ -109,5 +103,7 @@ export function htmlToMarkdown(html: string): string {
  */
 export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength).trim() + "…";
+  // Avoid splitting a supplementary Unicode character at the preview boundary.
+  const end = /[\uD800-\uDBFF]/.test(text[maxLength - 1]) ? maxLength - 1 : maxLength;
+  return text.slice(0, end).trim() + "…";
 }

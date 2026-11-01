@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "check:android:16kb": "python3 scripts/check-android-16kb.py",
     "test:widget-navigation": "node --experimental-strip-types --experimental-test-module-mocks tests/widget-navigation.test.cjs",
-    "test:widget-startup": "node tests/widget-startup.test.cjs"
+    "test:widget-startup": "node tests/widget-startup.test.cjs",
+    "test:note-preview": "node tests/note-preview.test.cjs"
   },
   "dependencies": {
     "@dariyd/react-native-document-scanner": "^2.2.0",

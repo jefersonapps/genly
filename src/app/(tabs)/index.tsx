@@ -1,6 +1,7 @@
 import { ScreenContext } from "@/providers/ScreenProvider";
 import { GroupIcon } from "@/components/ui/GroupIcon";
-import { TaskCard } from "@/components/task/TaskCard";
+import { SwipeableTaskRow, type TaskRowKind } from "@/components/task/SwipeableTaskRow";
+import type { NoteSwipeableMethods } from "@/components/task/NoteSwipeable";
 import { Avatar } from "@/components/ui/Avatar";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
@@ -14,7 +15,7 @@ import { useHeaderSnap } from "@/hooks/useHeaderSnap";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { getSetting } from "@/services/settingsService";
-import { completeTask, deleteGroup, deleteTask, getAllGroups, getAllTasks, getMediaForTask, uncompleteTask } from "@/services/taskService";
+import { completeTask, deleteGroup, deleteTask, getAllGroups, getAllTasks, getAllTaskMedia, getTaskById, uncompleteTask } from "@/services/taskService";
 import { shadows } from "@/theme/shadows";
 import { adjustColor, withOpacity } from "@/utils/colors";
 import { getGreeting } from "@/utils/date";
@@ -23,7 +24,7 @@ import { FlashList } from "@shopify/flash-list";
 import { BlurView } from "expo-blur";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Bell, Brain, CalendarDays, Clock, Edit3, FileText, FolderPlus, Layers, Lightbulb, Plus, Search, Trash2 } from "lucide-react-native";
-import React, { useCallback, useContext, useEffect, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, {
     Extrapolation,
@@ -45,6 +46,9 @@ const GERAL_CARD_THEME = {
     tertiary: '#50B0F9',
   }
 };
+
+const taskKey = (task: Task) => String(task.id);
+const TaskSeparator = () => <View style={{ height: 8 }} />;
 
 const AnimatedFlashList = Animated.createAnimatedComponent(FlashList<Task>);
 
@@ -173,40 +177,39 @@ export default function HomeScreen() {
     };
   });
 
+  const activeSwipeRow = useRef<NoteSwipeableMethods | null>(null);
+  const pendingCompletions = useRef(new Set<number>());
+  const loadVersion = useRef(0);
+  const closeSwipeRow = useCallback(() => {
+    activeSwipeRow.current?.close();
+    activeSwipeRow.current = null;
+  }, []);
+
   const loadData = useCallback(async () => {
+    const version = ++loadVersion.current;
     try {
-      const name = await getSetting("profile_name");
-      const img = await getSetting("profile_image");
+      const [name, img, allTasks, allGroups, mediaMap] = await Promise.all([
+        getSetting("profile_name"), getSetting("profile_image"),
+        getAllTasks(), getAllGroups(), getAllTaskMedia(),
+      ]);
+      if (version !== loadVersion.current) return;
       setProfileName(name);
       setProfileImage(img);
-
-      const [allTasks, allGroups] = await Promise.all([
-        getAllTasks(),
-        getAllGroups()
-      ]);
-      
       setTasks(allTasks);
       setGroups(allGroups);
-
-      const mediaMap: Record<number, Media[]> = {};
-      await Promise.all(
-        allTasks.map(async (t) => {
-          const m = await getMediaForTask(t.id);
-          mediaMap[t.id] = m;
-        })
-      );
       setTaskMedia(mediaMap);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (version === loadVersion.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-    }, [loadData])
-  );
+  useFocusEffect(useCallback(() => {
+    loadData();
+    return () => { loadVersion.current++; closeSwipeRow(); };
+  }, [loadData, closeSwipeRow]));
 
   const handleCreateGroup = () => {
     router.push("/group/editor");
@@ -244,7 +247,7 @@ export default function HomeScreen() {
     router.push({ pathname: "/group/editor", params: { id: selectedLongPressGroup.id } });
   };
 
-  const handleDeleteTask = (task: Task) => {
+  const handleDeleteTask = useCallback((task: Task) => {
     dialog.show({
         title: "Apagar tarefa",
         description: "Tem certeza que deseja apagar esta tarefa?",
@@ -255,23 +258,49 @@ export default function HomeScreen() {
                 variant: "destructive",
                 onPress: async () => {
                    await deleteTask(task.id);
-                   loadData();
+                   setTasks(current => current.filter(item => item.id !== task.id));
+                   setTaskMedia(current => {
+                     const next = { ...current };
+                     delete next[task.id];
+                     return next;
+                   });
                 }
             }
         ]
     });
-  };
+  }, [dialog]);
 
   // renderBackdrop removed, handled by BottomSheet component
 
-  const filteredTasks = tasks.filter(
-    (t) => {
-        const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          t.content?.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesGroup = selectedGroupId === null || t.groupId === selectedGroupId;
-        return matchesSearch && matchesGroup;
+  const filteredTasks = useMemo(() => {
+    const query = searchQuery.toLocaleLowerCase('pt-BR');
+    return tasks.filter(task => (selectedGroupId === null || task.groupId === selectedGroupId) &&
+      (!query || task.title.toLocaleLowerCase('pt-BR').includes(query) || task.content?.toLocaleLowerCase('pt-BR').includes(query)));
+  }, [tasks, selectedGroupId, searchQuery]);
+  const groupKinds = useMemo(() => new Map(groups.map(group => [group.id,
+    group.name === 'Mapas Mentais' ? 'mind-map' : group.name === 'Flashcards' ? 'flashcards' : 'note',
+  ] as [number, TaskRowKind])), [groups]);
+  const groupCounts = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const task of tasks) if (task.groupId !== null) counts.set(task.groupId, (counts.get(task.groupId) || 0) + 1);
+    return counts;
+  }, [tasks]);
+  const toggleComplete = useCallback(async (task: Task) => {
+    if (pendingCompletions.current.has(task.id)) return;
+    pendingCompletions.current.add(task.id);
+    try {
+      if (task.completed === 1) await uncompleteTask(task.id);
+      else await completeTask(task.id);
+      const updated = await getTaskById(task.id);
+      if (updated) setTasks(current => current.map(item => item.id === updated.id ? updated : item).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
+    } finally {
+      pendingCompletions.current.delete(task.id);
     }
-  );
+  }, []);
+  const renderTask = useCallback(({ item }: { item: Task }) => (
+    <SwipeableTaskRow task={item} kind={groupKinds.get(item.groupId ?? -1) || 'note'} mediaItems={taskMedia[item.id]} activeRow={activeSwipeRow} onDelete={handleDeleteTask} onToggleComplete={toggleComplete} />
+  ), [groupKinds, taskMedia, handleDeleteTask, toggleComplete]);
+
 
   return (
     <View className="flex-1 bg-surface">
@@ -493,7 +522,7 @@ export default function HomeScreen() {
                                             <View className="flex-1 mr-2">
                                                 <Text className="font-sans-bold text-xl text-on-surface" numberOfLines={1}>{group.name}</Text>
                                                 <Text className="font-sans text-sm text-on-surface-secondary mt-1">
-                                                    {tasks.filter(t => t.groupId === group.id).length} Notas
+                                                    {groupCounts.get(group.id) || 0} Notas
                                                 </Text>
                                             </View>
                                             
@@ -638,58 +667,11 @@ export default function HomeScreen() {
                     </View>
                   ) : null
                 }
-                renderItem={({ item }) => {
-                    const taskGroup = groups.find(g => g.id === item.groupId);
-                    const isMindMap = taskGroup?.name === "Mapas Mentais";
-                    const isFlashcard = taskGroup?.name === "Flashcards";
+                renderItem={renderTask}
+                keyExtractor={taskKey}
+                ItemSeparatorComponent={TaskSeparator}
+                onScrollBeginDrag={closeSwipeRow}
 
-                    return (
-                        <View className="px-6 pb-4">
-                            <TaskCard
-                                task={item}
-                                mediaItems={taskMedia[item.id]}
-                                onPress={() => {
-                                    if (isMindMap) {
-                                        router.push({ pathname: "/tools/mind-map", params: { taskId: item.id } });
-                                    } else if (isFlashcard) {
-                                        router.push({ pathname: "/tools/flashcards", params: { taskId: item.id } });
-                                    } else {
-                                        router.push(`/task/${item.id}`);
-                                    }
-                                }}
-                                onDelete={() => handleDeleteTask(item)}
-                                onMediaPress={(media) => {
-                                    if (media.type === 'image' || media.type === 'latex' || media.type === 'pdf') {
-                                        const mediaItems = taskMedia[item.id] || [];
-                                        const index = mediaItems.indexOf(media);
-                                        router.push({
-                                            pathname: "/media-preview",
-                                            params: { 
-                                                uri: media.uri, 
-                                                type: media.type,
-                                                thumbnailUri: media.thumbnailUri || (media as any).thumbnail_uri,
-                                                mediaItems: JSON.stringify(mediaItems.map(m => ({ 
-                                                    uri: m.uri, 
-                                                    type: m.type,
-                                                thumbnailUri: m.thumbnailUri || (m as any).thumbnail_uri
-                                            }))),
-                                            index: index >= 0 ? index.toString() : "0"
-                                        }
-                                    });
-                                }
-                            }}
-                                onToggleComplete={async (t) => {
-                                    if (t.completed === 1) {
-                                        await uncompleteTask(t.id);
-                                    } else {
-                                        await completeTask(t.id);
-                                    }
-                                    await loadData();
-                                }}
-                        />
-                      </View>
-                    );
-                }}
             />
     </View>
 
