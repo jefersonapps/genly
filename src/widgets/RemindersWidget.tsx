@@ -1,6 +1,7 @@
 'use no memo';
 /** @jsxImportSource react */
 import React from 'react';
+import { WidgetIcon } from './WidgetIcon';
 import { createWidgetLink } from './links';
 import { FlexWidget, ListWidget, TextWidget } from 'react-native-android-widget';
 import type { WidgetTask } from './types';
@@ -39,10 +40,7 @@ export function RemindersWidget({ tasks, colors }: RemindersWidgetProps) {
           paddingBottom: 12,
         }}
       >
-        <TextWidget
-          text="🔔"
-          style={{ fontSize: 18, marginRight: 8 }}
-        />
+        <WidgetIcon reminder color={colors.text} />
         <FlexWidget style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
           <TextWidget
             text="Lembretes"

@@ -13,6 +13,8 @@ import {
   Clock,
   DollarSign,
   FileStack,
+  FileText,
+  Pencil,
   Grid3X3,
   ImageDown,
   Info,
@@ -58,10 +60,10 @@ const TOOL_ITEMS = [
 ];
 
 const AI_MODES = [
-  { label: "Corrigir", emoji: "✏️" },
-  { label: "Formatar", emoji: "📝" },
-  { label: "Mapa Mental via IA", emoji: "🧠" },
-  { label: "Flashcards via IA", emoji: "🃏" },
+  { label: "Corrigir", icon: Pencil },
+  { label: "Formatar", icon: FileText },
+  { label: "Mapa Mental via IA", icon: Network },
+  { label: "Flashcards via IA", icon: Library },
 ];
 
 const WIDGET_IMAGES = [
@@ -95,7 +97,7 @@ function SlideNotes({ isDark, primaryColor, width }: { isDark: boolean; primaryC
             <View className="flex-row items-start justify-between">
               <View className="flex-1">
                 <Text className="font-sans-semibold text-base text-on-surface" numberOfLines={1}>
-                  📋 Lista de Compras
+                  Lista de Compras
                 </Text>
                 <Text className="mt-1 font-sans text-sm text-on-surface-secondary" numberOfLines={2}>
                   Arroz, Feijão, Macarrão, Leite, Ovos, Pão, Café...
@@ -121,7 +123,7 @@ function SlideNotes({ isDark, primaryColor, width }: { isDark: boolean; primaryC
             <View className="flex-row items-start justify-between">
               <View className="flex-1">
                 <Text className="font-sans-semibold text-base text-on-surface" numberOfLines={1}>
-                  📐 Caderno de Física
+                  Caderno de Física
                 </Text>
                 <View className="mt-3 p-3 rounded-2xl"
                     style={{
@@ -287,7 +289,7 @@ function SlideAI({ isDark, primaryColor, width }: { isDark: boolean; primaryColo
                 borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
               }}
             >
-              <Text className="text-xl mr-3">{mode.emoji}</Text>
+              <mode.icon size={22} color={isDark ? "#fafafa" : "#18181b"} style={{ marginRight: 12 }} />
               <Text className="font-sans-semibold text-sm" style={{ color: isDark ? "#FAFAFA" : "#18181B" }}>{mode.label}</Text>
             </View>
           ))}

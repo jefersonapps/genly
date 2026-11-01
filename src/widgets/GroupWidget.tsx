@@ -1,6 +1,7 @@
 'use no memo';
 /** @jsxImportSource react */
 import React from 'react';
+import { WidgetIcon } from './WidgetIcon';
 import { createWidgetLink } from './links';
 import type { ColorProp } from 'react-native-android-widget';
 import { FlexWidget, ListWidget, TextWidget } from 'react-native-android-widget';
@@ -61,10 +62,7 @@ export function GroupWidget({ group, tasks, colors }: GroupWidgetProps) {
           paddingBottom: 12,
         }}
       >
-        <TextWidget
-          text={group.emoji || '📁'}
-          style={{ fontSize: 18, marginRight: 8 }}
-        />
+        <WidgetIcon value={group.emoji} color={colors.text} />
         <FlexWidget style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
           <TextWidget
             text={group.name}

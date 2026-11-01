@@ -1,3 +1,4 @@
+import { GroupIcon } from "@/components/ui/GroupIcon";
 import { SettingsRow } from '@/components/settings/SettingsRow';
 import { Divider } from '@/components/ui/Divider';
 import { TabHeader } from '@/components/ui/TabHeader';
@@ -123,7 +124,7 @@ function WidgetConfigurationContent({ widgetInfo, renderWidget, setResult }: any
                 <SettingsRow
                   icon={
                     <View className="h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${group.color || primaryColor}25` }}>
-                      <Text style={{ fontSize: 20 }}>{group.emoji || '📁'}</Text>
+                      <GroupIcon value={group.emoji} size={20} color={isDark ? "#fafafa" : "#18181b"} />
                     </View>
                   }
                   title={group.name}

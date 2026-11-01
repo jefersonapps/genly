@@ -15,9 +15,7 @@ export const ScreenProvider = ({ children }: { children: React.ReactNode }) => {
   const [screenNode, setScreenNode] = useState<React.ComponentRef<typeof View> | null>(null);
 
   const setScreenRef = useCallback((view: React.ComponentRef<typeof View> | null) => {
-    if (view) {
-      setScreenNode(view);
-    }
+    setScreenNode(view);
   }, []);
 
   const screenRef = useMemo(() => ({ current: screenNode }), [screenNode]);

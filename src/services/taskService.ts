@@ -20,12 +20,12 @@ export async function ensureDefaultGroups(): Promise<void> {
   
   const mapsGroup = allGroups.find(g => g.name === "Mapas Mentais");
   if (!mapsGroup) {
-    await createGroup("Mapas Mentais", "🧠", "#8B5CF6");
+    await createGroup("Mapas Mentais", "brain", "#8B5CF6");
   }
   
   const flashcardsGroup = allGroups.find(g => g.name === "Flashcards");
   if (!flashcardsGroup) {
-    await createGroup("Flashcards", "🗂️", "#14B8A6");
+    await createGroup("Flashcards", "cards", "#14B8A6");
   }
 }
 
@@ -36,7 +36,7 @@ export async function getGroupById(id: number): Promise<Group | undefined> {
 
 export async function createGroup(
   name: string,
-  emoji: string = "📁",
+  emoji: string = "folder",
   color: string = "#6366f1"
 ): Promise<Group> {
   const now = new Date().toISOString();

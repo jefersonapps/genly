@@ -4,7 +4,7 @@ import { useTheme } from "@/providers/ThemeProvider";
 import { shadows } from "@/theme/shadows";
 import { withOpacity } from "@/utils/colors";
 import { htmlToMarkdown, stripMarkdown, truncateText } from "@/utils/markdown";
-import { AlertCircle, Bell, Calendar, Check, CheckCircle2, ChevronDown, Circle, Clock, Paperclip, Trash2 } from "lucide-react-native";
+import { AlertCircle, Brain, Bell, Calendar, Check, CheckCircle2, ChevronDown, Circle, Clock, Paperclip, Trash2 } from "lucide-react-native";
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { EnrichedMarkdownText } from "react-native-enriched-markdown";
@@ -335,7 +335,7 @@ export function TaskCard({ task, mediaItems = [], onPress, onDelete, onMediaPres
                                     borderColor: isDark ? 'rgba(168, 85, 247, 0.3)' : 'rgba(168, 85, 247, 0.2)'
                                 }}
                             >
-                                <Text className="text-xs mr-2">🧠</Text>
+                                <Brain size={14} color={isDark ? "#a1a1aa" : "#71717a"} style={{ marginRight: 8 }} />
                                 <Text className="font-sans-bold text-[10px] uppercase tracking-wider" style={{ color: "#A855F7" }}>
                                     Mapa Mental
                                 </Text>

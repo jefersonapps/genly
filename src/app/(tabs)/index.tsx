@@ -1,3 +1,5 @@
+import { ScreenContext } from "@/providers/ScreenProvider";
+import { GroupIcon } from "@/components/ui/GroupIcon";
 import { TaskCard } from "@/components/task/TaskCard";
 import { Avatar } from "@/components/ui/Avatar";
 import BottomSheet from "@/components/ui/BottomSheet";
@@ -10,7 +12,6 @@ import { BLUR_CONFIG } from "@/config/blurConfig";
 import type { Group, Media, Task } from "@/db/schema";
 import { useHeaderSnap } from "@/hooks/useHeaderSnap";
 import { useDialog } from "@/providers/DialogProvider";
-import { ScreenContext } from "@/providers/ScreenProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { getSetting } from "@/services/settingsService";
 import { completeTask, deleteGroup, deleteTask, getAllGroups, getAllTasks, getMediaForTask, uncompleteTask } from "@/services/taskService";
@@ -21,8 +22,8 @@ import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { FlashList } from "@shopify/flash-list";
 import { BlurView } from "expo-blur";
 import { useFocusEffect, useRouter } from "expo-router";
-import { Bell, CalendarDays, Clock, Edit3, FolderPlus, Plus, Search, Trash2 } from "lucide-react-native";
-import React, { useCallback, useContext, useEffect, useLayoutEffect, useState } from "react";
+import { Bell, Brain, CalendarDays, Clock, Edit3, FileText, FolderPlus, Layers, Lightbulb, Plus, Search, Trash2 } from "lucide-react-native";
+import React, { useCallback, useContext, useEffect, useState } from "react";
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, {
     Extrapolation,
@@ -49,6 +50,7 @@ const AnimatedFlashList = Animated.createAnimatedComponent(FlashList<Task>);
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const { isReady } = useContext(ScreenContext);
   const router = useRouter();
   const { resolvedTheme, primaryColor } = useTheme();
   const isDark = resolvedTheme === 'dark';
@@ -66,7 +68,6 @@ export default function HomeScreen() {
   const [selectedLongPressGroup, setSelectedLongPressGroup] = useState<Group | null>(null);
   const bottomSheetModalRef = React.useRef<BottomSheetModal>(null);
   const snapPoints = React.useMemo(() => ["35%"], []);
-  const containerRef = React.useRef<React.ComponentRef<typeof View>>(null);
 
   // Animation values for the "fan" effect
   const fanProgress = useSharedValue(0);
@@ -272,26 +273,9 @@ export default function HomeScreen() {
     }
   );
 
-  const { screenRef, setScreenRef, isReady } = useContext(ScreenContext);
-
-    // Ref for BlurTargetView - No longer needed for button, but keeping if cards need it later or removing if unused
-    // The cards currently don't use blurTarget in the code I saw (commented out). 
-    // If I remove BlurTargetView wrapper, standard BlurViews might behave differently on Android.
-    // However, the new button doesn't need it. 
-    // Let's remove the wrapper to simplify if it was only for the button.
-    // But wait, the previous code wrapped the whole scrollview. 
-    // I will remove the wrapper and the ref.
-
-    useLayoutEffect(() => {
-        if (containerRef.current) {
-            setScreenRef(containerRef.current);
-        }
-    }, [setScreenRef]);
-
   return (
     <View className="flex-1 bg-surface">
       <View 
-        ref={containerRef} 
         style={{ 
           flex: 1, 
           backgroundColor: isDark ? '#0a0a0a' : '#ffffff' 
@@ -309,7 +293,7 @@ export default function HomeScreen() {
                 onLayout={(e) => { layoutHeight.value = e.nativeEvent.layout.height; }}
                 contentContainerStyle={{ 
                     paddingTop: 0, 
-                    paddingBottom: 150 
+                    paddingBottom: 140 + insets.bottom
                 }}
                 refreshControl={
                     <RefreshControl
@@ -498,7 +482,7 @@ export default function HomeScreen() {
                                                     blurReductionFactor={BLUR_CONFIG.cards.blurReductionFactor}
                                                     style={{ flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center' }}
                                                 >
-                                                    <Text className="text-4xl">{group.emoji || '📁'}</Text>
+                                                    <GroupIcon value={group.emoji} size={40} color="#ffffff" />
                                                 </BlurView>
                                             </Animated.View>
                                         </View>
@@ -554,12 +538,12 @@ export default function HomeScreen() {
                     </View>
 
                     {/* Section Header */}
-                    <View className="mt-4 px-6 flex-row items-center justify-between mb-4">
+                    <View className="mt-6 px-6 flex-row items-center justify-between mb-2">
                         <View>
                             <Text className="font-sans-bold text-2xl text-on-surface">
                                 {selectedGroupId ? groups.find(g => g.id === selectedGroupId)?.name : "Recentes"}
                             </Text>
-                            <Text className="font-sans text-sm text-on-surface-secondary">{filteredTasks.length} Notas</Text>
+                            {filteredTasks.length > 0 && <Text className="font-sans text-sm text-on-surface-secondary">{filteredTasks.length} Notas</Text>}
                         </View>
                         {!selectedGroupId && (
                           <Button variant="icon" onPress={() => router.push("/calendar")}>
@@ -581,16 +565,17 @@ export default function HomeScreen() {
                             if (isMindMap) {
                                 return (
                                     <EmptyState
-                                        icon={<View className="w-20 h-20 rounded-full items-center justify-center bg-purple-500/20"><Text className="text-4xl">🧠</Text></View>}
+                                        compact
+                                        icon={<Brain size={40} color={isDark ? "#a1a1aa" : "#71717a"} />}
                                         title="Nenhum mapa mental"
                                         description="Comece a organizar suas ideias agora mesmo."
                                         action={
                                             <View className="gap-3 w-full mt-4 flex-col">
-                                                <Button variant="ghost" className="bg-surface-secondary border border-border w-full" onPress={() => router.push({ pathname: "/tools/mind-map", params: { groupId: currentGroup.id } })}>
-                                                    <Button.Text>🧠   Em Branco</Button.Text>
+                                                <Button variant="ghost" className="w-full" onPress={() => router.push({ pathname: "/tools/mind-map", params: { groupId: currentGroup.id } })}>
+                                                    <Button.Icon icon={Brain} size={18} /><Button.Text>Em branco</Button.Text>
                                                 </Button>
-                                                <Button variant="ghost" className="bg-surface-secondary border border-border w-full" onPress={() => router.push({ pathname: "/tools/mind-map", params: { groupId: currentGroup.id, template: "brainstorming" } })}>
-                                                    <Button.Text>💡   Brainstorming</Button.Text>
+                                                <Button variant="ghost" className="w-full" onPress={() => router.push({ pathname: "/tools/mind-map", params: { groupId: currentGroup.id, template: "brainstorming" } })}>
+                                                    <Button.Icon icon={Lightbulb} size={18} /><Button.Text>Brainstorming</Button.Text>
                                                 </Button>
                                             </View>
                                         }
@@ -601,7 +586,8 @@ export default function HomeScreen() {
                             if (isFlashcard) {
                                  return (
                                     <EmptyState
-                                        icon={<View className="w-20 h-20 rounded-full items-center justify-center bg-blue-500/20"><Text className="text-4xl">🗂️</Text></View>}
+                                        compact
+                                        icon={<Layers size={40} color={isDark ? "#a1a1aa" : "#71717a"} />}
                                         title="Nenhum Baralho"
                                         description="Crie seu primeiro deck de estudos para reter mais informações."
                                         action={
@@ -618,16 +604,17 @@ export default function HomeScreen() {
 
                             return (
                                 <EmptyState
-                                    icon={<View className="w-20 h-20 rounded-full items-center justify-center" style={{ backgroundColor: currentGroup?.color ? `${currentGroup.color}20` : primaryColor + '20' }}><Text className="text-4xl">{currentGroup?.emoji || '📝'}</Text></View>}
-                                    title="Nenhuma nota encontrada"
-                                    description="Crie sua primeira nota ou lembrete neste grupo."
+                                        compact
+                                    icon={<FileText size={40} color={isDark ? "#a1a1aa" : "#71717a"} strokeWidth={1.5} />}
+                                    title={searchQuery ? "Nenhuma nota encontrada" : "Suas ideias começam aqui"}
+                                    description={searchQuery ? "Tente buscar por outro termo." : "Guarde uma ideia, organize seus planos ou crie um lembrete."}
                                     action={
-                                        <View className="gap-3 w-full mt-4 flex-col">
+                                        <View className="gap-3 w-full max-w-sm self-center">
                                             <Button className="w-full" onPress={() => router.push({ pathname: "/task/editor", params: { groupId: currentGroup?.id } })}>
                                                 <Button.Icon icon={Plus} size={20} />
-                                                <Button.Text className="ml-2">Nova Nota Vazia</Button.Text>
+                                                <Button.Text className="ml-2">Criar nota</Button.Text>
                                             </Button>
-                                            <Button variant="ghost" className="bg-surface-secondary border border-border w-full" 
+                                            <Button variant="ghost" className="w-full"
                                                 onPress={() => {
                                                     const tomorrow = new Date();
                                                     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -641,7 +628,7 @@ export default function HomeScreen() {
                                                 }}
                                             >
                                                 <Button.Icon icon={Clock} size={20} />
-                                                <Button.Text className="ml-2">Lembrete para Amanhã</Button.Text>
+                                                <Button.Text className="ml-2">Lembrar amanhã</Button.Text>
                                             </Button>
                                         </View>
                                     }
@@ -731,7 +718,7 @@ export default function HomeScreen() {
                 className="h-10 w-8 rounded-lg items-center justify-center z-10 border border-white/20 overflow-hidden"
                 style={{ backgroundColor: selectedLongPressGroup?.color ? `${selectedLongPressGroup.color}cc` : '#6366f1cc' }}
               >
-                <Text className="text-xl">{selectedLongPressGroup?.emoji || '📁'}</Text>
+                <GroupIcon value={selectedLongPressGroup?.emoji} size={24} color={isDark ? "#fafafa" : "#18181b"} />
               </BlurView>
             </View>
             <Text className="font-sans-bold text-xl text-on-surface flex-1" numberOfLines={1}>

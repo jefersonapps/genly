@@ -1199,14 +1199,14 @@ export default function MindMapScreen() {
             {taskId ? (
               <>
                 <BottomSheet.Item
-                  icon={<Text style={{ fontSize: 18 }}>🧠</Text>}
+                  icon={<Network size={18} color={primaryColor} />}
                   iconBackgroundColor="rgba(139,92,246,0.15)"
                   title="Atualizar mapa existente"
                   onPress={() => handleSaveToDatabase(false)}
                 />
                 <BottomSheet.Separator />
                 <BottomSheet.Item
-                  icon={<Text style={{ fontSize: 18 }}>🧠</Text>}
+                  icon={<Network size={18} color={primaryColor} />}
                   iconBackgroundColor="rgba(139,92,246,0.15)"
                   title="Salvar como novo Mapa"
                   onPress={() => handleSaveToDatabase(true)}
@@ -1214,7 +1214,7 @@ export default function MindMapScreen() {
               </>
             ) : (
               <BottomSheet.Item
-                icon={<Text style={{ fontSize: 18 }}>🧠</Text>}
+                icon={<Network size={18} color={primaryColor} />}
                 iconBackgroundColor="rgba(139,92,246,0.15)"
                 title="Salvar no grupo Mapas Mentais"
                 onPress={() => handleSaveToDatabase(false)}

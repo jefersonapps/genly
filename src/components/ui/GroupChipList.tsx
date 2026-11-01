@@ -1,3 +1,4 @@
+import { GroupIcon } from "@/components/ui/GroupIcon";
 import type { Group } from '@/db/schema';
 import { useTheme } from '@/providers/ThemeProvider';
 import React from 'react';
@@ -103,7 +104,7 @@ export const GroupChipList: React.FC<GroupChipListProps> = ({
               { backgroundColor: g.color || primaryColor },
             ]}
           >
-            <Text style={{ fontSize: 9 }}>{g.emoji}</Text>
+            <GroupIcon value={g.emoji} size={12} color={"#ffffff"} />
           </View>
           <Text
             className="font-sans-semibold text-[13px]"

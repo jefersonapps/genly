@@ -1,3 +1,4 @@
+import { GROUP_ICONS, GroupIcon, resolveGroupIcon } from "@/components/ui/GroupIcon";
 import { TaskCard } from "@/components/task/TaskCard";
 import { Button } from "@/components/ui/Button";
 import { ColorPicker } from "@/components/ui/ColorPicker";
@@ -7,19 +8,16 @@ import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { bulkUpdateTasksGroup, createGroup, getAllTasks, getGroupById, getGroupByName, updateGroup } from "@/services/taskService";
 import { shadows } from "@/theme/shadows";
-import { adjustColor } from "@/utils/colors";
 import clsx from "clsx";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
     ArrowLeft,
     Check,
-    Plus,
-    Search,
-    X
+    Search
 } from "lucide-react-native";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-    FlatList, Platform,
+    FlatList,
     Text,
     TextInput,
     TouchableOpacity,
@@ -27,7 +25,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const PRESET_EMOJIS = ["📁", "🏠", "💼", "📚", "🎨", "🎮", "🌟", "🔥", "💡"];
+
 const PRESET_COLORS = ["#6366f1", "#ec4899", "#f59e0b", "#10b981", "#3b82f6", "#ef4444", "#8b5cf6", "#71717a"];
 
 export default function GroupEditorScreen() {
@@ -40,11 +38,7 @@ export default function GroupEditorScreen() {
     const isEditing = !!id;
 
     const [name, setName] = useState("");
-    const [emoji, setEmoji] = useState("📁");
-    const [customEmojis, setCustomEmojis] = useState<string[]>([]);
-    const [isEmojiModalVisible, setIsEmojiModalVisible] = useState(false);
-    const [newEmojiInput, setNewEmojiInput] = useState("");
-    const emojiInputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
+    const [emoji, setEmoji] = useState("folder");
     const [color, setColor] = useState("#6366f1");
     const [tasks, setTasks] = useState<Task[]>([]);
     const [selectedTasks, setSelectedTasks] = useState<Set<number>>(new Set());
@@ -63,7 +57,7 @@ export default function GroupEditorScreen() {
             const group = await getGroupById(Number(id));
             if (group) {
                 setName(group.name);
-                setEmoji(group.emoji || "📁");
+                setEmoji(resolveGroupIcon(group.emoji));
                 setColor(group.color || "#6366f1");
                 
                 const inGroup = allTasks
@@ -134,28 +128,6 @@ export default function GroupEditorScreen() {
         t.content?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const isEmoji = (str: string) => {
-        const char = Array.from(str)[0];
-        if (!char) return false;
-        // Check if it's an emoji or symbolic character
-        // Using a more compatible regex property for emojis
-        return /\p{Emoji_Presentation}|\p{Emoji_Component}|\p{Extended_Pictographic}/u.test(char);
-    };
-
-    const getContrastColor = (hex: string) => {
-        // Simple brightness calculation (YIQ)
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-        // If background is light, darken text. If dark, lighten text.
-        return brightness > 128 ? adjustColor(hex, -120) : adjustColor(hex, 120);
-    };
-
-    const iconStyle = {
-        color: !isEmoji(emoji) ? getContrastColor(color) : undefined
-    };
-
     return (
         <View className="flex-1 bg-surface" style={{ paddingTop: insets.top }}>
             {/* Header */}
@@ -192,7 +164,7 @@ export default function GroupEditorScreen() {
                                 className="w-24 h-24 rounded-[2rem] items-center justify-center border-4 border-white/20"
                                 style={[{ backgroundColor: color }, shadows.lg]}
                              >
-                                <Text className="text-5xl" style={iconStyle}>{emoji}</Text>
+                                <GroupIcon value={emoji} size={48} color="#ffffff" />
                              </View>
                              <View className="flex-1">
                                 <Text className="font-sans text-xs text-on-surface-secondary uppercase tracking-[0.2em] mb-2 px-1">Nome do Grupo</Text>
@@ -221,10 +193,13 @@ export default function GroupEditorScreen() {
                         {/* Emoji Selection */}
                         <Text className="font-sans text-xs text-on-surface-secondary uppercase tracking-[0.2em] mb-4 px-1">Ícone</Text>
                         <View className="flex-row flex-wrap gap-3 mb-8 justify-center">
-                            {[...PRESET_EMOJIS, ...customEmojis].map(e => (
+                            {GROUP_ICONS.map(e => (
                                 <TouchableOpacity 
                                     activeOpacity={0.8}
                                     key={e}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Ícone ${e}`}
+                                    accessibilityState={{ selected: emoji === e }}
                                     onPress={() => setEmoji(e)}
                                     className={clsx(
                                         "w-12 h-12 items-center justify-center rounded-2xl border-2",
@@ -232,17 +207,9 @@ export default function GroupEditorScreen() {
                                     )}
                                     style={emoji === e ? { borderColor: primaryColor } : {}}
                                 >
-                                    <Text className="text-2xl" style={!isEmoji(e) ? { color: isDark ? '#FFF' : '#000' } : {}}>{e}</Text>
+                                    <GroupIcon value={e} size={24} color={emoji === e ? primaryColor : (isDark ? "#fafafa" : "#18181b")} />
                                 </TouchableOpacity>
                             ))}
-                            
-                            <TouchableOpacity 
-                                activeOpacity={0.8}
-                                onPress={() => setIsEmojiModalVisible(true)}
-                                className="w-12 h-12 items-center justify-center rounded-2xl border-2 border-dashed border-on-surface/20 bg-surface-secondary"
-                            >
-                                <Plus size={24} color={isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)"} />
-                            </TouchableOpacity>
                         </View>
 
                         {/* Color Selection */}
@@ -293,84 +260,6 @@ export default function GroupEditorScreen() {
                 )}
             />
 
-            {/* Custom Emoji Bottom Sheet Overlay */}
-            {isEmojiModalVisible && (
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    className="absolute inset-0 justify-end z-[100]"
-                    style={[{ backgroundColor: 'rgba(0,0,0,0.6)' }]}
-                >
-                    <TouchableOpacity 
-                        style={{ flex: 1 }} 
-                        activeOpacity={1} 
-                        onPress={() => setIsEmojiModalVisible(false)} 
-                    />
-                    <View 
-                        className="p-6 gap-4 rounded-t-3xl" 
-                        style={{ backgroundColor: isDark ? '#18181b' : '#f4f4f5', paddingBottom: Math.max(insets.bottom, 24) }}
-                    >
-                        <View className="flex-row items-center justify-between mb-2">
-                            <Text className="font-sans-bold text-xl text-on-surface">Adicionar Ícone</Text>
-                            <TouchableOpacity onPress={() => setIsEmojiModalVisible(false)} className="p-2 -mr-2">
-                                <X size={24} color={isDark ? '#FFF' : '#000'} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <Text className="font-sans text-sm text-on-surface-secondary mb-1">
-                            Digite ou cole um emoji, letra ou símbolo do teclado
-                        </Text>
-
-                        <View 
-                            className="bg-surface rounded-2xl p-4 my-2 items-center justify-center border"
-                            style={{ 
-                                backgroundColor: isDark ? '#27272a' : '#FFFFFF',
-                                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' 
-                            }}
-                        >
-                            <TextInput
-                                ref={emojiInputRef}
-                                value={newEmojiInput}
-                                onChangeText={(text) => {
-                                    if (text.length > 0) {
-                                        const chars = Array.from(text);
-                                        setNewEmojiInput(chars[chars.length - 1]);
-                                    } else {
-                                        setNewEmojiInput("");
-                                    }
-                                }}
-                                placeholder="😀"
-                                placeholderTextColor={isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)"}
-                                className="text-5xl text-center w-full"
-                                style={{ 
-                                    color: isDark ? '#FAFAFA' : '#18181B',
-                                    height: 64,
-                                    paddingVertical: 0,
-                                    includeFontPadding: false,
-                                    textAlignVertical: 'center'
-                                }}
-                                autoFocus
-                            />
-                        </View>
-
-                        <Button
-                            rounded="full"
-                            size="lg"
-                            className="mt-2"
-                            onPress={() => {
-                                if (newEmojiInput.trim()) {
-                                    setCustomEmojis(prev => [...prev, newEmojiInput.trim()]);
-                                    setEmoji(newEmojiInput.trim());
-                                    setNewEmojiInput("");
-                                    setIsEmojiModalVisible(false);
-                                }
-                            }}
-                            disabled={!newEmojiInput.trim()}
-                        >
-                            <Button.Text>Confirmar</Button.Text>
-                        </Button>
-                    </View>
-                </KeyboardAvoidingView>
-            )}
         </View>
     );
 }
