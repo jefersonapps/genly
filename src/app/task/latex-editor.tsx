@@ -14,7 +14,7 @@ import { addMedia, createTask } from "@/services/taskService";
 import { withOpacity } from "@/utils/colors";
 import { DEFAULT_LATEX_STYLE, LatexStyle } from "@/utils/latexCapture";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
-import * as MediaLibrary from "expo-media-library";
+import * as MediaLibrary from "expo-media-library/legacy";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ExpoSharing from "expo-sharing";
 import { ArrowLeft, Download, FileText, Palette, Share2 } from "lucide-react-native";

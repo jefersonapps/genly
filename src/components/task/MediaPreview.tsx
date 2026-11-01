@@ -39,7 +39,7 @@ export function MediaPreview({
         return (
           <Image
             source={{ uri: media.uri }}
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
             contentFit="cover"
           />
         );
@@ -49,7 +49,7 @@ export function MediaPreview({
           return (
             <Image
               source={{ uri: pdfThumb }}
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
               contentFit="contain"
             />
           );
@@ -66,7 +66,7 @@ export function MediaPreview({
             {isLocalUri ? (
               <Image
                 source={{ uri: media.uri }}
-                style={StyleSheet.absoluteFillObject}
+                style={StyleSheet.absoluteFill}
                 contentFit="contain"
               />
             ) : (

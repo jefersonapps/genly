@@ -1,7 +1,7 @@
 import { AnimatedGlowButton } from "@/components/ui/AnimatedGlowButton";
 import { useTheme } from "@/providers/ThemeProvider";
 import { shadows } from "@/theme/shadows";
-import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
+import type { BottomTabBarProps } from "expo-router/tabs";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import {
@@ -23,7 +23,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { TabButton } from "./TabButton";
 
-export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+export function CustomTabBar({ state, navigateToTab }: BottomTabBarProps) {
   const { primaryColor, resolvedTheme } = useTheme();
   const router = useRouter();
   const isDark = resolvedTheme === "dark";
@@ -162,7 +162,8 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                 isFocused={isFocused}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  navigation.navigate(item.routeName!);
+                  const route = state.routes.find((route) => route.name === item.routeName);
+                  if (route) navigateToTab(route.key);
                 }}
                 noBackground
               />

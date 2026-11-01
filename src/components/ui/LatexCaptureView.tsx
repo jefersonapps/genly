@@ -36,7 +36,7 @@ interface LatexCaptureViewProps {
  * Mount this component in the editor and set `captureRequest` to trigger a capture.
  */
 export function LatexCaptureView({ captureRequest, onCaptureComplete, onCaptureError }: LatexCaptureViewProps) {
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<WebView<unknown>>(null);
   const [html, setHtml] = useState<string | null>(null);
 
   // When captureRequest changes, build HTML and render
@@ -104,7 +104,7 @@ export function LatexCaptureView({ captureRequest, onCaptureComplete, onCaptureE
       className="absolute -left-[9999px] -top-[9999px] w-[600px] h-[400px] opacity-0" 
       pointerEvents="none"
     >
-      <WebView
+      <WebView<unknown>
         ref={webViewRef}
         source={{ html }}
         originWhitelist={["*"]}

@@ -175,7 +175,7 @@ export async function exportToImage(
         linePaint.setStrokeWidth(1);
         linePaint.setStyle(1); // Stroke
         
-        const path = Skia.Path.Make();
+        const path = Skia.PathBuilder.Make();
         for (let y = firstLineY; y <= endY; y += BASE_SIZE) {
           path.moveTo(startX, y);
           path.lineTo(endX, y);
@@ -186,7 +186,7 @@ export async function exportToImage(
             path.lineTo(x, endY);
           }
         }
-        canvas.drawPath(path, linePaint);
+        canvas.drawPath(path.detach(), linePaint);
       } else if (bgPattern === 'dots') {
         const dotPaint = Skia.Paint();
         dotPaint.setColor(Skia.Color(patternColorStrong));
@@ -212,7 +212,7 @@ export async function exportToImage(
     // Skia.StrokeCap.Round = 1
     edgePaint.setStrokeCap(1);
 
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     for (const e of edges) {
       path.moveTo(e.fromX, e.fromY);
       if (e.direction === 'top' || e.direction === 'bottom') {
@@ -232,7 +232,7 @@ export async function exportToImage(
         );
       }
     }
-    canvas.drawPath(path, edgePaint);
+    canvas.drawPath(path.detach(), edgePaint);
 
     // Nodes
     const fillP = Skia.Paint(); fillP.setStyle(0); fillP.setAntiAlias(true);
@@ -353,7 +353,7 @@ export async function exportToImage(
     const pngBytes = image.encodeToBase64(ImageFormat.PNG, 100);
     
     const file = new File(Paths.cache, `MindMapExport-${Date.now()}.png`);
-    file.write(pngBytes, { encoding: 'base64' });
+    await file.write(pngBytes, { encoding: 'base64' });
     
     return file.uri;
 

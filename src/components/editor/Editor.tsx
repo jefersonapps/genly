@@ -35,8 +35,8 @@ import {
 import { ScrollView } from "react-native-gesture-handler";
 
 import { useKeyboard } from "@/hooks/useKeyboard";
-import type { EnrichedTextInputInstance } from "react-native-enriched";
-import { EnrichedTextInput } from "react-native-enriched";
+import type { EnrichedTextInputInstance } from "react-native-enriched-html";
+import { EnrichedTextInput } from "react-native-enriched-html";
 
 // ─── Helpers ─────────────────────────────────────
 function wrapHtml(html: string): string {

@@ -66,7 +66,7 @@ export default function HomeScreen() {
   const [selectedLongPressGroup, setSelectedLongPressGroup] = useState<Group | null>(null);
   const bottomSheetModalRef = React.useRef<BottomSheetModal>(null);
   const snapPoints = React.useMemo(() => ["35%"], []);
-  const containerRef = React.useRef<View>(null);
+  const containerRef = React.useRef<React.ComponentRef<typeof View>>(null);
 
   // Animation values for the "fan" effect
   const fanProgress = useSharedValue(0);
@@ -74,7 +74,7 @@ export default function HomeScreen() {
   const scrollViewRef = React.useRef<any>(null);
   const contentHeight = useSharedValue(0);
   const layoutHeight = useSharedValue(0);
-  const groupsScrollRef = React.useRef<ScrollView>(null);
+  const groupsScrollRef = React.useRef<React.ComponentRef<typeof ScrollView>>(null);
   const { width: screenWidth } = useWindowDimensions();
   
   // Store exact native coordinates to perfectly scroll horizontally on all devices

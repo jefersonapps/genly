@@ -6,7 +6,7 @@ import { useTheme } from "@/providers/ThemeProvider";
 import { removeBackground } from "@jacobjmc/react-native-background-remover";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import * as MediaLibrary from "expo-media-library";
+import * as MediaLibrary from "expo-media-library/legacy";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import {
@@ -69,7 +69,7 @@ export default function BackgroundRemoverScreen() {
     type: "info"
   });
   
-  const viewShotRef = useRef<ViewShot>(null);
+  const viewShotRef = useRef<React.ComponentRef<typeof ViewShot>>(null);
 
   useEffect(() => {
     if (params.sharedUri && typeof params.sharedUri === "string") {

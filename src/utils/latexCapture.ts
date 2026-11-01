@@ -307,6 +307,6 @@ export async function saveLatexPng(base64: string): Promise<string> {
     bytes[i] = binaryString.charCodeAt(i);
   }
   
-  file.write(bytes);
+  await file.write(bytes);
   return file.uri;
 }

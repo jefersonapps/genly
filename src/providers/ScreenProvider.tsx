@@ -2,8 +2,8 @@ import React, { createContext, useCallback, useMemo, useState } from "react";
 import { View } from "react-native";
 
 export const ScreenContext = createContext<{
-  screenRef: React.RefObject<View | null>;
-  setScreenRef: (view: View | null) => void;
+  screenRef: React.RefObject<React.ComponentRef<typeof View> | null>;
+  setScreenRef: (view: React.ComponentRef<typeof View> | null) => void;
   isReady: boolean;
 }>({ 
   screenRef: { current: null }, 
@@ -12,9 +12,9 @@ export const ScreenContext = createContext<{
 });
 
 export const ScreenProvider = ({ children }: { children: React.ReactNode }) => {
-  const [screenNode, setScreenNode] = useState<View | null>(null);
+  const [screenNode, setScreenNode] = useState<React.ComponentRef<typeof View> | null>(null);
 
-  const setScreenRef = useCallback((view: View | null) => {
+  const setScreenRef = useCallback((view: React.ComponentRef<typeof View> | null) => {
     if (view) {
       setScreenNode(view);
     }

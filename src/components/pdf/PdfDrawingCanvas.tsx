@@ -73,7 +73,7 @@ export function PdfDrawingCanvas({
           const path = Skia.Path.MakeFromSVGString(ann.pathData);
           if (!path) return null;
           // Ultra-generous world buffer (80 units) for perfect hit detection
-          const stroked = path.stroke({ width: (ann.strokeWidth || 3) + 80, cap: 1, join: 1 });
+          const stroked = Skia.Path.Stroke(path, { width: (ann.strokeWidth || 3) + 80, cap: 1, join: 1 });
           return stroked ? { id: ann.id, hitPath: stroked } : null;
         } catch (e) {
           return null;
@@ -143,9 +143,9 @@ export function PdfDrawingCanvas({
         prevEraserPoint.value = { x: e.x, y: e.y };
         erasedIdsInGesture.value = [];
       } else if (activeTool === 'brush') {
-        const path = Skia.Path.Make();
+        const path = Skia.PathBuilder.Make();
         path.moveTo(e.x, e.y);
-        activePath.value = path;
+        activePath.value = path.detach();
         prevPoint.value = { x: e.x, y: e.y };
       }
     })
@@ -202,11 +202,11 @@ export function PdfDrawingCanvas({
         }
         prevEraserPoint.value = { x: e.x, y: e.y };
       } else if (activeTool === 'brush' && activePath.value && prevPoint.value) {
-        const path = activePath.value.copy();
+        const path = Skia.PathBuilder.MakeFromPath(activePath.value);
         const midX = (prevPoint.value.x + e.x) / 2;
         const midY = (prevPoint.value.y + e.y) / 2;
         path.quadTo(prevPoint.value.x, prevPoint.value.y, midX, midY);
-        activePath.value = path;
+        activePath.value = path.detach();
         prevPoint.value = { x: e.x, y: e.y };
       }
     })
@@ -216,10 +216,10 @@ export function PdfDrawingCanvas({
       prevEraserPoint.value = null;
       
       if (activeTool === 'brush' && activePath.value) {
-        const path = activePath.value.copy();
+        const path = Skia.PathBuilder.MakeFromPath(activePath.value);
         // Add final segment to exactly match finger lift point
         path.lineTo(e.x, e.y);
-        const svg = path.toSVGString();
+        const svg = path.detach().toSVGString();
         if (svg.length > 5) {
           runOnJS(onPathCompleteJS)(svg);
         } else {

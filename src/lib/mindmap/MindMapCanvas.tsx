@@ -52,8 +52,8 @@ const BackgroundLayer = React.memo(function BackgroundLayer({
 
   const gridPath = useDerivedValue(() => {
     'worklet';
-    const path = Skia.Path.Make();
-    if (bgPattern === 'none' || bgPattern === 'dots') return path;
+    const path = Skia.PathBuilder.Make();
+    if (bgPattern === 'none' || bgPattern === 'dots') return path.detach();
     
     const BASE_SIZE = 40;
     const s = scale.value;
@@ -78,7 +78,7 @@ const BackgroundLayer = React.memo(function BackgroundLayer({
         path.lineTo(x, h);
       }
     }
-    return path;
+    return path.detach();
   });
 
   const dotsPicture = useDerivedValue(() => {
@@ -310,7 +310,7 @@ const EdgeLayer = React.memo(function EdgeLayer({
       return n;
     });
     const edges = computeEdges(live, collapsedSet);
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     for (const e of edges) {
       // Skip edges to hidden children
       if (hiddenSet.has(e.childId)) continue;
@@ -328,7 +328,7 @@ const EdgeLayer = React.memo(function EdgeLayer({
                      e.toX,                e.toY);
       }
     }
-    return path;
+    return path.detach();
   });
 
   return <Path path={edgesPath} style="stroke" strokeWidth={2} color={edgeColor} strokeCap="round" />;

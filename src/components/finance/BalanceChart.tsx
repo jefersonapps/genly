@@ -129,7 +129,7 @@ export function BalanceChart({ data }: BalanceChartProps) {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const isDark = resolvedTheme === "dark";
   const safeAccent = getContrastSafeColor(primaryColor, isDark);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
 
   if (data.length === 0) {
     return (

@@ -1,38 +1,25 @@
 diff --git a/node_modules/@jacobjmc/react-native-background-remover/android/src/main/java/com/backgroundremover/BackgroundRemoverModule.kt b/node_modules/@jacobjmc/react-native-background-remover/android/src/main/java/com/backgroundremover/BackgroundRemoverModule.kt
-index c708aae..aa79e0a 100644
 --- a/node_modules/@jacobjmc/react-native-background-remover/android/src/main/java/com/backgroundremover/BackgroundRemoverModule.kt
 +++ b/node_modules/@jacobjmc/react-native-background-remover/android/src/main/java/com/backgroundremover/BackgroundRemoverModule.kt
-@@ -50,13 +50,18 @@ class BackgroundRemoverModule internal constructor(context: ReactApplicationCont
-         }
-       }
- 
+@@ -55 +55,4 @@
+-      val canvas = Canvas(image)
 +      val outBitmap = Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
 +      outBitmap.eraseColor(Color.TRANSPARENT)
-+      
 +      val canvas = Canvas(outBitmap)
 +      canvas.drawBitmap(image, 0f, 0f, null)
-+
-       val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-       paint.setXfermode(PorterDuffXfermode(PorterDuff.Mode.DST_IN))
--      val canvas = Canvas(image)
-       canvas.drawBitmap(mask, 0f, 0f, paint)
- 
-       val fileName = URI(imageURI).path.split("/").last()
+@@ -59 +62 @@
 -      val savedImageURI = saveImage(image, fileName)
 +      val savedImageURI = saveImage(outBitmap, fileName)
-       promise.resolve(savedImageURI)
-     }
-   }
-@@ -91,9 +96,10 @@ class BackgroundRemoverModule internal constructor(context: ReactApplicationCont
-   }
- 
-   private fun saveImage(bitmap: Bitmap, fileName: String): String {
+@@ -94 +97,2 @@
 -    val file = File(reactApplicationContext.filesDir, fileName)
 +    val pngFileName = fileName.substringBeforeLast(".") + ".png"
 +    val file = File(reactApplicationContext.filesDir, pngFileName)
-     val fileOutputStream = FileOutputStream(file)
+@@ -96 +100 @@
 -    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream)
 +    bitmap.compress(Bitmap.CompressFormat.PNG, 100, fileOutputStream)
-     fileOutputStream.close()
-     return file.toURI().toString()
-   }
+diff --git a/node_modules/@jacobjmc/react-native-background-remover/android/build.gradle b/node_modules/@jacobjmc/react-native-background-remover/android/build.gradle
+--- a/node_modules/@jacobjmc/react-native-background-remover/android/build.gradle
++++ b/node_modules/@jacobjmc/react-native-background-remover/android/build.gradle
+@@ -118 +118 @@
+-  implementation 'com.google.mlkit:segmentation-selfie:16.0.0-beta4' // <- MLKit dependency
++  implementation 'com.google.mlkit:segmentation-selfie:16.0.0-beta6' // <- MLKit dependency

@@ -21,7 +21,7 @@ const SettingRow = React.memo(({ label, value, onPressMinus, onPressPlus, unit =
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPressing = useRef(false);
 
   const startChange = (action: () => void) => {
@@ -109,7 +109,7 @@ export default function PomodoroScreen() {
   const lastTickTime = useRef<number>(Date.now());
 
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    let interval: ReturnType<typeof setTimeout> | null = null;
 
     if (isActive && timeLeft > 0) {
       lastTickTime.current = Date.now();

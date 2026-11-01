@@ -50,7 +50,7 @@ import {
 
 import { createTask, getGroupByName, getTaskById, updateTask } from '@/services/taskService';
 import { shadows } from '@/theme/shadows';
-import * as MediaLibrary from 'expo-media-library';
+import * as MediaLibrary from 'expo-media-library/legacy';
 import * as Sharing from 'expo-sharing';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';

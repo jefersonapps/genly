@@ -12,7 +12,7 @@ import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import * as MediaLibrary from "expo-media-library";
+import * as MediaLibrary from "expo-media-library/legacy";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import {
@@ -373,7 +373,7 @@ export default function DocumentScannerScreen() {
             <Image
               source={{ uri: item.uri }}
               style={[
-                StyleSheet.absoluteFillObject,
+                StyleSheet.absoluteFill,
                 { transform: [{ rotate: `${item.rotation}deg` }] },
               ]}
               contentFit="contain"

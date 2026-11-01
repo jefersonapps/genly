@@ -37,9 +37,9 @@ interface TriggerProps {
   asChild?: boolean;
 }
 
-const Trigger = forwardRef<View, TriggerProps>(({ children, asChild }, ref) => {
+const Trigger = forwardRef<React.ComponentRef<typeof View>, TriggerProps>(({ children, asChild }, ref) => {
   const context = useContext(DropdownContext);
-  const triggerRef = useRef<View>(null);
+  const triggerRef = useRef<React.ComponentRef<typeof View>>(null);
 
   const measureAndOpen = () => {
     triggerRef.current?.measure((x, y, width, height, pageX, pageY) => {

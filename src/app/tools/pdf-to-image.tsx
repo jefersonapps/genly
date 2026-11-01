@@ -5,7 +5,7 @@ import { withOpacity } from "@/utils/colors";
 import * as DocumentPicker from "expo-document-picker";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import * as MediaLibrary from "expo-media-library";
+import * as MediaLibrary from "expo-media-library/legacy";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import {
@@ -207,7 +207,7 @@ export default function PdfToImageScreen() {
       >
         <Image
           source={{ uri: item.uri }}
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           className="m-3"
           contentFit="contain"
           transition={200}

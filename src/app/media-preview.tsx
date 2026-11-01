@@ -1,5 +1,5 @@
 import { ImageZoom } from '@likashefqet/react-native-image-zoom';
-import * as MediaLibrary from "expo-media-library";
+import * as MediaLibrary from "expo-media-library/legacy";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { Download, ExternalLink, Share2, X } from "lucide-react-native";

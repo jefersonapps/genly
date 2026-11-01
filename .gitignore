@@ -43,3 +43,6 @@ app-example
 /android
 
 *.apk
+
+# Python validation tools
+__pycache__/

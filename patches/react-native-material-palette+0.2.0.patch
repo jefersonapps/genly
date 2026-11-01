@@ -1,0 +1,6 @@
+diff --git a/node_modules/react-native-material-palette/android/src/main/java/com/callstack/materialpalette/MaterialPaletteModule.kt b/node_modules/react-native-material-palette/android/src/main/java/com/callstack/materialpalette/MaterialPaletteModule.kt
+--- a/node_modules/react-native-material-palette/android/src/main/java/com/callstack/materialpalette/MaterialPaletteModule.kt
++++ b/node_modules/react-native-material-palette/android/src/main/java/com/callstack/materialpalette/MaterialPaletteModule.kt
+@@ -161 +161 @@
+-          return closeableImage.underlyingBitmap.copy(Bitmap.Config.ARGB_8888, false)
++          return closeableImage.underlyingBitmap?.copy(Bitmap.Config.ARGB_8888, false)

@@ -53,7 +53,7 @@ import {
   useWindowDimensions
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Pdf from 'react-native-pdf';
+import Pdf from '@/components/ui/PdfWrapper';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -156,7 +156,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
   const startScaleX = useSharedValue(1);
   const startScaleY = useSharedValue(1);
 
-  const inputRef = React.useRef<TextInput>(null);
+  const inputRef = React.useRef<React.ComponentRef<typeof TextInput>>(null);
 
   // ── Animated styles moved to top to avoid Hook violations ──
   const animatedStyle = useAnimatedStyle(() => ({

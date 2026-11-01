@@ -490,7 +490,7 @@ export default function PDFOrganizerScreen() {
             <Image 
               source={{ uri: item.thumbnailUri }}
               style={[
-                StyleSheet.absoluteFillObject,
+                StyleSheet.absoluteFill,
                 { transform: [{ rotate: `${item.rotation}deg` }] }
               ]}
               contentFit="contain"

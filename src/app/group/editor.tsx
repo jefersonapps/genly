@@ -44,7 +44,7 @@ export default function GroupEditorScreen() {
     const [customEmojis, setCustomEmojis] = useState<string[]>([]);
     const [isEmojiModalVisible, setIsEmojiModalVisible] = useState(false);
     const [newEmojiInput, setNewEmojiInput] = useState("");
-    const emojiInputRef = useRef<TextInput>(null);
+    const emojiInputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
     const [color, setColor] = useState("#6366f1");
     const [tasks, setTasks] = useState<Task[]>([]);
     const [selectedTasks, setSelectedTasks] = useState<Set<number>>(new Set());

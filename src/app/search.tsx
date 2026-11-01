@@ -28,7 +28,7 @@ export default function SearchScreen() {
   const [taskMedia, setTaskMedia] = useState<Record<number, Media[]>>({});
   const [loading, setLoading] = useState(true);
   
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
 
   const { isVisible: isKeyboardVisible } = useKeyboard();
   const [flexToggle, setFlexToggle] = useState(true);

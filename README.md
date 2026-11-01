@@ -99,7 +99,12 @@ A partir deste registro público, qualquer instância pré-instalada consumirá 
 ---
 
 ## 💻 Stack Tecnológico
-- **Frontend e Views:** React Native (Expo SDK) | React Navigation
+
+Consulte o [guia de atualização para o Expo SDK 58](./docs/expo-58-upgrade.md)
+para instalar as dependências, regenerar os projetos nativos e verificar a
+compatibilidade do APK com páginas de memória de 16 KB.
+
+- **Frontend e Views:** React Native (Expo SDK 58) | Expo Router
 - **Data Layer:** SQLite Nativo | Drizzle ORM
 - **State Management:** Zustand
 - **Graphics e Animações:** React Native Skia | React Native Reanimated

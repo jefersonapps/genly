@@ -62,7 +62,7 @@ const ensureFileProtocol = (uri: string) => {
 import {
     EnrichedTextInput,
     type EnrichedTextInputInstance,
-} from "react-native-enriched";
+} from "react-native-enriched-html";
 
 import { MediaPreview } from "@/components/task/MediaPreview";
 import { Button } from "@/components/ui/Button";

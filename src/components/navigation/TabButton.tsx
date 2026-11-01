@@ -9,7 +9,7 @@ interface TabButtonProps extends TabTriggerSlotProps {
   label?: string;
 }
 
-export const TabButton = React.forwardRef<View, TabButtonProps & { noBackground?: boolean }>(
+export const TabButton = React.forwardRef<React.ComponentRef<typeof View>, TabButtonProps & { noBackground?: boolean }>(
   ({ icon: Icon, label, isFocused, noBackground, ...props }, ref) => {
     const { resolvedTheme } = useTheme();
 

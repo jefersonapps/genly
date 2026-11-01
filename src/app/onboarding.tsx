@@ -38,7 +38,7 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   View,
-  type ViewToken
+  type FlatListProps
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -527,7 +527,7 @@ export default function OnboardingScreen() {
   const flatListRef = useRef<FlatList<SlideItem>>(null);
   const { width } = useWindowDimensions();
 
-  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+  const onViewableItemsChanged = useCallback(({ viewableItems }: Parameters<NonNullable<FlatListProps<SlideItem>["onViewableItemsChanged"]>>[0]) => {
     if (viewableItems.length > 0 && viewableItems[0].index != null) {
       setCurrentIndex(viewableItems[0].index);
     }
