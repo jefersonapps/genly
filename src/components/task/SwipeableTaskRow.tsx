@@ -110,8 +110,13 @@ export const SwipeableTaskRow = memo(function SwipeableTaskRow({ task, kind, med
           <NoteSwipeable ref={swipeRef} enabled={!selectionMode} actions={actions} onSwipeStart={willOpen} backgroundColor={isDark ? '#18181b' : '#f4f4f5'}>
             <TaskCard compact task={task} mediaItems={mediaItems} onPress={openNote}
               onLongPress={startSelection} onMediaPress={mediaPress} onToggleComplete={onToggleComplete}
-              selectionMode={selectionMode} hideStatusControl={selectionMode} isSelected={selected} />
+              selectionMode={selectionMode} hideStatusControl={selectionMode} externalBorder isSelected={selected} />
           </NoteSwipeable>
+          <View pointerEvents="none" style={[styles.cardOutline, {
+            borderColor: selectionMode && selected ? withOpacity(primaryColor, 0.6) : isDark ? '#303034' : '#e4e4e7',
+            borderWidth: selectionMode && selected ? 1.5 : 1,
+            opacity: task.completed === 1 && !selected ? 0.5 : 1,
+          }]} />
         </View>
       </TouchableOpacity>
     </View>
@@ -121,7 +126,9 @@ export const SwipeableTaskRow = memo(function SwipeableTaskRow({ task, kind, med
 const styles = StyleSheet.create({
   row: { paddingHorizontal: 24 },
   selectionRow: { flexDirection: 'row', alignItems: 'center' },
-  card: { flex: 1 },
+  card: { flex: 1, position: 'relative', overflow: 'visible' },
+  // A sibling of the swipe mask: the rounded stroke cannot be clipped by it.
+  cardOutline: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, borderRadius: 16 },
   checkbox: { width: 24, height: 24, borderRadius: 7, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   actionRail: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingLeft: 12, gap: 8 },
   action: { width: 64, minHeight: 72, alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 14 },

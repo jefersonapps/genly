@@ -25,7 +25,7 @@ import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect, useRouter } from "expo-router";
-import { Bell, Brain, CalendarDays, CheckCheck, Clock, Edit3, FileText, FolderPlus, LayoutGrid, Layers, Lightbulb, Plus, Search, Trash2, X } from "lucide-react-native";
+import { Bell, Brain, CalendarDays, SquareCheckBig, Clock, Edit3, FileText, FolderPlus, LayoutGrid, Layers, Lightbulb, Plus, Search, Trash2, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, BackHandler, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, {
@@ -844,20 +844,39 @@ export default function HomeScreen() {
 
       {selectionMode && (
         <View className="absolute top-0 left-0 right-0 z-50 border-b border-border px-4 pb-2"
-          style={{ paddingTop: insets.top + 4, backgroundColor: isDark ? '#121212' : '#ffffff' }}>
-          <View className="flex-row items-center gap-2" style={{ minHeight: 48 }}>
-            <TouchableOpacity onPress={exitSelection} disabled={deletingSelection} accessibilityRole="button" accessibilityLabel="Cancelar seleção" className="p-3">
-              <X size={22} color={isDark ? '#fff' : '#18181b'} />
+          style={{ paddingTop: insets.top + 4, backgroundColor: isDark ? '#0a0a0a' : '#ffffff' }}>
+          <View className="flex-row items-center gap-2" style={{ minHeight: 52 }}>
+            <TouchableOpacity
+              onPress={exitSelection} disabled={deletingSelection}
+              accessibilityRole="button" accessibilityLabel="Cancelar seleção" activeOpacity={0.65}
+              style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+              <X size={20} strokeWidth={1.8} color={isDark ? '#e4e4e7' : '#3f3f46'} />
             </TouchableOpacity>
-            <Text className="flex-1 font-sans-semibold text-base text-on-surface" accessibilityLiveRegion="polite">
+            <Text className="flex-1 font-sans-semibold text-sm text-on-surface"
+              style={{ minWidth: 0 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} accessibilityLiveRegion="polite">
               {selectedTaskIds.size} {selectedTaskIds.size === 1 ? 'selecionada' : 'selecionadas'}
             </Text>
-            <TouchableOpacity onPress={selectAll} disabled={deletingSelection} accessibilityRole="button" accessibilityLabel={allSelected ? 'Desmarcar todas as notas' : 'Selecionar todas as notas da lista'} className="items-center justify-center px-2 py-1 gap-1" style={{ minHeight: 44 }}>
-              <CheckCheck size={20} color={primaryColor} />
-              <Text className="font-sans-semibold text-[10px]" style={{ color: primaryColor }}>{allSelected ? 'Desmarcar todas' : 'Selecionar tudo'}</Text>
+            <TouchableOpacity
+              onPress={selectAll} disabled={deletingSelection} activeOpacity={0.65}
+              accessibilityRole="button" accessibilityState={{ selected: allSelected, disabled: deletingSelection }}
+              accessibilityLabel={allSelected ? 'Desmarcar todas as notas' : 'Selecionar todas as notas da lista'}
+              style={{ height: 44, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1,
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+                backgroundColor: isDark ? '#1b1b1d' : '#f4f4f5',
+                borderColor: allSelected ? primaryColor : isDark ? '#303033' : '#e4e4e7', opacity: deletingSelection ? 0.5 : 1 }}>
+              <SquareCheckBig size={17} strokeWidth={1.8} color={allSelected ? primaryColor : isDark ? '#d4d4d8' : '#52525b'} />
+              <Text className="font-sans-semibold text-xs" style={{ color: isDark ? '#e4e4e7' : '#3f3f46' }}>{allSelected ? 'Limpar' : 'Todas'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={confirmDeleteSelection} disabled={selectedTaskIds.size === 0 || deletingSelection} accessibilityRole="button" accessibilityLabel="Excluir notas selecionadas" className="p-3" style={{ opacity: selectedTaskIds.size === 0 || deletingSelection ? 0.4 : 1 }}>
-              <Trash2 size={22} color="#ef4444" />
+            <TouchableOpacity
+              onPress={confirmDeleteSelection} disabled={selectedTaskIds.size === 0 || deletingSelection} activeOpacity={0.65}
+              accessibilityRole="button" accessibilityLabel="Excluir notas selecionadas"
+              accessibilityState={{ disabled: selectedTaskIds.size === 0 || deletingSelection }}
+              style={{ height: 44, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1,
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+                backgroundColor: isDark ? '#28191b' : '#fef2f2', borderColor: isDark ? '#45262a' : '#fecaca',
+                opacity: selectedTaskIds.size === 0 || deletingSelection ? 0.4 : 1 }}>
+              <Trash2 size={17} strokeWidth={1.8} color={isDark ? '#f87171' : '#b91c1c'} />
+              <Text className="font-sans-semibold text-xs" style={{ color: isDark ? '#f87171' : '#b91c1c' }}>Excluir</Text>
             </TouchableOpacity>
           </View>
         </View>

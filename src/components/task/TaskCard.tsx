@@ -89,11 +89,12 @@ interface TaskCardProps {
   onToggleComplete?: (task: Task) => void;
   selectionMode?: boolean;
   hideStatusControl?: boolean;
+  externalBorder?: boolean;
   isSelected?: boolean;
   onSelect?: (task: Task) => void;
 }
 
-export const TaskCard = memo(function TaskCard({ compact = false, task, mediaItems = [], onPress, onLongPress, onDelete, onMediaPress, onToggleComplete, selectionMode, hideStatusControl = false, isSelected, onSelect }: TaskCardProps) {
+export const TaskCard = memo(function TaskCard({ compact = false, task, mediaItems = [], onPress, onLongPress, onDelete, onMediaPress, onToggleComplete, selectionMode, hideStatusControl = false, externalBorder = false, isSelected, onSelect }: TaskCardProps) {
   const { resolvedTheme, primaryColor } = useTheme();
   const { getMappingKey } = useMappingHelper();
   const isDark = resolvedTheme === "dark";
@@ -129,8 +130,8 @@ export const TaskCard = memo(function TaskCard({ compact = false, task, mediaIte
         activeOpacity={0.8}
         className={compact ? "rounded-2xl p-4 border" : "mb-3 rounded-[24px] p-5 border"}
         style={{
-          backgroundColor: isSelected ? withOpacity(primaryColor || "#3b82f6", 0.1) : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)"),
-          borderColor: isSelected ? withOpacity(primaryColor || "#3b82f6", 0.3) : (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"),
+          backgroundColor: isSelected ? (isDark ? "#18181b" : "#f4f4f5") : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)"),
+          borderColor: externalBorder ? 'transparent' : isSelected ? withOpacity(primaryColor || "#3b82f6", 0.5) : (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"),
           opacity: isCompleted ? 0.5 : 1,
         }}
       >
@@ -231,10 +232,10 @@ export const TaskCard = memo(function TaskCard({ compact = false, task, mediaIte
       activeOpacity={0.8}
       className={compact ? "rounded-2xl bg-surface-secondary p-4 border" : "mb-3 rounded-2xl bg-surface-secondary p-4 border"}
       style={[{
-        backgroundColor: isSelected ? withOpacity(primaryColor || "#3b82f6", 0.08) : (isDark ? "#18181b" : "#f4f4f5"),
-        borderColor: isSelected ? withOpacity(primaryColor || "#3b82f6", 0.3) : (isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"),
+        backgroundColor: isDark ? "#18181b" : "#f4f4f5",
+        borderColor: externalBorder ? 'transparent' : isSelected ? withOpacity(primaryColor || "#3b82f6", 0.5) : (isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"),
         opacity: isCompleted ? 0.5 : 1,
-      }, shadows.sm]}
+      }, compact || selectionMode ? shadows.none : shadows.sm]}
     >
       {/* Media thumbnails scroll row */}
       {compact && thumbnailMedia.length > 0 ? (
