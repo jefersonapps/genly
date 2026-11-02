@@ -223,6 +223,7 @@
             "targetCellWidth": 4,
             "targetCellHeight": 2,
             "description": "Notas recentes de um grupo",
+            "previewImage": "./assets/widget-preview/group.png",
             "updatePeriodMillis": 1800000,
             "resizeMode": "horizontal|vertical",
             "widgetFeatures": "reconfigurable"

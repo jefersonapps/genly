@@ -154,9 +154,8 @@ test('native initial layouts replace transparent providers and remain idempotent
       const provider = await fs.readFile(path.join(res, 'xml', `widgetprovider_${name}.xml`), 'utf8');
       assert.ok(provider.includes(`@layout/genly_widget_initial_${name}`));
       if (widget.name === 'GroupWidget') {
-        assert.ok(provider.includes('android:previewLayout="@layout/genly_group_widget_preview"'));
-        assert.ok(!provider.includes('android:previewImage'));
-        assert.equal(widget.previewImage, undefined);
+        assert.ok(!provider.includes('android:previewLayout'));
+        assert.equal(widget.previewImage, './assets/widget-preview/group.png');
       }
       const layout = await fs.readFile(path.join(res, 'layout', `genly_widget_initial_${name}.xml`), 'utf8');
       assert.ok(layout.includes('ProgressBar') && layout.includes('Carregando'));

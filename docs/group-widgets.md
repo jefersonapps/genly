@@ -1,6 +1,6 @@
 # Widgets personalizados por grupo
 
-Na biblioteca, abra um grupo e toque em **Adicionar widget** ao lado do título da
+Na biblioteca, abra um grupo e toque em **Widget** ao lado do título da
 listagem. Em launchers Android compatíveis, o sistema abre sua confirmação para
 adicionar o widget à tela inicial. Aceitar a solicitação da API não significa que
 o usuário confirmou: por isso o app não anuncia que o widget já foi adicionado.
@@ -9,9 +9,9 @@ Se o launcher não suporta a solicitação, a interface orienta a adicionar
 
 O provedor `GroupWidget` foi preservado para não invalidar widgets instalados.
 Ele não é fixo para um grupo “Trabalho”: essa era a imagem de prévia antiga, que
-não é mais referenciada na configuração nem nos screenshots do README. A prévia
-agora é um layout nativo neutro; na confirmação iniciada pelo app, mostra o nome
-do grupo escolhido. O widget real mantém o layout existente de lista de notas,
+foi substituída pela prévia genérica “Meu grupo”, gerada a partir do componente
+real pelo comando `npm run widgets:previews`. Na confirmação iniciada pelo app,
+a prévia nativa mostra o nome do grupo escolhido. O widget real mantém o layout existente de lista de notas,
 com nome, ícone e cor do grupo e o botão para criar conteúdo no grupo correto.
 
 O módulo local `modules/genly-widgets` é registrado pelo Expo Autolinking.

@@ -1,7 +1,7 @@
 'use no memo';
 /** @jsxImportSource react */
 import React from 'react';
-import { WidgetIcon } from './WidgetIcon';
+import { WidgetAddIcon, WidgetIcon } from './WidgetIcon';
 import { createWidgetLink } from './links';
 import { FlexWidget, ListWidget, TextWidget } from 'react-native-android-widget';
 import type { WidgetTask } from './types';
@@ -67,14 +67,7 @@ export function RecentTasksWidget({ tasks, colors }: RecentTasksWidgetProps) {
           clickAction="OPEN_URI"
           clickActionData={{ uri: createWidgetLink('/task/editor') }}
         >
-          <TextWidget
-            text="+"
-            style={{
-              fontSize: 18,
-              fontFamily: 'Montserrat-Bold',
-              color: colors.primary,
-            } }
-          />
+          <WidgetAddIcon color={colors.primary} />
         </FlexWidget>
       </FlexWidget>
 

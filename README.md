@@ -50,10 +50,31 @@ O **Genly** é um aplicativo móvel voltado para produtividade, finanças e estu
 <div align="center">
 
   <img src="./assets/widget-preview/flashcards.png" width="200" />
+  <img src="./assets/widget-preview/group.png" width="200" />
   <img src="./assets/widget-preview/mind-maps.png" width="200" />
   <img src="./assets/widget-preview/recent-tasks.png" width="200" />
   <img src="./assets/widget-preview/reminders.png" width="200" />
 </div>
+
+---
+
+## Atualizar as imagens dos widgets
+
+As prévias são geradas a partir dos componentes de `src/widgets`, com dados de
+exemplo, ícones SVG e as fontes Montserrat do app. Não é necessário capturar ou
+recortar screenshots no celular. Com Chrome ou Chromium instalado, execute:
+
+```bash
+npm run widgets:previews
+```
+
+O comando atualiza os cinco PNGs em `assets/widget-preview/` e, se a pasta Android
+já existir, sincroniza também as imagens nativas usadas pelo Gradle. Execute-o
+após alterar o layout dos widgets e inclua os PNGs atualizados no commit. Os
+aparelhos recebem as novas imagens no próximo APK; o launcher pode manter uma
+prévia em cache até atualizar seu seletor de widgets.
+
+Veja os detalhes em [Geração das prévias dos widgets](./docs/widget-previews.md).
 
 ---
 

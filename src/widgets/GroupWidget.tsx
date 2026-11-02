@@ -1,7 +1,7 @@
 'use no memo';
 /** @jsxImportSource react */
 import React from 'react';
-import { WidgetIcon } from './WidgetIcon';
+import { WidgetAddIcon, WidgetIcon } from './WidgetIcon';
 import { createWidgetLink } from './links';
 import type { ColorProp } from 'react-native-android-widget';
 import { FlexWidget, ListWidget, TextWidget } from 'react-native-android-widget';
@@ -94,14 +94,7 @@ export function GroupWidget({ group, tasks, colors }: GroupWidgetProps) {
                 : createWidgetLink('/task/editor', { groupId: group.id })
           }}
         >
-          <TextWidget
-            text="+"
-            style={{
-              fontSize: 18,
-              fontFamily: 'Montserrat-Bold',
-              color: dotColor,
-            }}
-          />
+          <WidgetAddIcon color={dotColor} />
         </FlexWidget>
       </FlexWidget>
 

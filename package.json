@@ -11,6 +11,7 @@
     "lint": "expo lint",
     "postinstall": "patch-package --error-on-fail",
     "typecheck": "tsc --noEmit",
+    "widgets:previews": "node scripts/generate-widget-previews.cjs",
     "check:android:16kb": "python3 scripts/check-android-16kb.py",
     "test:widget-navigation": "node --experimental-strip-types --experimental-test-module-mocks tests/widget-navigation.test.cjs",
     "test:widget-startup": "node tests/widget-startup.test.cjs",

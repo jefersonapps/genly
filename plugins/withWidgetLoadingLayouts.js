@@ -63,9 +63,9 @@ module.exports = function withWidgetLoadingLayouts(config) {
       const providerPath = path.join(res, 'xml', `widgetprovider_${name}.xml`);
       let provider = await fs.readFile(providerPath, 'utf8');
       if (widget.name === 'GroupWidget') {
-        provider = provider.replace(/\s+android:previewImage="[^"]*"/g, '')
-          .replace(/\s+android:previewLayout="[^"]*"/g, '')
-          .replace('<appwidget-provider', '<appwidget-provider android:previewLayout="@layout/genly_group_widget_preview"');
+        // All picker images are generated from the real JSX. Don't let an older
+        // generic previewLayout override the new GroupWidget image on Android 12+.
+        provider = provider.replace(/\s+android:previewLayout="[^"]*"/g, '');
       }
       await fs.writeFile(providerPath, provider.replace(
         /android:initialLayout="[^"]+"/,
