@@ -17,7 +17,7 @@ export const TabButton = React.forwardRef<React.ComponentRef<typeof View>, TabBu
       <Pressable
         ref={ref}
         {...props}
-        className="flex-1 items-center justify-center" // Removed py-2
+        className="flex-1 self-stretch items-center justify-center"
       >
         <View
           className={clsx(

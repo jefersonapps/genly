@@ -1,3 +1,4 @@
+import { useDeferredFocusEffect } from "@/hooks/useDeferredFocusEffect";
 import { SettingsRow } from "@/components/settings/SettingsRow";
 import { Avatar } from "@/components/ui/Avatar";
 import BottomSheet from "@/components/ui/BottomSheet";
@@ -18,7 +19,7 @@ import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
 import * as LocalAuthentication from "expo-local-authentication";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import {
   Compass,
@@ -59,15 +60,15 @@ export default function SettingsScreen() {
   const snapPoints = React.useMemo(() => ["35%"], []);
 
   const loadSettings = useCallback(async () => {
-    const name = await getSetting("profile_name");
-    const img = await getSetting("profile_image");
-    const sec = await getSetting("security_enabled");
+    const [name, img, sec] = await Promise.all([
+      getSetting("profile_name"), getSetting("profile_image"), getSetting("security_enabled"),
+    ]);
     setProfileName(name);
     setProfileImage(img);
     setSecurityEnabled(sec === "1");
   }, []);
 
-  useFocusEffect(
+  useDeferredFocusEffect(
     useCallback(() => {
       loadSettings();
     }, [loadSettings])

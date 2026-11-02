@@ -1,3 +1,4 @@
+import { useDeferredFocusEffect } from "@/hooks/useDeferredFocusEffect";
 import { getContrastSafeColor } from "@/components/editor/Editor";
 import { BalanceChart } from "@/components/finance/BalanceChart";
 import { Button } from "@/components/ui/Button";
@@ -17,7 +18,7 @@ import {
 } from "@/services/financeService";
 import { getSetting, setSetting } from "@/services/settingsService";
 import { extractCentsFromInput, formatBRL, formatBRLInput } from "@/utils/currency";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import {
   BanknoteArrowDown,
   BanknoteArrowUp,
@@ -81,7 +82,7 @@ export default function FinancesScreen() {
     setChartData(getMonthlyBalances(allTransactions));
   }, []);
 
-  useFocusEffect(
+  useDeferredFocusEffect(
     useCallback(() => {
       loadData();
     }, [loadData])

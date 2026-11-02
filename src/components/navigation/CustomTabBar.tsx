@@ -16,14 +16,12 @@ import {
     Wrench as IconTool,
     User as IconUser,
 } from "lucide-react-native";
-import React, { useContext, useEffect, useState } from "react";
+import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { LayoutChangeEvent, Platform, StyleSheet, View, type ViewProps } from "react-native";
 import Animated, {
     Easing,
     useAnimatedStyle,
     useSharedValue,
-    withSequence,
-    withSpring,
     withTiming,
 } from "react-native-reanimated";
 import { TabButton } from "./TabButton";
@@ -33,6 +31,22 @@ const MaskedView = NativeMaskedView as unknown as React.ComponentType<ViewProps 
   maskElement: React.ReactElement;
   androidRenderingMode?: "hardware" | "software";
 }>;
+
+const TAB_BLUR_MASK = (
+  <View style={{ flex: 1, backgroundColor: "transparent" }}>
+    <Svg width="100%" height="100%">
+      <Defs>
+        <LinearGradient id="tabBlurFade" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="48">
+          <Stop offset="0" stopColor="#000" stopOpacity={0} />
+          <Stop offset="0.3" stopColor="#000" stopOpacity={0.15} />
+          <Stop offset="0.7" stopColor="#000" stopOpacity={0.75} />
+          <Stop offset="1" stopColor="#000" stopOpacity={1} />
+        </LinearGradient>
+      </Defs>
+      <Rect width="100%" height="100%" fill="url(#tabBlurFade)" />
+    </Svg>
+  </View>
+);
 
 export function CustomTabBar({ state, navigateToTab }: BottomTabBarProps) {
   const { primaryColor, resolvedTheme } = useTheme();
@@ -64,45 +78,22 @@ export function CustomTabBar({ state, navigateToTab }: BottomTabBarProps) {
   const activeVisualIndex = getVisualIndex(state.index);
   
   const translateX = useSharedValue(0);
-  const scaleX = useSharedValue(1);
-  const scaleY = useSharedValue(1);
+  const lastIndicatorTarget = useRef<number | null>(null);
+  const moveIndicator = useCallback((visualIndex: number) => {
+    if (tabWidth <= 0) return;
+    const target = visualIndex * tabWidth - 2;
+    if (lastIndicatorTarget.current === target) return;
+    const initial = lastIndicatorTarget.current === null;
+    lastIndicatorTarget.current = target;
+    translateX.value = initial ? target : withTiming(target, { duration: 160, easing: Easing.out(Easing.cubic) });
+  }, [tabWidth, translateX]);
 
-  useEffect(() => {
-    if (tabWidth > 0) {
-      // 1px compensation for border + 2px offset to center the wider pill (+4px width)
-      const targetX = (activeVisualIndex * tabWidth) - 2;
-      
-      // "Liquid" effect: stretch while moving - Reduced intensity
-      scaleX.value = withSequence(
-        withTiming(1.15, { duration: 150, easing: Easing.bezier(0.25, 0.1, 0.25, 1) }),
-        withSpring(1, { damping: 20, stiffness: 200 })
-      );
-      
-      scaleY.value = withSequence(
-        withTiming(0.95, { duration: 150 }), 
-        withSpring(1, { damping: 20, stiffness: 200 })
-      );
-
-      translateX.value = withSpring(targetX, {
-        damping: 25, // Increased damping to reduce bounce
-        stiffness: 220,
-        mass: 1,
-      });
-    }
-  }, [activeVisualIndex, tabWidth]);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        { translateX: translateX.value },
-        { scaleX: scaleX.value },
-        { scaleY: scaleY.value },
-      ],
-    };
-  });
+  useEffect(() => { moveIndicator(activeVisualIndex); }, [activeVisualIndex, moveIndicator]);
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ translateX: translateX.value }] }));
 
   const onLayout = (e: LayoutChangeEvent) => {
-    setLayout(e.nativeEvent.layout);
+    const { width, height } = e.nativeEvent.layout;
+    setLayout(current => current.width === width && current.height === height ? current : { width, height });
   };
 
   // Tab Configuration
@@ -125,24 +116,9 @@ export function CustomTabBar({ state, navigateToTab }: BottomTabBarProps) {
           pointerEvents="none"
           androidRenderingMode="hardware"
           style={[StyleSheet.absoluteFill, { top: -24 }]}
-          maskElement={
-            <View style={{ flex: 1, backgroundColor: "transparent" }}>
-              <Svg width="100%" height="100%">
-                <Defs>
-                  <LinearGradient id="tabBlurFade" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="48">
-                    <Stop offset="0" stopColor="#000" stopOpacity={0} />
-                    <Stop offset="0.3" stopColor="#000" stopOpacity={0.15} />
-                    <Stop offset="0.7" stopColor="#000" stopOpacity={0.75} />
-                    <Stop offset="1" stopColor="#000" stopOpacity={1} />
-                  </LinearGradient>
-                </Defs>
-                <Rect width="100%" height="100%" fill="url(#tabBlurFade)" />
-              </Svg>
-            </View>
-          }
+          maskElement={TAB_BLUR_MASK}
         >
           <BlurView
-            key={state.routes[state.index].key}
             blurTarget={screenRef}
             blurMethod="dimezisBlurViewSdk31Plus"
             intensity={55}
@@ -209,10 +185,16 @@ export function CustomTabBar({ state, navigateToTab }: BottomTabBarProps) {
               <TabButton
                 icon={item.icon!}
                 isFocused={isFocused}
+                accessibilityRole="tab"
+                accessibilityLabel={item.routeName === 'index' ? 'Início' : item.routeName === 'tools' ? 'Ferramentas' : item.routeName === 'finances' ? 'Finanças' : 'Configurações'}
+                accessibilityState={{ selected: isFocused }}
                 onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  const route = state.routes.find((route) => route.name === item.routeName);
-                  if (route) navigateToTab(route.key);
+                  if (isFocused) return;
+                  const route = state.routes.find(route => route.name === item.routeName);
+                  if (!route) return;
+                  moveIndicator(index);
+                  navigateToTab(route.key);
+                  void Haptics.selectionAsync().catch(() => {});
                 }}
                 noBackground
               />

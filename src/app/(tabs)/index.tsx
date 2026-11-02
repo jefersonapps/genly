@@ -1,4 +1,4 @@
-import { ScreenContext } from "@/providers/ScreenProvider";
+import { useDeferredFocusEffect } from "@/hooks/useDeferredFocusEffect";
 import { GroupIcon } from "@/components/ui/GroupIcon";
 import { SwipeableTaskRow, type TaskRowKind } from "@/components/task/SwipeableTaskRow";
 import type { NoteSwipeableMethods } from "@/components/task/NoteSwipeable";
@@ -22,9 +22,9 @@ import { getGreeting } from "@/utils/date";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { FlashList } from "@shopify/flash-list";
 import { BlurView } from "expo-blur";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { Bell, Brain, CalendarDays, Clock, Edit3, FileText, FolderPlus, Layers, Lightbulb, Plus, Search, Trash2 } from "lucide-react-native";
-import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, {
     Extrapolation,
@@ -54,7 +54,6 @@ const AnimatedFlashList = Animated.createAnimatedComponent(FlashList<Task>);
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { isReady } = useContext(ScreenContext);
   const router = useRouter();
   const { resolvedTheme, primaryColor } = useTheme();
   const isDark = resolvedTheme === 'dark';
@@ -206,7 +205,7 @@ export default function HomeScreen() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => {
+  useDeferredFocusEffect(useCallback(() => {
     loadData();
     return () => { loadVersion.current++; closeSwipeRow(); };
   }, [loadData, closeSwipeRow]));
@@ -725,8 +724,7 @@ export default function HomeScreen() {
         </BottomSheet.View>
       </BottomSheet>
 
-      {isReady && (
-        <TabHeader
+      <TabHeader
         scrollY={headerScrollY}
         title="Sua Biblioteca"
         backgroundThreshold={[0, 1]}
@@ -794,7 +792,6 @@ export default function HomeScreen() {
             </Animated.View>
           }
         />
-      )}
     </View>
   );
 }
