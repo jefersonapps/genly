@@ -1,3 +1,4 @@
+import { QrScannerModal } from "@/components/qr/QrScannerModal";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
 import { ColorPicker } from "@/components/ui/ColorPicker";
@@ -9,14 +10,13 @@ import { useTheme } from "@/providers/ThemeProvider";
 import { withOpacity } from "@/utils/colors";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import BarcodeScanning from "@react-native-ml-kit/barcode-scanning";
-import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Clipboard from "expo-clipboard";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
 import * as Linking from "expo-linking";
 import * as MediaLibrary from "expo-media-library/legacy";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import {
     Camera,
@@ -33,7 +33,7 @@ import {
     Wifi,
     X
 } from "lucide-react-native";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Animated, PermissionsAndroid,
@@ -70,7 +70,6 @@ export default function QrToolScreen() {
   const dialog = useDialog();
   // Removed conditional return block here to satisfy React Hooks rules.
 
-  const [permission, requestPermission] = useCameraPermissions();
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   const snapPoints = React.useMemo(() => ["45%"], []);
 
@@ -85,6 +84,7 @@ export default function QrToolScreen() {
 
   // Read state
   const [isScanning, setIsScanning] = useState(false);
+  useFocusEffect(useCallback(() => () => setIsScanning(false), []));
   const [scanResult, setScanResult] = useState<QRResult | null>(null);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -585,60 +585,7 @@ export default function QrToolScreen() {
         )}
       </ScrollView>
 
-      {/* Camera Scanning Overlay */}
-      {isScanning && (
-        <View className="absolute inset-0 bg-black z-50">
-          {!permission?.granted ? (
-            <View className="flex-1 items-center justify-center p-6 bg-surface">
-              <Camera size={48} color={primaryColor} />
-              <Text className="text-center font-sans-bold text-xl text-on-surface mt-6 mb-2">Permissão da Câmera</Text>
-              <Text className="text-center font-sans text-on-surface-secondary mb-8">Precisamos da sua permissão para usar a câmera e ler códigos QR.</Text>
-              <Button onPress={requestPermission} className="w-full">
-                <Button.Text>Conceder Permissão</Button.Text>
-              </Button>
-              <TouchableOpacity activeOpacity={0.8} onPress={() => setIsScanning(false)} className="mt-6">
-                <Text className="font-sans-bold text-on-surface-secondary">Cancelar</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View className="flex-1">
-              <CameraView
-                className="absolute inset-0"
-                onBarcodeScanned={handleBarcodeScanned}
-                barcodeScannerSettings={{
-                  barcodeTypes: ["qr"],
-                }}
-              />
-              {/* Scanning UI Overlay */}
-              <View className="flex-1 items-center justify-center">
-                 <View className="w-64 h-64 border-2 border-white rounded-[40px] border-dashed items-center justify-center">
-                    <Animated.View 
-                        style={{
-                            width: '100%',
-                            height: 2,
-                            backgroundColor: primaryColor,
-                            shadowColor: primaryColor,
-                            shadowOpacity: 0.8,
-                            shadowRadius: 10,
-                            elevation: 10,
-                        }}
-                    />
-                 </View>
-                 <Text className="text-white font-sans-bold text-lg mt-8">Posicione o código QR no centro</Text>
-              </View>
-
-              {/* Close Button */}
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => setIsScanning(false)}
-                className="absolute top-12 right-6 h-12 w-12 items-center justify-center rounded-full bg-black/50"
-              >
-                <X size={28} color="#FFF" />
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      )}
+      {isScanning && <QrScannerModal onClose={() => setIsScanning(false)} onScanned={data => handleBarcodeScanned({ data })} />}
 
       <BottomSheet
         sheetRef={bottomSheetModalRef}
