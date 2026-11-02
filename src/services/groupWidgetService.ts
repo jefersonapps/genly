@@ -2,10 +2,15 @@ import { requireOptionalNativeModule } from 'expo-modules-core';
 import { Platform } from 'react-native';
 
 interface GroupWidgetsModule {
+  requestNotesWidget?: () => Promise<boolean>;
   requestGroupWidget(groupId: number, groupName: string): Promise<boolean>;
   getGroupId(widgetId: number): Promise<number>;
 }
 const native = Platform.OS === 'android' ? requireOptionalNativeModule<GroupWidgetsModule>('GenlyWidgets') : null;
+
+export async function requestNotesWidget(): Promise<boolean> {
+  return native?.requestNotesWidget ? native.requestNotesWidget() : false;
+}
 
 /** True means the launcher accepted the request, not that the user confirmed it. */
 export async function requestGroupWidget(groupId: number, groupName: string): Promise<boolean> {

@@ -18,7 +18,7 @@ import { useHeaderSnap } from "@/hooks/useHeaderSnap";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { getSetting } from "@/services/settingsService";
-import { requestGroupWidget } from "@/services/groupWidgetService";
+import { requestGroupWidget, requestNotesWidget } from "@/services/groupWidgetService";
 import { completeTask, deleteGroup, deleteTask, deleteTasks, getAllGroups, getAllTasks, getAllTaskMedia, getTaskById, uncompleteTask } from "@/services/taskService";
 import { shadows } from "@/theme/shadows";
 import { adjustColor, withOpacity } from "@/utils/colors";
@@ -222,14 +222,16 @@ export default function HomeScreen() {
 
   const handleAddGroupWidget = async () => {
     const group = groups.find(item => item.id === selectedGroupId);
-    if (!group || pinningGroupWidgetRef.current) return;
+    if ((selectedGroupId !== null && !group) || pinningGroupWidgetRef.current) return;
     pinningGroupWidgetRef.current = true;
     setPinningGroupWidget(true);
     try {
-      const accepted = await requestGroupWidget(group.id, group.name);
+      const accepted = group ? await requestGroupWidget(group.id, group.name) : await requestNotesWidget();
       if (!accepted) dialog.show({
         title: 'Adicionar widget',
-        description: 'Não foi possível adicionar automaticamente. Na tela inicial do celular, abra Widgets, escolha “Genly - Meu grupo” e selecione o grupo desejado.',
+        description: group
+          ? 'Não foi possível adicionar automaticamente. Na tela inicial do celular, abra Widgets, escolha “Genly - Meu grupo” e selecione o grupo desejado.'
+          : 'Não foi possível adicionar automaticamente. Na tela inicial do celular, abra Widgets e escolha “Genly - Notas Recentes”.',
       });
     } catch {
       dialog.show({ title: 'Não foi possível adicionar o widget', description: 'Volte à tela do grupo e tente novamente.', variant: 'error' });
@@ -617,15 +619,15 @@ export default function HomeScreen() {
                             </Text>
                             {filteredTasks.length > 0 && <Text className="font-sans text-sm text-on-surface-secondary">{filteredTasks.length} Notas</Text>}
                         </View>
-                        {Platform.OS === 'android' && selectedGroupId !== null && (
+                        {Platform.OS === 'android' && (
                           <TouchableOpacity
                             onPress={handleAddGroupWidget}
                             disabled={pinningGroupWidget || selectionMode}
                             accessibilityRole="button"
-                            accessibilityLabel="Adicionar widget deste grupo à tela inicial"
+                            accessibilityLabel={selectedGroupId === null ? "Adicionar widget de notas à tela inicial" : "Adicionar widget deste grupo à tela inicial"}
                             activeOpacity={0.7}
                             className="flex-row items-center justify-center"
-                            style={{ alignSelf: 'center', flexGrow: 0, flexShrink: 0, minHeight: 44, paddingHorizontal: 12, paddingVertical: 8,
+                            style={{ alignSelf: 'center', flexGrow: 0, flexShrink: 0, marginRight: selectedGroupId === null ? 10 : 0, minHeight: 44, paddingHorizontal: 12, paddingVertical: 8,
                               gap: 6, borderRadius: 12, borderWidth: 1, borderColor: isDark ? '#27272a' : '#e4e4e7',
                               backgroundColor: isDark ? '#18181b' : '#f4f4f5', opacity: pinningGroupWidget || selectionMode ? 0.5 : 1 }}
                           >

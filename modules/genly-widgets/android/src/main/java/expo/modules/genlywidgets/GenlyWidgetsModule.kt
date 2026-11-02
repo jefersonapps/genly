@@ -21,6 +21,16 @@ private fun provider(context: Context) = ComponentName(context.packageName, "${c
 class GenlyWidgetsModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("GenlyWidgets")
+    AsyncFunction("requestNotesWidget") {
+      val context = requireNotNull(appContext.reactContext)
+      val manager = AppWidgetManager.getInstance(context)
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || !manager.isRequestPinAppWidgetSupported) {
+        false
+      } else {
+        val notesProvider = ComponentName(context.packageName, "${context.packageName}.widget.RecentTasks")
+        manager.requestPinAppWidget(notesProvider, null, null)
+      }
+    }.runOnQueue(Queues.MAIN)
     AsyncFunction("requestGroupWidget") { groupId: Int, groupName: String ->
       require(groupId > 0)
       val context = requireNotNull(appContext.reactContext)
