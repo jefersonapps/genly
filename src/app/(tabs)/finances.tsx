@@ -53,6 +53,11 @@ export default function FinancesScreen() {
   const { scrollY, headerScrollY, scrollHandler } = useHeaderSnap({ snapThreshold: 50 });
 
   const [balance, setBalance] = useState(0);
+  const [balanceWidth, setBalanceWidth] = useState(0);
+  const balanceLabel = formatBRL(balance);
+  const balanceFontSize = balanceWidth > 0
+    ? Math.min(36, Math.max(10, Math.floor(balanceWidth / (balanceLabel.length * 0.72))))
+    : 24;
   const [sections, setSections] = useState<MonthSection[]>([]);
   const [chartData, setChartData] = useState<MonthlyBalance[]>([]);
 
@@ -265,15 +270,15 @@ export default function FinancesScreen() {
               <Edit3 size={16} strokeWidth={1.7} color={colors.text} />
             </TouchableOpacity>
           </View>
-          <View style={{ paddingRight: 88 }}>
+          <View style={{ marginRight: 94 }} onLayout={event => setBalanceWidth(event.nativeEvent.layout.width)}>
             <Text
               className="font-sans-bold text-[36px]"
-              style={{ color: colors.text, letterSpacing: -1.2, fontVariant: ['tabular-nums'] }}
+              style={{ color: colors.text, fontSize: balanceFontSize, letterSpacing: -1.2, fontVariant: ['tabular-nums'] }}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.5}
             >
-              {formatBRL(balance)}
+              {balanceLabel}
             </Text>
           </View>
         </View>
