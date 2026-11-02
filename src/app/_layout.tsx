@@ -14,8 +14,10 @@ import { useFonts } from "expo-font";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as Linking from "expo-linking";
 import * as Notifications from "expo-notifications";
-import { Stack, useRootNavigationState, useRouter } from "expo-router";
-import { useShareIntent } from "expo-share-intent";
+import { Stack, useRootNavigationState, useRouter, type Href } from "expo-router";
+import { ShareIntentProvider, ShareIntentModule, useShareIntentContext } from "expo-share-intent";
+import { ShareDelivery, shareDestination, shareRequestId } from "@/navigation/shareIntentNavigation";
+import { useDialog } from "@/providers/DialogProvider";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { LockKeyhole } from "lucide-react-native";
@@ -32,7 +34,11 @@ export const unstable_settings = rootNavigationSettings;
 function RootLayoutNav() {
   const { resolvedTheme, primaryColor } = useTheme();
   const router = useRouter();
-  const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntent();
+  const { hasShareIntent, shareIntent, resetShareIntent, error: shareError } = useShareIntentContext();
+  const dialog = useDialog();
+  const shareDelivery = React.useRef(new ShareDelivery());
+  const [shareRetry, setShareRetry] = React.useState(0);
+  const shownShareError = React.useRef<string | null>(null);
   const navigationState = useRootNavigationState();
   const isNavigationReady = navigationState?.key !== undefined;
   const lastNotificationResponse = Notifications.useLastNotificationResponse();
@@ -56,13 +62,13 @@ function RootLayoutNav() {
     handledNotification.current = lastNotificationResponse;
     const taskId = lastNotificationResponse.notification.request.content.data?.taskId;
     // An explicit widget/share link takes priority over a retained notification.
-    if (!Linking.getLinkingURL() && taskId && lastNotificationResponse.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) {
+    if (!hasShareIntent && !Linking.getLinkingURL() && taskId && lastNotificationResponse.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) {
       router.push({ pathname: "/task/[id]", params: { id: String(taskId) } });
     }
     void Notifications.clearLastNotificationResponseAsync().catch((error) => {
       console.warn('Failed to clear the handled notification', error);
     });
-  }, [lastNotificationResponse, isNavigationReady, fontsLoaded, isAuthenticated, hasCompletedOnboarding, router]);
+  }, [lastNotificationResponse, isNavigationReady, fontsLoaded, isAuthenticated, hasCompletedOnboarding, hasShareIntent, router]);
 
   useEffect(() => {
     if (isNavigationReady && fontsLoaded && isAuthenticated && hasCompletedOnboarding) {
@@ -130,125 +136,57 @@ function RootLayoutNav() {
     }
   }
 
-  useEffect(() => {
-    if (!router || !isNavigationReady) return;
-    if (isAuthenticated && hasShareIntent && shareIntent) {
-      const handleShare = async () => {
-        // We use a small timeout to ensure the navigation context is fully mounted
-        // and ready, especially during cold starts via Share Intent.
-        setTimeout(async () => {
-            const firstFile = shareIntent.files?.[0];
-            const isBackupFile =
-              firstFile &&
-              (firstFile.mimeType === "application/json" ||
-                firstFile.mimeType === "application/zip" ||
-                firstFile.path?.toLowerCase().endsWith(".json") ||
-                firstFile.path?.toLowerCase().endsWith(".zip"));
-
-            if (isBackupFile && firstFile) {
-              const component = (shareIntent.meta as any)?.component;
-              // If it's explicitly the backup activity OR a backup file extension, route to backup
-              if (component?.endsWith(".ImportBackupActivity") || isBackupFile) {
-                router.push({
-                  pathname: "/backup/confirm-backup",
-                  params: { fileUri: firstFile.path },
-                });
-                resetShareIntent();
-                return;
-              }
-            }
-
-            if (shareIntent.type === "text" || shareIntent.type === "weburl") {
-                router.push({
-                    pathname: "/task/editor",
-                    params: {
-                        sharedText: (shareIntent as any).value,
-                    }
-                });
-            } else if (shareIntent.type === "media" || (shareIntent.files && shareIntent.files.length > 0)) {
-                const uris = shareIntent.files?.map(f => f.path) ?? [];
-                if (uris.length > 0) {
-                    const component = (shareIntent.meta as any)?.component;
-                    
-                    if (component?.endsWith(".CreatePdfActivity")) {
-                        router.push({
-                            pathname: "/tools/pdf-organizer",
-                            params: { imageUris: JSON.stringify(uris) }
-                        });
-                    } else if (component?.endsWith(".ConvertPdfActivity")) {
-                        router.push({
-                            pathname: "/tools/pdf-to-image",
-                            params: { fileUri: uris[0] }
-                        });
-                    } else if (component?.endsWith(".ScannerActivity")) {
-                        router.push({
-                            pathname: "/tools/document-scanner",
-                            params: { imageUris: JSON.stringify(uris) }
-                        });
-                    } else if (component?.endsWith(".OcrActivity")) {
-                        router.push({
-                            pathname: "/tools/ocr-tool",
-                            params: { imageUri: uris[0] }
-                        });
-                    } else if (component?.endsWith(".QrReaderActivity")) {
-                        router.push({
-                            pathname: "/tools/qr-tool",
-                            params: { mode: "read", imageUri: uris[0] }
-                        });
-                    } else if (component?.endsWith(".EditPdfActivity")) {
-                         router.push({
-                            pathname: "/tools/pdf-editor",
-                            params: { sharedUri: uris[0] },
-                        });
-                    } else if (component?.endsWith(".ColorPickerActivity")) {
-                         router.push({
-                            pathname: "/tools/color-picker",
-                            params: { sharedUri: uris[0] },
-                        });
-                    } else if (component?.endsWith(".BackgroundRemoverActivity")) {
-                         router.push({
-                            pathname: "/tools/background-remover",
-                            params: { sharedUri: uris[0] },
-                        });
-                    } else if (component?.endsWith(".ImportBackupActivity")) {
-                         router.push({
-                            pathname: "/backup/confirm-backup",
-                            params: { fileUri: uris[0] },
-                        });
-                    } else {
-                        const isPdf = uris[0]?.toLowerCase().endsWith('.pdf');
-                        if (isPdf) {
-                            router.push({
-                                pathname: "/tools/pdf-editor",
-                                params: { sharedUri: uris[0] }
-                            });
-                        } else {
-                         router.push({
-                            pathname: "/task/editor",
-                            params: {
-                                sharedImages: JSON.stringify(uris)
-                            }
-                         });
-                        }
-                    }
-                }
-            }
-            resetShareIntent();
-        }, 100);
-      };
-      
-      handleShare();
-    }
-  }, [isAuthenticated, hasShareIntent, shareIntent, router, resetShareIntent, isNavigationReady]);
+  const activeRoute = navigationState?.routes[navigationState.index ?? 0];
+  const shareNavigationReady = isNavigationReady && fontsLoaded && isAuthenticated && hasCompletedOnboarding === true && !!activeRoute && !['index', 'setup', 'onboarding'].includes(activeRoute.name);
 
   useEffect(() => {
-    if (isNavigationReady && fontsLoaded && hasCompletedOnboarding === false) {
-      // Small timeout to ensure Stack is mounted before replacing route
-      setTimeout(() => {
-        router.replace("/setup");
-      }, 0);
+    const delivery = shareDelivery.current;
+    const received = delivery.pendingId;
+    if (delivery.receive(activeRoute?.params && 'shareRequestId' in activeRoute.params ? activeRoute.params.shareRequestId : undefined)) {
+      if (hasShareIntent && received === shareRequestId(shareIntent)) {
+        resetShareIntent();
+        return;
+      }
     }
-  }, [isNavigationReady, fontsLoaded, hasCompletedOnboarding, router]);
+    if (!hasShareIntent) { delivery.empty(); return; }
+    const id = shareRequestId(shareIntent);
+    if (delivery.hasReceived(id)) { resetShareIntent(); return; }
+    if (shareNavigationReady && activeRoute?.params && 'shareRequestId' in activeRoute.params && activeRoute.params.shareRequestId === id) {
+      if (delivery.begin(id, true) && delivery.receive(id)) resetShareIntent();
+      return;
+    }
+    if (!delivery.begin(id, shareNavigationReady)) return;
+    try {
+      router.push(shareDestination(shareIntent) as Href);
+    } catch (error) {
+      console.error('Unable to open shared content', error);
+      dialog.show({ title: 'Não foi possível abrir os arquivos', description: 'Seu compartilhamento foi mantido. Tente abrir novamente.', buttons: [
+        { text: 'Cancelar', variant: 'ghost', onPress: () => { delivery.retry(); resetShareIntent(); } },
+        { text: 'Tentar novamente', onPress: () => { delivery.retry(); setShareRetry(value => value + 1); } },
+      ] });
+    }
+  }, [activeRoute, shareNavigationReady, hasShareIntent, shareIntent, resetShareIntent, router, dialog, shareRetry]);
+
+  useEffect(() => {
+    if (!shareError) { shownShareError.current = null; return; }
+    if (shownShareError.current === shareError) return;
+    shownShareError.current = shareError;
+    dialog.show({ title: 'Não foi possível importar os arquivos', description: 'Verifique se as imagens estão disponíveis na galeria e tente novamente.', buttons: [
+      { text: 'Cancelar', variant: 'ghost', onPress: () => resetShareIntent() },
+      { text: 'Tentar novamente', onPress: () => { shownShareError.current = null; resetShareIntent(false); ShareIntentModule?.getShareIntent(''); } },
+    ] });
+  }, [shareError, dialog, resetShareIntent]);
+
+  useEffect(() => {
+    if (!isNavigationReady || !fontsLoaded || hasCompletedOnboarding !== false || ['setup', 'onboarding'].includes(activeRoute?.name || '')) return;
+    let active = true;
+    getSetting('has_completed_onboarding').then(value => {
+      if (!active) return;
+      if (value === '1') setHasCompletedOnboarding(true);
+      else router.replace('/setup');
+    });
+    return () => { active = false; };
+  }, [activeRoute?.name, isNavigationReady, fontsLoaded, hasCompletedOnboarding, router]);
 
   if (securityEnabled && !isAuthenticated) {
     return (
@@ -374,16 +312,18 @@ export default function RootLayout() {
   useDevelopmentTools();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <DatabaseProvider>
-        <ThemeProvider>
-          <BottomSheetModalProvider>
-            <DialogProvider>
-              <RootLayoutNav />
-              <InAppUpdateDialog />
-            </DialogProvider>
-          </BottomSheetModalProvider>
-        </ThemeProvider>
-      </DatabaseProvider>
+      <ShareIntentProvider options={{ resetOnBackground: false }}>
+        <DatabaseProvider>
+          <ThemeProvider>
+            <BottomSheetModalProvider>
+              <DialogProvider>
+                <RootLayoutNav />
+                <InAppUpdateDialog />
+              </DialogProvider>
+            </BottomSheetModalProvider>
+          </ThemeProvider>
+        </DatabaseProvider>
+      </ShareIntentProvider>
     </GestureHandlerRootView>
   );
 }

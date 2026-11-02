@@ -1,3 +1,4 @@
+import { useSharedPdfImages } from "@/hooks/useSharedPdfImages";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { ToolActions } from "@/components/ui/ToolActions";
@@ -28,7 +29,7 @@ import {
     X
 } from "lucide-react-native";
 import { PDFDocument, PDFName, degrees, rgb } from "pdf-lib";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
     Platform,
     StyleSheet,
@@ -70,7 +71,7 @@ export type PDFPageItem = {
 export default function PDFOrganizerScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const params = useLocalSearchParams<{ imageUris?: string }>();
+  const params = useLocalSearchParams<{ imageUris?: string; shareRequestId?: string }>();
   const { resolvedTheme, primaryColor } = useTheme();
   const isDark = resolvedTheme === "dark";
   const { width: SCREEN_WIDTH } = useWindowDimensions();
@@ -84,29 +85,11 @@ export default function PDFOrganizerScreen() {
   const [pendingInsertIndex, setPendingInsertIndex] = useState<number | undefined>(undefined);
   const snapPoints = React.useMemo(() => ["35%"], []);
 
-  // Load images from scanner if passed via route params
-  useEffect(() => {
-    if (params.imageUris) {
-      try {
-        const uris: string[] = JSON.parse(params.imageUris);
-        if (uris.length > 0) {
-          const imagePages: PDFPageItem[] = uris.map((uri, i) => ({
-            id: `img-${Date.now()}-${i}-${Math.random().toString(36).substring(7)}`,
-            uniqueId: uri,
-            sourceUri: uri,
-            pageIndex: 0,
-            sourceFileName: `Página ${i + 1}`,
-            thumbnailUri: uri,
-            rotation: 0,
-            isImage: true,
-          }));
-          setPages(imagePages);
-        }
-      } catch (e) {
-        console.error("Error parsing imageUris:", e);
-      }
-    }
-  }, []);
+  const reportImportError = useCallback((error: unknown) => {
+    console.error('Error importing shared images:', error);
+    dialog.show({ title: 'Não foi possível importar as imagens', description: 'Compartilhe as imagens novamente a partir da galeria.', variant: 'error' });
+  }, [dialog.show]);
+  useSharedPdfImages(params.imageUris, params.shareRequestId, setPages, reportImportError);
 
   const handleAddOptions = (insertIndex?: number) => {
     setPendingInsertIndex(insertIndex);

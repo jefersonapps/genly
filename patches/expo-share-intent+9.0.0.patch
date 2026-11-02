@@ -1,8 +1,173 @@
 diff --git a/node_modules/expo-share-intent/android/src/main/java/expo/modules/shareintent/ExpoShareIntentModule.kt b/node_modules/expo-share-intent/android/src/main/java/expo/modules/shareintent/ExpoShareIntentModule.kt
-index 0153c89..79f9819 100644
 --- a/node_modules/expo-share-intent/android/src/main/java/expo/modules/shareintent/ExpoShareIntentModule.kt
 +++ b/node_modules/expo-share-intent/android/src/main/java/expo/modules/shareintent/ExpoShareIntentModule.kt
-@@ -125,11 +125,13 @@ class ExpoShareIntentModule : Module() {
+@@ -44,71 +44,87 @@
+     companion object {
+         private var instance: ExpoShareIntentModule? = null
+
+-        private fun notifyShareIntent(value: Any) {
++        private fun emitShareIntent(value: Map<String, Any?>) {
++            val id = (value["meta"] as? Map<*, *>)?.get("shareId") as? String
++            if (id != null && ExpoShareIntentSingleton.intent?.getStringExtra(ExpoShareIntentSingleton.REQUEST_ID) != id) return
+             notifyState("pending")
+-            instance!!.sendEvent("onChange", mapOf("value" to value))
++            instance?.sendEvent("onChange", mapOf("value" to value))
+         }
+         private fun notifyState(state: String) {
+-            instance!!.sendEvent("onStateChange", mapOf("value" to state))
++            instance?.sendEvent("onStateChange", mapOf("value" to state))
+         }
+         private fun notifyError(message: String) {
+-            instance!!.sendEvent("onError", mapOf("value" to message))
+-        }
+-
+-        @SuppressLint("Range")
++            instance?.sendEvent("onError", mapOf("value" to message))
++        }
++
++        private val shareExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
++        private var processingId: String? = null
++        private fun deliverPendingIntent() {
++            val request = ExpoShareIntentSingleton.intent ?: return
++            val id = request.getStringExtra(ExpoShareIntentSingleton.REQUEST_ID) ?: return
++            synchronized(shareExecutor) {
++                if (processingId == id) return
++                processingId = id
++            }
++            shareExecutor.execute {
++                try { handleShareIntent(request) }
++                catch (error: Exception) {
++                    if (ExpoShareIntentSingleton.intent?.getStringExtra(ExpoShareIntentSingleton.REQUEST_ID) == id) {
++                        notifyError("Cannot import shared files: ${error.message}")
++                    }
++                }
++                finally { synchronized(shareExecutor) { if (processingId == id) processingId = null } }
++            }
++        }
++
+         private fun getFileInfo(uri: Uri): Map<String, String?> {
+-            val resolver: ContentResolver? = instance?.currentActivity?.contentResolver
+-                    ?: instance?.context?.contentResolver
+-            if (resolver == null) {
+-                notifyError("Cannot get resolver (getFileInfo)")
+-                return mapOf(
+-                    "contentUri" to uri.toString(),
+-                    "filePath" to instance?.getAbsolutePath(uri),
+-                )
+-            }
+-            val queryResult: Cursor = resolver.query(uri, null, null, null, null)!!
+-            queryResult.moveToFirst()
+-            val fileName = queryResult.getString(queryResult.getColumnIndex(OpenableColumns.DISPLAY_NAME))
+-            val fileSize = queryResult.getString(queryResult.getColumnIndex(OpenableColumns.SIZE))
+-            queryResult.close()
+-
+-            val mimeType = resolver.getType(uri)!!
+-
+-            var mediaWidth: String? = null;
+-            var mediaHeight: String? = null;
+-            var mediaDuration: String? = null;
++            val module = instance ?: throw IllegalStateException("Share module unavailable")
++            val resolver = module.context.contentResolver
++            var fileName: String? = null
++            var fileSize: String? = null
++            resolver.query(uri, null, null, null, null)?.use { cursor ->
++                if (cursor.moveToFirst()) {
++                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
++                    val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
++                    if (nameIndex >= 0) fileName = cursor.getString(nameIndex)
++                    if (sizeIndex >= 0) fileSize = cursor.getString(sizeIndex)
++                }
++            }
++            val mimeType = resolver.getType(uri)
++                ?: fileName?.substringAfterLast('.', "")?.lowercase()?.let { MimeTypeMap.getSingleton().getMimeTypeFromExtension(it) }
++                ?: "application/octet-stream"
++            val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType)
++                ?: fileName?.substringAfterLast('.', "")?.takeIf { it.matches(Regex("[a-zA-Z0-9]{1,10}")) }
++                ?: "bin"
++            // Copy while the intent's URI grant is valid. Distinct files may have identical names.
++            val localFile = File.createTempFile("shared-", ".$extension", module.context.cacheDir)
++            try {
++                val input = resolver.openInputStream(uri) ?: throw IllegalStateException("Cannot read shared file")
++                input.use { source -> FileOutputStream(localFile).use { output -> source.copyTo(output) } }
++            } catch (error: Exception) { localFile.delete(); throw error }
++            var width: String? = null
++            var height: String? = null
++            var duration: String? = null
+             if (mimeType.startsWith("image/")) {
+-                val options = BitmapFactory.Options().apply {
+-                    inJustDecodeBounds = true
+-                }
+-                BitmapFactory.decodeStream(resolver.openInputStream(uri), null, options)
+-                mediaHeight = options.outHeight.toString()
+-                mediaWidth = options.outWidth.toString()
++                val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
++                BitmapFactory.decodeFile(localFile.absolutePath, options)
++                width = options.outWidth.toString()
++                height = options.outHeight.toString()
+             }
+             if (mimeType.startsWith("video/")) {
+                 val retriever = MediaMetadataRetriever()
+-                retriever.setDataSource(instance?.getAbsolutePath(uri))
+-                mediaWidth = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toInt().toString() ?: null
+-                mediaHeight = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toInt().toString() ?: null
+-                // Check orientation and flip size if required
+-                val metaRotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toInt() ?: 0;
+-                if (metaRotation == 90 || metaRotation == 270) {
+-                    mediaWidth = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toInt().toString() ?: null
+-                    mediaHeight = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toInt().toString() ?: null
+-                }
+-                mediaDuration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toInt().toString() ?: null
+-            }
+-
+-            return mapOf(
+-                    "contentUri" to uri.toString(),
+-                    "filePath" to instance?.getAbsolutePath(uri),
+-                    "fileName" to fileName,
+-                    "fileSize" to fileSize,
+-                    "mimeType" to mimeType,
+-                    "width" to mediaWidth,
+-                    "height" to mediaHeight,
+-                    "duration" to mediaDuration
+-            )
++                try {
++                    retriever.setDataSource(localFile.absolutePath)
++                    width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
++                    height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
++                    duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
++                    val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
++                    if (rotation == 90 || rotation == 270) { val oldWidth = width; width = height; height = oldWidth }
++                } finally { retriever.release() }
++            }
++            return mapOf("contentUri" to uri.toString(), "filePath" to localFile.absolutePath,
++                "fileName" to (fileName ?: localFile.name), "fileSize" to (fileSize ?: localFile.length().toString()),
++                "mimeType" to mimeType, "width" to width, "height" to height, "duration" to duration)
+         }
+
+         fun handleShareIntent(intent: Intent) {
+@@ -117,19 +133,34 @@
+                 val newIntent = Intent(intent).apply {
+                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                 }
+-                activity.startActivity(newIntent)
+-                activity.finish()
++                activity.runOnUiThread {
++                    activity.startActivity(newIntent)
++                    activity.finish()
++                }
+                 return
++            }
++            val id = intent.getStringExtra(ExpoShareIntentSingleton.REQUEST_ID) ?: return
++            if (ExpoShareIntentSingleton.intent?.getStringExtra(ExpoShareIntentSingleton.REQUEST_ID) != id) return
++            ExpoShareIntentSingleton.cached(id)?.let { emitShareIntent(it); return }
++            fun notifyShareIntent(value: Map<String, Any?>) {
++                if (ExpoShareIntentSingleton.intent?.getStringExtra(ExpoShareIntentSingleton.REQUEST_ID) != id) return
++                @Suppress("UNCHECKED_CAST")
++                val meta = value["meta"] as? Map<String, Any?> ?: emptyMap()
++                val payload = value + ("meta" to (meta + mapOf("shareId" to id, "component" to intent.component?.className)))
++                ExpoShareIntentSingleton.cache(id, payload)
++                emitShareIntent(payload)
+             }
+             if (intent.type == null) return
              if (intent.type!!.startsWith("text/plain")) {
                  // text / urls
                  if (intent.action == Intent.ACTION_SEND) {
@@ -16,10 +181,12 @@ index 0153c89..79f9819 100644
                          )
                      ))
                  } else if (intent.action == Intent.ACTION_VIEW) {
-@@ -141,15 +143,25 @@ class ExpoShareIntentModule : Module() {
+@@ -140,16 +171,27 @@
+             } else {
                  // files / medias
                  if (intent.action == Intent.ACTION_SEND) {
-                     val uri = intent.parcelable<Uri>(Intent.EXTRA_STREAM);
+-                    val uri = intent.parcelable<Uri>(Intent.EXTRA_STREAM);
++                    val uri = intent.parcelable<Uri>(Intent.EXTRA_STREAM) ?: intent.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.uri ?: intent.data;
 +                    val component = intent.component?.className
                      if (uri != null) {
 -                        notifyShareIntent(mapOf( "files" to arrayOf(getFileInfo(uri), "type" to "file")))
@@ -33,6 +200,7 @@ index 0153c89..79f9819 100644
                      }
                  } else if (intent.action == Intent.ACTION_SEND_MULTIPLE) {
                      val uris = intent.parcelableArrayList<Uri>(Intent.EXTRA_STREAM)
++                        ?: intent.clipData?.let { clip -> ArrayList((0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri }) }
 +                    val component = intent.component?.className
                      if (uris != null) {
 -                        notifyShareIntent(mapOf( "files" to uris.map { getFileInfo(it) }, "type" to "file"))
@@ -44,11 +212,108 @@ index 0153c89..79f9819 100644
                      } else {
                          notifyError("empty uris array for file sharing: " + intent.action)
                      }
+@@ -181,15 +223,21 @@
+
+         AsyncFunction("getShareIntent") { _: String ->
+             // get the Intent from onCreate activity (app not running in background)
+-            ExpoShareIntentSingleton.isPending = false
+-            if (ExpoShareIntentSingleton.intent?.type != null) {
+-                handleShareIntent(ExpoShareIntentSingleton.intent!!);
+-                ExpoShareIntentSingleton.intent = null
+-            }
+-        }
+-
+-        Function("clearShareIntent") { _: String ->
+-            ExpoShareIntentSingleton.intent = null
++            deliverPendingIntent()
++        }
++
++        Function("clearShareIntent") { id: String ->
++            val headId = ExpoShareIntentSingleton.intent?.getStringExtra(ExpoShareIntentSingleton.REQUEST_ID)
++            if (ExpoShareIntentSingleton.acknowledge(id)) {
++                currentActivity?.intent?.takeIf { it.getStringExtra(ExpoShareIntentSingleton.REQUEST_ID) == headId }?.apply {
++                    action = Intent.ACTION_MAIN
++                    type = null
++                    clipData = null
++                    removeExtra(Intent.EXTRA_STREAM)
++                    removeExtra(ExpoShareIntentSingleton.REQUEST_ID)
++                }
++                deliverPendingIntent()
++            }
+         }
+
+         Function("hasShareIntent") { _: String ->
+@@ -197,7 +245,8 @@
+         }
+
+         OnNewIntent {
+-            handleShareIntent(it)
++            ExpoShareIntentSingleton.enqueue(it)
++            deliverPendingIntent()
+         }
+
+         OnCreate {
+diff --git a/node_modules/expo-share-intent/android/src/main/java/expo/modules/shareintent/ExpoShareIntentSingleton.kt b/node_modules/expo-share-intent/android/src/main/java/expo/modules/shareintent/ExpoShareIntentSingleton.kt
+--- a/node_modules/expo-share-intent/android/src/main/java/expo/modules/shareintent/ExpoShareIntentSingleton.kt
++++ b/node_modules/expo-share-intent/android/src/main/java/expo/modules/shareintent/ExpoShareIntentSingleton.kt
+@@ -2,14 +2,31 @@
+
+ import android.content.Intent
+ import expo.modules.core.interfaces.SingletonModule
++import java.util.UUID
+
+ object ExpoShareIntentSingleton : SingletonModule {
++  const val REQUEST_ID = "com.genly.share.REQUEST_ID"
++  private val pending = java.util.ArrayDeque<Intent>()
++  private val payloads = mutableMapOf<String, Map<String, Any?>>()
++  override fun getName(): String = "ExpoShareIntent"
++  val intent: Intent? get() = synchronized(this) { pending.peekFirst() }
++  val isPending: Boolean get() = synchronized(this) { pending.isNotEmpty() }
+
+-  override fun getName(): String {
+-    return "ExpoShareIntent"
++  @Synchronized fun enqueue(value: Intent) {
++    if (value.type == null || value.action !in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE, Intent.ACTION_VIEW)) return
++    val id = value.getStringExtra(REQUEST_ID) ?: UUID.randomUUID().toString().also { value.putExtra(REQUEST_ID, it) }
++    if (pending.none { it.getStringExtra(REQUEST_ID) == id }) pending.addLast(value)
+   }
+-
+-  // members to store the initial launch intent
+-  var intent: Intent? = null
+-  var isPending: Boolean = false
+-}
+\ No newline at end of file
++  @Synchronized fun cached(id: String): Map<String, Any?>? = payloads[id]
++  @Synchronized fun cache(id: String, value: Map<String, Any?>) {
++    if (pending.any { it.getStringExtra(REQUEST_ID) == id }) payloads[id] = value
++  }
++  @Synchronized fun acknowledge(id: String): Boolean {
++    val first = pending.peekFirst() ?: return false
++    val firstId = first.getStringExtra(REQUEST_ID) ?: return false
++    if (id.isNotEmpty() && id != firstId) return false
++    pending.removeFirst()
++    payloads.remove(firstId)
++    return true
++  }
++}
+diff --git a/node_modules/expo-share-intent/android/src/main/java/expo/modules/shareintent/ExpoShareIntentReactActivityLifecycleListener.kt b/node_modules/expo-share-intent/android/src/main/java/expo/modules/shareintent/ExpoShareIntentReactActivityLifecycleListener.kt
+--- a/node_modules/expo-share-intent/android/src/main/java/expo/modules/shareintent/ExpoShareIntentReactActivityLifecycleListener.kt
++++ b/node_modules/expo-share-intent/android/src/main/java/expo/modules/shareintent/ExpoShareIntentReactActivityLifecycleListener.kt
+@@ -15,8 +15,7 @@
+     override fun onCreate(activity: Activity?, savedInstanceState: Bundle?) {
+         // only store when the new intent is not empty
+         if (activity?.intent?.type != null) {
+-            ExpoShareIntentSingleton.intent = activity?.intent
+-            ExpoShareIntentSingleton.isPending = true
++            ExpoShareIntentSingleton.enqueue(activity.intent)
+         }
+     }
+ }
+\ No newline at end of file
 diff --git a/node_modules/expo-share-intent/build/utils.js b/node_modules/expo-share-intent/build/utils.js
-index 3d343c6..8df5739 100644
 --- a/node_modules/expo-share-intent/build/utils.js
 +++ b/node_modules/expo-share-intent/build/utils.js
-@@ -68,6 +68,7 @@ export const parseShareIntent = (value, options) => {
+@@ -68,6 +68,7 @@
              text: shareIntent.text,
              webUrl,
              meta: {
@@ -56,7 +321,18 @@ index 3d343c6..8df5739 100644
                  title: shareIntent.meta?.title ?? undefined,
              },
          };
-@@ -112,6 +113,7 @@ export const parseShareIntent = (value, options) => {
+@@ -86,8 +87,8 @@
+         // Ensure we got a valid file. some array value are emply
+         const files = shareIntent?.files?.filter((file) => file.path || file.contentUri) ||
+             [];
+-        const isMedia = files.every((file) => file.mimeType.startsWith("image/") ||
+-            file.mimeType.startsWith("video/"));
++        const isMedia = files.every((file) => file.mimeType?.startsWith("image/") ||
++            file.mimeType?.startsWith("video/"));
+         result = {
+             ...SHAREINTENT_DEFAULTVALUE,
+             files: shareIntent?.files
+@@ -112,6 +113,7 @@
                  }, [])
                  : null,
              type: isMedia ? "media" : "file",
@@ -64,3 +340,56 @@ index 3d343c6..8df5739 100644
          };
      }
      options.debug &&
+diff --git a/node_modules/expo-share-intent/build/useShareIntent.js b/node_modules/expo-share-intent/build/useShareIntent.js
+--- a/node_modules/expo-share-intent/build/useShareIntent.js
++++ b/node_modules/expo-share-intent/build/useShareIntent.js
+@@ -25,12 +25,10 @@
+         if (options.disabled)
+             return;
+         setError(null);
+-        clearNativeModule &&
+-            ExpoShareIntentModule?.clearShareIntent(getShareExtensionKey(options));
+-        if (isValueAvailable(shareIntent)) {
+-            setSharedIntent(SHAREINTENT_DEFAULTVALUE);
+-            options.onResetShareIntent?.();
+-        }
++        const id = shareIntent.meta?.shareId;
++        setSharedIntent(current => (current === shareIntent || (id && current.meta?.shareId === id)) ? SHAREINTENT_DEFAULTVALUE : current);
++        if (isValueAvailable(shareIntent)) options.onResetShareIntent?.();
++        clearNativeModule && ExpoShareIntentModule?.clearShareIntent(Platform.OS === "android" ? (id || "") : getShareExtensionKey(options));
+     };
+     /**
+      * Call native module on universal linking url change
+@@ -50,12 +48,12 @@
+         }
+     };
+     useEffect(() => {
+-        if (options.disabled)
++        if (options.disabled || !isReady)
+             return;
+         options.debug &&
+             console.debug("useShareIntent[mount]", getScheme(options), options);
+         refreshShareIntent();
+-    }, [url, options.disabled]);
++    }, [url, options.disabled, isReady]);
+     /**
+      * Handle application state (active, background, inactive)
+      */
+@@ -63,7 +61,7 @@
+         if (options.disabled)
+             return;
+         const subscription = AppState.addEventListener("change", (nextAppState) => {
+-            if (nextAppState === "active") {
++            if (nextAppState === "active" && isReady) {
+                 options.debug && console.debug("useShareIntent[active] refresh intent");
+                 refreshShareIntent();
+             }
+@@ -79,7 +77,7 @@
+         return () => {
+             subscription.remove();
+         };
+-    }, [url, shareIntent, options.disabled]);
++    }, [url, shareIntent, options.disabled, isReady]);
+     /**
+      * Detect Native Module response
+      */
