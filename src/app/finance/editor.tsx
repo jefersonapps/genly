@@ -231,7 +231,7 @@ export default function TransactionEditor() {
           placeholderTextColor={colors.placeholder}
           value={title}
           onChangeText={setTitle}
-          className="font-sans-extrabold text-[26px] mb-5"
+          className="font-sans-bold text-[26px] mb-5"
           style={[{ color: colors.text }]}
         />
 

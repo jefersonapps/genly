@@ -1,8 +1,6 @@
 import { useDeferredFocusEffect } from "@/hooks/useDeferredFocusEffect";
 import { getContrastSafeColor } from "@/components/editor/Editor";
 import { BalanceChart } from "@/components/finance/BalanceChart";
-import { Button } from "@/components/ui/Button";
-import { CardGradient } from "@/components/ui/CardGradient";
 import { TabHeader } from "@/components/ui/TabHeader";
 import type { Transaction } from "@/db/schema";
 import { useHeaderSnap } from "@/hooks/useHeaderSnap";
@@ -212,105 +210,90 @@ export default function FinancesScreen() {
         </Text>
       </View>
 
-      {/* Balance Card */}
+      {/* A neutral balance card keeps color reserved for transaction meaning. */}
       <View
-        className="mx-5 mt-3 p-3 pl-[18px] justify-center relative rounded-[20] overflow-hidden"
+        className="mx-5 rounded-[20px] border overflow-hidden"
+        style={{ backgroundColor: colors.surfaceSecondary, borderColor: colors.border }}
       >
-        <CardGradient color="#10B981" hasSolidBackground className="absolute inset-0" />
-        
-        {/* Coins Image Background */}
-        <Animated.Image 
-            source={require("../../../assets/images/coins.png")} 
-            className="absolute -right-5 -bottom-10 w-[140] h-[140] opacity-90"
+        <View className="px-5 pt-4 pb-5 overflow-hidden">
+          <Animated.Image
+            source={require("../../../assets/images/coins.png")}
+            pointerEvents="none"
+            accessible={false}
             style={{
-                transform: [{ rotate: '-15deg' }]
+              position: 'absolute', right: -12, bottom: -22, width: 130, height: 130,
+              opacity: isDark ? 0.5 : 0.65, transform: [{ rotate: '-12deg' }],
             }}
             resizeMode="contain"
-        />
-
-        <View className="flex-row items-center mb-2">
-          <Wallet size={18} color="rgba(255,255,255,0.8)" />
-          <Text className="font-sans-medium text-[13px] text-white/80 ml-2 flex-1">
-            Saldo Atual
-          </Text>
-          <Button
-            variant="icon"
-            className="px-0"
-            onPress={() => {
+          />
+          <View className="flex-row items-center justify-between mb-3 gap-3">
+            <View className="flex-row items-center gap-2">
+              <Wallet size={16} strokeWidth={1.7} color={colors.textSecondary} />
+              <Text className="font-sans-medium text-xs" style={{ color: colors.textSecondary }}>Saldo atual</Text>
+            </View>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Editar saldo atual"
+              activeOpacity={0.7}
+              className="items-center justify-center rounded-full"
+              style={{ width: 44, height: 44, backgroundColor: colors.surfaceTertiary }}
+              onPress={() => {
                 dialog.show({
-                    title: "Definir saldo",
-                    description: "Informe seu saldo total atual:",
-                    prompt: {
-                        defaultValue: formatBRL(balance),
-                        placeholder: "R$ 0,00",
-                        formatInput: (text) => formatBRLInput(text),
-                        onConfirm: handleUpdateBalance
-                    },
-                    buttons: [
-                        { text: "Cancelar", variant: "ghost" },
-                        { text: "Confirmar", variant: "default" }
-                    ]
+                  title: "Definir saldo",
+                  description: "Informe seu saldo total atual:",
+                  prompt: {
+                    defaultValue: formatBRL(balance),
+                    placeholder: "R$ 0,00",
+                    formatInput: (text) => formatBRLInput(text),
+                    onConfirm: handleUpdateBalance,
+                  },
+                  buttons: [
+                    { text: "Cancelar", variant: "ghost" },
+                    { text: "Confirmar", variant: "default" },
+                  ],
                 });
-            }}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Edit3 size={16} color="rgba(255,255,255,0.8)" />
-          </Button>
+              }}
+            >
+              <Edit3 size={17} strokeWidth={1.7} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+          <View style={{ paddingRight: 84 }}>
+            <Text
+              className="font-sans-bold text-[32px]"
+              style={{ color: colors.text, fontVariant: ['tabular-nums'] }}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.5}
+            >
+              {formatBRL(balance)}
+            </Text>
+          </View>
         </View>
-        <Text 
-          className="font-sans-bold text-[32px] text-white"
-          style={{ 
-            textShadowColor: 'rgba(0, 0, 0, 0.25)',
-            textShadowOffset: { width: 0, height: 2 },
-            textShadowRadius: 4
-          }}
-        >
-          {formatBRL(balance)}
-        </Text>
-      </View>
-
-      <View
-        className="flex-row px-5 gap-3 mt-4"
-      >
-        <Button
-          variant="ghost"
-          onPress={() =>
-            router.push({
-              pathname: "/finance/editor",
-              params: { type: "income" },
-            })
-          }
-          className="flex-1 flex-row items-center justify-center gap-4 px-4 py-[14px] rounded-2xl border"
-          style={{ 
-            backgroundColor: "#22C55E15",
-            borderColor: "#22C55E30",
-          }}
-        >
-        <BanknoteArrowUp size={20} color="#22C55E" />
-        <Text className="font-sans-bold text-[15px]" style={{ color: "#22C55E" }}>
-          Receita
-        </Text>
-        </Button>
-
-        <Button
-          variant="ghost"
-          onPress={() =>
-            router.push({
-              pathname: "/finance/editor",
-              params: { type: "expense" },
-            })
-          }
-          className="flex-1 flex-row items-center justify-center gap-4 px-4 py-[14px] rounded-2xl border"
-          style={{ 
-            backgroundColor: "#EF444415",
-            borderColor: "#EF444430",
-          }}
-        >
-        <BanknoteArrowDown size={20} color="#EF4444" />
-        <Text className="font-sans-bold text-[15px]" style={{ color: "#EF4444" }}>
-          Despesa
-        </Text>
-        </Button>
+        <View className="flex-row items-center border-t" style={{ borderColor: colors.border }}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Adicionar receita"
+            activeOpacity={0.7}
+            onPress={() => router.push({ pathname: "/finance/editor", params: { type: "income" } })}
+            className="flex-1 flex-row items-center justify-center gap-2 px-3 py-3"
+            style={{ minHeight: 48 }}
+          >
+            <BanknoteArrowUp size={18} strokeWidth={1.7} color={isDark ? '#82B99B' : '#367553'} />
+            <Text className="font-sans-semibold text-[13px]" style={{ color: colors.text }}>Receita</Text>
+          </TouchableOpacity>
+          <View style={{ width: 1, height: 20, backgroundColor: colors.border }} />
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Adicionar despesa"
+            activeOpacity={0.7}
+            onPress={() => router.push({ pathname: "/finance/editor", params: { type: "expense" } })}
+            className="flex-1 flex-row items-center justify-center gap-2 px-3 py-3"
+            style={{ minHeight: 48 }}
+          >
+            <BanknoteArrowDown size={18} strokeWidth={1.7} color={isDark ? '#D39A95' : '#9B514C'} />
+            <Text className="font-sans-semibold text-[13px]" style={{ color: colors.text }}>Despesa</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Chart */}
