@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { desc, eq, ne, or, sql } from "drizzle-orm";
 import { db } from "../db/client";
 import { groups, media, tasks, type Group, type Media, type Task } from "../db/schema";
 import { NotificationService } from "./notificationService";
@@ -65,7 +65,7 @@ export async function deleteGroup(id: number): Promise<void> {
 // ─── Task Operations ──────────────────────────────────
 
 export async function getAllTasks(): Promise<Task[]> {
-  return db.select().from(tasks).orderBy(tasks.updatedAt).all().reverse();
+  return db.select().from(tasks).orderBy(desc(tasks.updatedAt), desc(tasks.id)).all();
 }
 
 export async function getTasksWithReminders(): Promise<Task[]> {
@@ -74,7 +74,7 @@ export async function getTasksWithReminders(): Promise<Task[]> {
 }
 
 export async function getTasksByGroupId(groupId: number): Promise<Task[]> {
-    return db.select().from(tasks).where(eq(tasks.groupId, groupId)).orderBy(tasks.updatedAt).all().reverse();
+    return db.select().from(tasks).where(eq(tasks.groupId, groupId)).orderBy(desc(tasks.updatedAt), desc(tasks.id)).all();
 }
 
 export async function getTaskById(id: number): Promise<Task | undefined> {
@@ -112,10 +112,18 @@ export async function updateTask(
   id: number,
   data: { title?: string; content?: string, groupId?: number | null, deliveryDate?: string | null, deliveryTime?: string | null },
 ): Promise<void> {
-  const now = new Date().toISOString();
+  // Recency reflects actual title/content edits, not status, reminders or groups.
+  // Compare within the UPDATE so callers sending unchanged fields don't reorder notes.
+  const textChanges = [
+    ...(data.title !== undefined ? [ne(tasks.title, data.title)] : []),
+    ...(data.content !== undefined ? [sql`coalesce(${tasks.content}, '') <> ${data.content}`] : []),
+  ];
+  const updatedAt = textChanges.length
+    ? sql<string>`case when ${or(...textChanges)} then ${new Date().toISOString()} else ${tasks.updatedAt} end`
+    : sql<string>`${tasks.updatedAt}`;
   await db
     .update(tasks)
-    .set({ ...data, updatedAt: now })
+    .set({ ...data, updatedAt })
     .where(eq(tasks.id, id));
 
   // If delivery info changed, update notification
@@ -136,21 +144,19 @@ export async function updateTask(
 }
 
 export async function bulkUpdateTasksGroup(taskIds: number[], groupId: number | null): Promise<void> {
-  const now = new Date().toISOString();
   await Promise.all(
     taskIds.map(id => 
       db.update(tasks)
-        .set({ groupId, updatedAt: now })
+        .set({ groupId })
         .where(eq(tasks.id, id))
     )
   );
 }
 
 export async function completeTask(id: number): Promise<void> {
-  const now = new Date().toISOString();
   await db
     .update(tasks)
-    .set({ completed: 1, updatedAt: now })
+    .set({ completed: 1 })
     .where(eq(tasks.id, id));
   
   // Cancel any scheduled reminder for this task
@@ -160,10 +166,9 @@ export async function completeTask(id: number): Promise<void> {
 }
 
 export async function uncompleteTask(id: number): Promise<void> {
-  const now = new Date().toISOString();
   await db
     .update(tasks)
-    .set({ completed: 0, updatedAt: now })
+    .set({ completed: 0 })
     .where(eq(tasks.id, id));
   
   // Re-schedule reminder if delivery info exists

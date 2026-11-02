@@ -25,14 +25,13 @@ import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
 import { Bell, Brain, CalendarDays, Clock, Edit3, FileText, FolderPlus, Layers, Lightbulb, Plus, Search, Trash2 } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { LayoutAnimation, RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, {
     Extrapolation,
     interpolate,
     useAnimatedScrollHandler,
     useAnimatedStyle,
     useSharedValue,
-    useReducedMotion,
     withDelay,
     withSpring,
     withTiming
@@ -77,7 +76,6 @@ export default function HomeScreen() {
   const fanProgress = useSharedValue(0);
   const { scrollY, headerScrollY, scrollHandler } = useHeaderSnap({ snapThreshold: 60 });
   const scrollViewRef = React.useRef<FlashListRef<Task>>(null);
-  const reduceMotion = useReducedMotion();
   const contentHeight = useSharedValue(0);
   const layoutHeight = useSharedValue(0);
   const groupsScrollRef = React.useRef<React.ComponentRef<typeof ScrollView>>(null);
@@ -293,21 +291,11 @@ export default function HomeScreen() {
       if (task.completed === 1) await uncompleteTask(task.id);
       else await completeTask(task.id);
       const updated = await getTaskById(task.id);
-      if (updated) {
-        if (!reduceMotion) {
-          // Preserve each note's native cell while its position changes.
-          scrollViewRef.current?.prepareForLayoutAnimationRender();
-          LayoutAnimation.configureNext({
-            duration: 280,
-            update: { type: LayoutAnimation.Types.easeInEaseOut },
-          });
-        }
-        setTasks(current => current.map(item => item.id === updated.id ? updated : item).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
-      }
+      if (updated) setTasks(current => current.map(item => item.id === updated.id ? updated : item));
     } finally {
       pendingCompletions.current.delete(task.id);
     }
-  }, [reduceMotion]);
+  }, []);
   const renderTask = useCallback(({ item }: { item: Task }) => (
     <SwipeableTaskRow task={item} kind={groupKinds.get(item.groupId ?? -1) || 'note'} mediaItems={taskMedia[item.id]} activeRow={activeSwipeRow} onDelete={handleDeleteTask} onToggleComplete={toggleComplete} />
   ), [groupKinds, taskMedia, handleDeleteTask, toggleComplete]);
