@@ -1,4 +1,6 @@
 import { AnimatedGlowButton } from "@/components/ui/AnimatedGlowButton";
+import { useLibraryStore } from "@/store/useLibraryStore";
+import { libraryCreationRoute } from "@/navigation/libraryCreation";
 import { useTheme } from "@/providers/ThemeProvider";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -135,8 +137,12 @@ export function CustomTabBar({ state, navigateToTab }: BottomTabBarProps) {
               <View key="plus-button" className="flex-1 items-center justify-center">
                 <AnimatedGlowButton
                   onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    router.push("/task/editor");
+                    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                    const library = useLibraryStore.getState();
+                    const group = state.routes[state.index]?.name === 'index'
+                      ? library.groups.find(item => item.id === library.selectedGroupId)
+                      : null;
+                    router.push(libraryCreationRoute(group));
                   }}
                   color={primaryColor}
                   icon={<IconPlus size={24} color="#FFF" />}

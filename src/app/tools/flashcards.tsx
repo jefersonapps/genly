@@ -33,20 +33,24 @@ export default function FlashcardsScreen() {
   const isDark = resolvedTheme === "dark";
   const dialog = useDialog();
 
-  const { taskId } = useLocalSearchParams<{ taskId?: string }>();
+  const { taskId, createSession } = useLocalSearchParams<{ taskId?: string; createSession?: string }>();
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [deckTitle, setDeckTitle] = useState("");
   
   useEffect(() => {
+    let cancelled = false;
     async function hydrate() {
       if (!taskId) {
         setCards([]);
         setDeckTitle('');
+        setIsStudying(false);
+        setCurrentIdx(0);
+        setShowBack(false);
         return;
       }
       try {
         const t = await getTaskById(Number(taskId));
-        if (t) {
+        if (t && !cancelled) {
           if (t.title) setDeckTitle(t.title);
           if (t.content) {
             const parsed = JSON.parse(t.content);
@@ -60,7 +64,8 @@ export default function FlashcardsScreen() {
       }
     }
     hydrate();
-  }, [taskId]);
+    return () => { cancelled = true; };
+  }, [taskId, createSession]);
 
   const [isStudying, setIsStudying] = useState(false);
   const [currentIdx, setCurrentIdx] = useState(0);

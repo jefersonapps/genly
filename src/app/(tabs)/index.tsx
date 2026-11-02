@@ -1,3 +1,6 @@
+import { GeneralGroupArtwork } from '@/components/ui/GeneralGroupArtwork';
+import { useLibraryStore } from '@/store/useLibraryStore';
+import { libraryCreationRoute } from '@/navigation/libraryCreation';
 import { useDeferredFocusEffect } from "@/hooks/useDeferredFocusEffect";
 import { GroupIcon } from "@/components/ui/GroupIcon";
 import { SwipeableTaskRow, type TaskRowKind } from "@/components/task/SwipeableTaskRow";
@@ -41,14 +44,6 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 
-const GERAL_CARD_THEME = {
-  colors: {
-    primary: '#C491F1',  
-    secondary: '#F4A261', 
-    tertiary: '#50B0F9',
-  }
-};
-
 const taskKey = (task: Task) => String(task.id);
 const TaskSeparator = () => <View style={{ height: 8 }} />;
 
@@ -67,7 +62,8 @@ export default function HomeScreen() {
   const [deletingSelection, setDeletingSelection] = useState(false);
   const deletionInFlight = useRef(false);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const selectedGroupId = useLibraryStore(state => state.selectedGroupId);
+  const setSelectedGroupId = useLibraryStore(state => state.selectGroup);
   const [pinningGroupWidget, setPinningGroupWidget] = useState(false);
   const pinningGroupWidgetRef = useRef(false);
   const [taskMedia, setTaskMedia] = useState<Record<number, Media[]>>({});
@@ -205,6 +201,7 @@ export default function HomeScreen() {
       setProfileImage(img);
       setTasks(allTasks);
       setGroups(allGroups);
+      useLibraryStore.getState().syncGroups(allGroups);
       setTaskMedia(mediaMap);
     } finally {
       if (version === loadVersion.current) {
@@ -466,56 +463,8 @@ export default function HomeScreen() {
                                         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.5 }} 
                                     />
                                     
-                                    <View className="h-40 items-center justify-center relative">
-                                        <Animated.View 
-                                            className="absolute h-[130px] w-24 rounded-2xl z-0 overflow-hidden" 
-                                            style={[
-                                                leftCardStyle,
-                                                { backgroundColor: withOpacity(GERAL_CARD_THEME.colors.primary, isDark ? 0.6 : 0.8) }
-                                            ]}
-                                        >
-                                            <BlurView 
-                                                intensity={BLUR_CONFIG.cards.intensity} 
-                                                tint={isDark ? 'dark' : 'light'} 
-                                                blurMethod={BLUR_CONFIG.cards.blurMethod}
-                                                blurReductionFactor={BLUR_CONFIG.cards.blurReductionFactor}
-                                                style={{ flex: 1 }}
-                                            />
-                                        </Animated.View>
-                                        <Animated.View 
-                                            className="absolute h-[130px] w-24 rounded-2xl z-10 overflow-hidden" 
-                                            style={[
-                                                rightCardStyle,
-                                                { backgroundColor: withOpacity(GERAL_CARD_THEME.colors.tertiary, isDark ? 0.6 : 0.8) }
-                                            ]}
-                                        >
-                                            <BlurView 
-                                                intensity={BLUR_CONFIG.cards.intensity} 
-                                                tint={isDark ? 'dark' : 'light'} 
-                                                blurMethod={BLUR_CONFIG.cards.blurMethod}
-                                                blurReductionFactor={BLUR_CONFIG.cards.blurReductionFactor}
-                                                style={{ flex: 1 }}
-                                            />
-                                        </Animated.View>
-                                        <Animated.View 
-                                            className="h-[140px] w-28 rounded-2xl border border-white/20 z-20 overflow-hidden" 
-                                            style={[
-                                                centerCardStyle,
-                                                { backgroundColor: withOpacity(GERAL_CARD_THEME.colors.secondary, isDark ? 0.85 : 0.95) },
-                                                shadows.xl
-                                            ]}
-                                        >
-                                            <BlurView 
-                                                intensity={BLUR_CONFIG.cards.intensity} 
-                                                tint={isDark ? 'dark' : 'light'} 
-                                                blurMethod={BLUR_CONFIG.cards.blurMethod}
-                                                blurReductionFactor={BLUR_CONFIG.cards.blurReductionFactor}
-                                                style={{ flex: 1 }}
-                                            />
-                                        </Animated.View>
-                                    </View>
+                                    <GeneralGroupArtwork />
 
-                                    
                                     {/* Bottom Row: Text and FAB */}
                                     <View className="flex-row items-end justify-between w-full">
                                         <View>
@@ -637,13 +586,7 @@ export default function HomeScreen() {
                                                         borderColor: adjustColor(primaryColor, -20),
                                                     }}
                                                     onPress={() => {
-                                                        if (group.name === "Mapas Mentais") {
-                                                            router.push({ pathname: "/tools/mind-map", params: { groupId: group.id } });
-                                                        } else if (group.name === "Flashcards") {
-                                                            router.push({ pathname: "/tools/flashcards", params: { groupId: group.id } });
-                                                        } else {
-                                                            router.push({ pathname: "/task/editor", params: { groupId: group.id } });
-                                                        }
+                                                        router.push(libraryCreationRoute(group));
                                                     }}
                                                 >
                                                     <Plus size={22} color="#FFF" />
@@ -716,7 +659,7 @@ export default function HomeScreen() {
                                         description="Comece a organizar suas ideias agora mesmo."
                                         action={
                                             <View className="gap-3 w-full mt-4 flex-col">
-                                                <Button variant="ghost" className="w-full" onPress={() => router.push({ pathname: "/tools/mind-map", params: { groupId: currentGroup.id } })}>
+                                                <Button variant="ghost" className="w-full" onPress={() => router.push(libraryCreationRoute(currentGroup))}>
                                                     <Button.Icon icon={Brain} size={18} /><Button.Text>Em branco</Button.Text>
                                                 </Button>
                                                 <Button variant="ghost" className="w-full" onPress={() => router.push({ pathname: "/tools/mind-map", params: { groupId: currentGroup.id, template: "brainstorming" } })}>
@@ -737,7 +680,7 @@ export default function HomeScreen() {
                                         description="Crie seu primeiro deck de estudos para reter mais informações."
                                         action={
                                             <View className="gap-3 w-full mt-4 flex-col">
-                                                <Button className="w-full" onPress={() => router.push({ pathname: "/tools/flashcards", params: { groupId: currentGroup.id } })}>
+                                                <Button className="w-full" onPress={() => router.push(libraryCreationRoute(currentGroup))}>
                                                     <Button.Icon icon={Plus} size={20} />
                                                     <Button.Text className="ml-2">Criar Novo Baralho</Button.Text>
                                                 </Button>
