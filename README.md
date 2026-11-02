@@ -87,12 +87,28 @@ cd android && ./gradlew assembleRelease
 > O artefato (APK) de saída será injetado no diretório absoluto: `android/app/build/outputs/apk/release/app-release.apk`
 > *Nota: Garantir assinatura de builds em produção usando a keystore JKS correta nas variáveis de ambiente.*
 
+`assembleRelease` gera um APK de release; a configuração atual não usa splits por
+arquitetura, portanto o arquivo reúne as arquiteturas configuradas em um único APK.
+Não use `bundleRelease`, que gera um AAB.
+
+**Assinatura:** o template Android gerado usa `signingConfigs.debug` também no
+build `release`. Confira a configuração antes de publicar. Para atualizar instalações
+existentes, o APK precisa ter o mesmo pacote (`com.genly.app`) e a mesma chave de
+assinatura do APK anteriormente distribuído. Não gere ou troque a chave durante
+esta atualização; preserve a keystore usada na versão publicada.
+
 ### 3. Publicar o Artefato (GitHub Releases)
 - Acesse e crie um novo **Draft** na aba de *Releases* deste repositório no GitHub.
 - Insira em **Tag version** rigorosamente o mesmo valor adicionado na diretriz `version` configurada passo 1.
 - Especifique as adições, correções de bugs, e manutenções feitas ao longo do log como título e descrição principal do formulário (nota: O Genly **extrairá nativamente esta string interativamente via API sob demanda** para exibir ao usuário dentro do aplicativo na notificação modal de novas Notas de Atualização).
 - Realize o upload inserindo o binário compilado (`app-release.apk`) no bloco de assets.
 - Confirme a submissão marcando a opção **Publish Release**.
+
+Publique como uma release pública estável, com **Set as latest release** marcado
+e **This is a pre-release** desmarcado. Anexe apenas o APK de produção
+`app-release.apk` antes de publicar. O atualizador consulta `/releases/latest`,
+compara a tag com a versão instalada e usa o primeiro asset cujo nome termina em `.apk`.
+O aviso chega na próxima verificação de atualização do app; não é uma notificação push.
 
 A partir deste registro público, qualquer instância pré-instalada consumirá as informações atualizadas pelas rotas e engatilhará as diretrizes internas assíncronas de download e substituição do serviço nativo.
 
