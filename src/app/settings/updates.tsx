@@ -3,7 +3,7 @@ import { useTheme } from "@/providers/ThemeProvider";
 import { useAppUpdateStore } from "@/store/useAppUpdateStore";
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
-import { ArrowLeft, CheckCircle, RefreshCw, Smartphone } from "lucide-react-native";
+import { AlertCircle, ArrowLeft, CheckCircle, RefreshCw, Smartphone } from "lucide-react-native";
 import React, { useEffect } from "react";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 import Markdown from 'react-native-markdown-renderer';
@@ -31,13 +31,14 @@ export default function UpdatesSettingsScreen() {
   const isDownloading = useAppUpdateStore((s) => s.isDownloading);
   const downloadProgress = useAppUpdateStore((s) => s.downloadProgress);
   const downloadError = useAppUpdateStore((s) => s.downloadError);
+  const checkError = useAppUpdateStore((s) => s.checkError);
   
   const checkForUpdates = useAppUpdateStore((s) => s.checkForUpdates);
   const downloadAndInstall = useAppUpdateStore((s) => s.downloadAndInstall);
 
   useEffect(() => {
     // Busca atualizações automaticamente ao abrir a tela se não estiver baixando e não tiver buscado
-    if (!hasUpdate && !isDownloading && !isChecking) {
+    if (!hasUpdate && !isDownloading) {
       checkForUpdates();
     }
   }, []);
@@ -87,6 +88,21 @@ export default function UpdatesSettingsScreen() {
                         />
                     </View>
                     <Text className="font-sans-bold text-right text-sm" style={{ color: primaryColor }}>{downloadProgress}%</Text>
+                </View>
+            ) : (checkError || downloadError) ? (
+                <View className="items-center py-6">
+                    <View className="p-4 rounded-full mb-5" style={{ backgroundColor: colors.bg }}>
+                        <AlertCircle size={40} color={colors.textSecondary} />
+                    </View>
+                    <Text className="font-sans-bold text-xl text-center" style={{ color: colors.text }}>
+                        {checkError ? 'Não foi possível verificar' : 'Atualização interrompida'}
+                    </Text>
+                    <Text className="font-sans text-base mt-3 mb-6 text-center leading-relaxed" style={{ color: colors.textSecondary }}>
+                        {checkError || downloadError}
+                    </Text>
+                    <Button onPress={() => { if (checkError) void checkForUpdates(); else void downloadAndInstall(); }} className="w-full rounded-xl">
+                        <Button.Text>Tentar novamente</Button.Text>
+                    </Button>
                 </View>
             ) : hasUpdate ? (
                 <View className="py-2">
@@ -139,10 +155,6 @@ export default function UpdatesSettingsScreen() {
                         </View>
                     ) : null}
 
-                    {downloadError ? (
-                        <Text className="font-sans text-sm text-[#EF4444] mb-6 text-center bg-red-500/10 p-3 rounded-xl">{downloadError}</Text>
-                    ) : null}
-
                     <Button variant="filled" onPress={downloadAndInstall} className="w-full py-4 rounded-xl">
                         <Button.Text className="text-base">Baixar e Instalar</Button.Text>
                     </Button>
@@ -156,9 +168,7 @@ export default function UpdatesSettingsScreen() {
                     <Text className="font-sans text-base mt-3 text-center leading-relaxed" style={{ color: colors.textSecondary }}>
                         Você já possui a versão mais recente instalada no seu dispositivo.
                     </Text>
-                    {downloadError ? (
-                        <Text className="font-sans text-sm text-[#EF4444] mt-6 text-center bg-red-500/10 p-3 rounded-xl">{downloadError}</Text>
-                    ) : null}
+
                 </View>
             )}
         </View>
@@ -166,8 +176,8 @@ export default function UpdatesSettingsScreen() {
         <View className="flex-1" />
 
         {/* Manual Check Button */}
-        {!isChecking && !isDownloading && !hasUpdate && (
-             <Button variant="outline" onPress={checkForUpdates} className="w-full py-4 border-2 rounded-xl" style={{ borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)" }}>
+        {!isChecking && !isDownloading && !hasUpdate && !checkError && !downloadError && (
+             <Button variant="outline" onPress={() => { void checkForUpdates(); }} className="w-full py-4 border-2 rounded-xl" style={{ borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)" }}>
                 <Button.Text className="text-base">Procurar atualizações</Button.Text>
              </Button>
         )}

@@ -114,7 +114,7 @@ function RootLayoutNav() {
 
       // 3. Check for In-App Updates directly in the background
       const checkUpdates = useAppUpdateStore.getState().checkForUpdates;
-      checkUpdates();
+      checkUpdates({ silent: true });
     }
     initApp();
   }, []);

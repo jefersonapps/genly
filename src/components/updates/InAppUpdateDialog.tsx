@@ -3,7 +3,7 @@ import { useTheme } from "@/providers/ThemeProvider";
 import { getSetting } from "@/services/settingsService";
 import { useAppUpdateStore } from "@/store/useAppUpdateStore";
 import { usePathname, useRouter } from "expo-router";
-import { AlertCircle, Download } from "lucide-react-native";
+import { Download } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import { ScrollView, View } from "react-native";
 import Markdown from 'react-native-markdown-renderer';
@@ -13,14 +13,11 @@ export function InAppUpdateDialog() {
   
   const hasUpdate = useAppUpdateStore((s) => s.hasUpdate);
   const updateInfo = useAppUpdateStore((s) => s.updateInfo);
-  const downloadError = useAppUpdateStore((s) => s.downloadError);
   const downloadAndInstall = useAppUpdateStore((s) => s.downloadAndInstall);
-  const checkUpdates = useAppUpdateStore((s) => s.checkForUpdates);
 
   // We use our own local state to control the dialog visibility,
   // since 'hasUpdate' in the store persists, we don't want to trap the user
   const [visible, setVisible] = useState(false);
-  const [errorVisible, setErrorVisible] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { resolvedTheme } = useTheme();
@@ -51,12 +48,6 @@ export function InAppUpdateDialog() {
     checkOnboardingAndShow();
   }, [hasUpdate, updateInfo, pathname]);
 
-  useEffect(() => {
-     if (downloadError) {
-        setErrorVisible(true);
-     }
-  }, [downloadError]);
-
   const handleUpdate = () => {
     setVisible(false);
     if (pathname !== "/settings/updates") {
@@ -70,15 +61,6 @@ export function InAppUpdateDialog() {
 
   const handleLater = () => {
     setVisible(false);
-  };
-
-  const handleRetryError = () => {
-      setErrorVisible(false);
-      downloadAndInstall();
-  };
-
-  const handleCloseError = () => {
-      setErrorVisible(false);
   };
 
   return (
@@ -145,25 +127,6 @@ export function InAppUpdateDialog() {
         </Dialog.Footer>
       </Dialog>
 
-      {/* ERROR DIALOG */}
-      <Dialog visible={errorVisible} onClose={handleCloseError}>
-        <Dialog.Header>
-           <Dialog.Title icon={<AlertCircle color="#EF4444" size={24} />}>
-               Falha na Atualização
-           </Dialog.Title>
-           <Dialog.Description>
-               {downloadError || "Ocorreu um erro ao tentar baixar a atualização. O arquivo pode estar corrompido ou houve perda de conexão."}
-           </Dialog.Description>
-        </Dialog.Header>
-        <Dialog.Footer>
-           <Dialog.Button variant="ghost" onPress={handleCloseError}>
-               Cancelar
-           </Dialog.Button>
-           <Dialog.Button variant="default" onPress={handleRetryError}>
-               Tentar Novamente
-           </Dialog.Button>
-        </Dialog.Footer>
-      </Dialog>
     </>
   );
 }
