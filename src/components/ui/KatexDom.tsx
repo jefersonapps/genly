@@ -52,7 +52,7 @@ export default function KatexDom({ expression, equationStyle }: KatexDomProps) {
     const pageStyle = document.createElement("style");
     pageStyle.textContent = `html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden; background: transparent; }`;
     document.head.appendChild(pageStyle);
-    const engineWindow = window as EquationWindow;
+    const engineWindow = window as unknown as EquationWindow;
     if (!engineWindow.renderEquationSvg) {
       const script = document.createElement("script");
       script.textContent = getEquationEngineScript();
@@ -85,7 +85,7 @@ export default function KatexDom({ expression, equationStyle }: KatexDomProps) {
         host.style.transform = "none";
         host.style.width = "600px";
         try {
-          await (window as EquationWindow).renderEquationSvg(
+          await (window as unknown as EquationWindow).renderEquationSvg(
             math, host, equationStyle.fontSize, equationStyle.textColor);
           if (!cancelled) {
             setError(null);

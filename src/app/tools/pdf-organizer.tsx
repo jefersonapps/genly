@@ -1,5 +1,7 @@
 import { useSharedPdfImages } from "@/hooks/useSharedPdfImages";
 import BottomSheet from "@/components/ui/BottomSheet";
+import { Dialog } from "@/components/ui/Dialog";
+import { Input } from "@/components/ui/Input";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { ToolActions } from "@/components/ui/ToolActions";
 import { useDialog } from "@/providers/DialogProvider";
@@ -7,6 +9,7 @@ import { useTheme } from "@/providers/ThemeProvider";
 import { shadows } from "@/theme/shadows";
 import { withOpacity } from "@/utils/colors";
 import { recognizeText, sanitizeForWinAnsi } from "@/utils/ocr";
+import { parsePdfPageRange } from "@/utils/pdfPageRange";
 import { launchScanner } from "@dariyd/react-native-document-scanner";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import * as DocumentPicker from "expo-document-picker";
@@ -24,6 +27,7 @@ import {
     Languages,
     Plus,
     RotateCw,
+    Scissors,
     Share2,
     Trash2,
     X
@@ -80,6 +84,10 @@ export default function PDFOrganizerScreen() {
   const [pages, setPages] = useState<PDFPageItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isOCREnabled, setIsOCREnabled] = useState(false);
+  const [rangeVisible, setRangeVisible] = useState(false);
+  const [rangeFrom, setRangeFrom] = useState("1");
+  const [rangeTo, setRangeTo] = useState("1");
+  const pageRange = parsePdfPageRange(rangeFrom, rangeTo, pages.length);
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   const [pendingInsertIndex, setPendingInsertIndex] = useState<number | undefined>(undefined);
@@ -90,6 +98,19 @@ export default function PDFOrganizerScreen() {
     dialog.show({ title: 'Não foi possível importar as imagens', description: 'Compartilhe as imagens novamente a partir da galeria.', variant: 'error' });
   }, [dialog.show]);
   useSharedPdfImages(params.imageUris, params.shareRequestId, setPages, reportImportError);
+
+  const openPageRange = () => {
+    setRangeFrom("1");
+    setRangeTo(String(pages.length));
+    setRangeVisible(true);
+  };
+
+  const applyPageRange = () => {
+    setPages((current) => {
+      const range = parsePdfPageRange(rangeFrom, rangeTo, current.length);
+      return range.valid ? current.slice(range.startIndex, range.endIndex) : current;
+    });
+  };
 
   const handleAddOptions = (insertIndex?: number) => {
     setPendingInsertIndex(insertIndex);
@@ -627,6 +648,23 @@ export default function PDFOrganizerScreen() {
         </View>
       ) : (
         <View className="flex-1 pt-4 pb-2">
+          <View className="flex-row items-center justify-between px-4 mb-3 gap-3">
+            <Text className="font-sans-semibold text-sm text-on-surface-secondary">
+              {pages.length} {pages.length === 1 ? "página" : "páginas"}
+            </Text>
+            <TouchableOpacity
+              onPress={openPageRange}
+              disabled={isProcessing}
+              accessibilityRole="button"
+              accessibilityLabel="Selecionar intervalo de páginas"
+              activeOpacity={0.8}
+              className="flex-row items-center gap-2 rounded-xl px-3 py-3"
+              style={{ backgroundColor: withOpacity(primaryColor, 0.1) }}
+            >
+              <Scissors size={18} color={primaryColor} />
+              <Text className="font-sans-semibold text-sm" style={{ color: primaryColor }}>Intervalo de páginas</Text>
+            </TouchableOpacity>
+          </View>
           <Text className="font-sans text-sm text-on-surface-secondary mb-4 px-4 text-center">
             Organize reordenando o grid, gire ou exclua páginas. 
           </Text>
@@ -716,6 +754,48 @@ export default function PDFOrganizerScreen() {
           </View>
         )}
       </View>
+
+      <Dialog visible={rangeVisible} onClose={() => setRangeVisible(false)}>
+        <Dialog.Header>
+          <Dialog.Title>Intervalo de páginas</Dialog.Title>
+          <Dialog.Description>Escolha quais páginas manter. A numeração segue a ordem atual da lista; as páginas fora do intervalo serão removidas.</Dialog.Description>
+        </Dialog.Header>
+        <View className="flex-row gap-3 mb-3">
+          <View className="flex-1 min-w-0">
+            <Input
+              label="Da página"
+              accessibilityLabel="Página inicial"
+              value={rangeFrom}
+              onChangeText={setRangeFrom}
+              keyboardType="number-pad"
+              selectTextOnFocus
+            />
+          </View>
+          <View className="flex-1 min-w-0">
+            <Input
+              label="Até a página"
+              accessibilityLabel="Página final"
+              value={rangeTo}
+              onChangeText={setRangeTo}
+              keyboardType="number-pad"
+              selectTextOnFocus
+            />
+          </View>
+        </View>
+        <Text
+          accessibilityLiveRegion="polite"
+          className="font-sans text-sm mb-4"
+          style={{ color: pageRange.valid ? (isDark ? "#A1A1AA" : "#52525B") : "#EF4444" }}
+        >
+          {pageRange.valid
+            ? `${pageRange.count} ${pageRange.count === 1 ? "página selecionada" : "páginas selecionadas"} de ${pages.length}.`
+            : pageRange.error}
+        </Text>
+        <Dialog.Footer>
+          <Dialog.Button variant="ghost">Cancelar</Dialog.Button>
+          <Dialog.Button disabled={!pageRange.valid || isProcessing} onPress={applyPageRange}>Manter páginas</Dialog.Button>
+        </Dialog.Footer>
+      </Dialog>
 
       <BottomSheet
         sheetRef={bottomSheetModalRef}
