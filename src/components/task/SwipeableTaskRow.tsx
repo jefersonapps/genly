@@ -2,7 +2,7 @@ import { TaskCard } from '@/components/task/TaskCard';
 import type { Media, Task } from '@/db/schema';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useRouter } from 'expo-router';
-import { Pencil, Trash2 } from 'lucide-react-native';
+import { Check, Pencil, Trash2 } from 'lucide-react-native';
 import React, { memo, useCallback, useLayoutEffect, useRef } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { NoteSwipeable, type NoteSwipeableMethods } from './NoteSwipeable';
@@ -16,9 +16,13 @@ interface Props {
   activeRow: React.RefObject<NoteSwipeableMethods | null>;
   onDelete: (task: Task) => void;
   onToggleComplete: (task: Task) => void;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onStartSelection?: (task: Task) => void;
+  onSelect?: (task: Task) => void;
 }
 
-export const SwipeableTaskRow = memo(function SwipeableTaskRow({ task, kind, mediaItems, activeRow, onDelete, onToggleComplete }: Props) {
+export const SwipeableTaskRow = memo(function SwipeableTaskRow({ task, kind, mediaItems, activeRow, onDelete, onToggleComplete, selectionMode = false, selected = false, onStartSelection, onSelect }: Props) {
   const router = useRouter();
   const { primaryColor, resolvedTheme } = useTheme();
   const swipeRef = useRef<NoteSwipeableMethods>(null);
@@ -60,6 +64,8 @@ export const SwipeableTaskRow = memo(function SwipeableTaskRow({ task, kind, med
     if (activeRow.current !== swipeRef.current) activeRow.current?.close();
     activeRow.current = swipeRef.current;
   }, [activeRow]);
+  const startSelection = useCallback(() => { close(); onStartSelection?.(task); }, [close, onStartSelection, task]);
+  const select = useCallback(() => onSelect?.(task), [onSelect, task]);
   const actions = (
     <View style={styles.actionRail}>
       <TouchableOpacity onPress={edit} activeOpacity={0.65} accessibilityRole="button" accessibilityLabel="Editar nota" style={styles.action}>
@@ -78,15 +84,45 @@ export const SwipeableTaskRow = memo(function SwipeableTaskRow({ task, kind, med
   );
 
   return (
-    <View style={{ paddingHorizontal: 24 }}>
-      <NoteSwipeable ref={swipeRef} actions={actions} onSwipeStart={willOpen} backgroundColor={isDark ? '#18181b' : '#f4f4f5'}>
-        <TaskCard compact task={task} mediaItems={mediaItems} onPress={openNote} onMediaPress={mediaPress} onToggleComplete={onToggleComplete} />
-      </NoteSwipeable>
+    <View style={styles.row}>
+      <TouchableOpacity
+        onPress={select}
+        disabled={!selectionMode}
+        accessible={selectionMode}
+        accessibilityRole={selectionMode ? "checkbox" : undefined}
+        accessibilityState={selectionMode ? { checked: selected } : undefined}
+        accessibilityLabel={selectionMode ? `Selecionar ${task.title}` : undefined}
+        activeOpacity={0.8}
+        style={styles.selectionRow}
+      >
+        <View style={{ width: selectionMode ? 36 : 0, overflow: 'hidden' }}
+          pointerEvents="none" importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+          <View style={[styles.checkbox, {
+            borderColor: selected ? primaryColor : isDark ? '#71717a' : '#a1a1aa',
+            backgroundColor: selected ? primaryColor : 'transparent',
+          }]}>
+            {selected && <Check size={16} color="#fff" />}
+          </View>
+        </View>
+        <View pointerEvents={selectionMode ? "none" : "auto"}
+          importantForAccessibility={selectionMode ? "no-hide-descendants" : "auto"}
+          accessibilityElementsHidden={selectionMode} style={styles.card}>
+          <NoteSwipeable ref={swipeRef} enabled={!selectionMode} actions={actions} onSwipeStart={willOpen} backgroundColor={isDark ? '#18181b' : '#f4f4f5'}>
+            <TaskCard compact task={task} mediaItems={mediaItems} onPress={openNote}
+              onLongPress={startSelection} onMediaPress={mediaPress} onToggleComplete={onToggleComplete}
+              selectionMode={selectionMode} hideStatusControl={selectionMode} isSelected={selected} />
+          </NoteSwipeable>
+        </View>
+      </TouchableOpacity>
     </View>
   );
 });
 
 const styles = StyleSheet.create({
+  row: { paddingHorizontal: 24 },
+  selectionRow: { flexDirection: 'row', alignItems: 'center' },
+  card: { flex: 1 },
+  checkbox: { width: 24, height: 24, borderRadius: 7, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   actionRail: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingLeft: 12, gap: 8 },
   action: { width: 64, minHeight: 72, alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 14 },
   actionIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },

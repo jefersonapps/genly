@@ -10,6 +10,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface TabHeaderProps {
+  hidden?: boolean;
   scrollY: SharedValue<number>;
   title: string;
   titleThreshold?: [number, number];
@@ -26,6 +27,7 @@ interface TabHeaderProps {
 }
 
 export const TabHeader: React.FC<TabHeaderProps> = ({
+  hidden = false,
   scrollY,
   title,
   titleThreshold = [40, 60],
@@ -121,7 +123,7 @@ export const TabHeader: React.FC<TabHeaderProps> = ({
   });
 
   return (
-    <View className="absolute top-0 left-0 right-0 z-50" pointerEvents="box-none">
+    <View className="absolute top-0 left-0 right-0 z-50" pointerEvents="box-none" style={hidden ? { display: 'none' } : undefined}>
       <Animated.View
         className="pb-2 px-6"
         style={[

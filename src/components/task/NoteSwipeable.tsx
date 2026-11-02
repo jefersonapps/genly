@@ -1,4 +1,4 @@
-import React, { useCallback, useImperativeHandle, useMemo } from 'react';
+import React, { useCallback, useImperativeHandle, useLayoutEffect, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { cancelAnimation, interpolate, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
@@ -14,11 +14,12 @@ interface Props {
   actions: React.ReactNode;
   onSwipeStart: () => void;
   backgroundColor: string;
+  enabled?: boolean;
 }
 const ACTION_WIDTH = 148;
 const SPRING = { damping: 28, stiffness: 320, mass: 0.8, overshootClamping: true };
 
-export function NoteSwipeable({ ref, children, actions, onSwipeStart, backgroundColor }: Props) {
+export function NoteSwipeable({ ref, children, actions, onSwipeStart, backgroundColor, enabled = true }: Props) {
   const offset = useSharedValue(0);
   const start = useSharedValue(0);
   const settled = useSharedValue(0);
@@ -33,8 +34,12 @@ export function NoteSwipeable({ ref, children, actions, onSwipeStart, background
     settled.value = 0;
   }, [offset, start, settled]);
   useImperativeHandle(ref, () => ({ close, reset }), [close, reset]);
+  useLayoutEffect(() => {
+    if (!enabled) reset();
+  }, [enabled, reset]);
 
   const pan = useMemo(() => Gesture.Pan()
+    .enabled(enabled)
     // Vertical intent must fail early so the parent list can scroll freely.
     .activeOffsetX([-24, 24])
     .failOffsetY([-8, 8])
@@ -54,7 +59,7 @@ export function NoteSwipeable({ ref, children, actions, onSwipeStart, background
     })
     .onFinalize((_event, success) => {
       if (!success && offset.value !== settled.value) offset.value = withSpring(settled.value, SPRING);
-    }), [offset, start, settled, onSwipeStart]);
+    }), [enabled, offset, start, settled, onSwipeStart]);
 
   const contentStyle = useAnimatedStyle(() => ({ transform: [{ translateX: offset.value }] }));
   const actionsStyle = useAnimatedStyle(() => ({

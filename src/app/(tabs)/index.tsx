@@ -15,17 +15,17 @@ import { useHeaderSnap } from "@/hooks/useHeaderSnap";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { getSetting } from "@/services/settingsService";
-import { completeTask, deleteGroup, deleteTask, getAllGroups, getAllTasks, getAllTaskMedia, getTaskById, uncompleteTask } from "@/services/taskService";
+import { completeTask, deleteGroup, deleteTask, deleteTasks, getAllGroups, getAllTasks, getAllTaskMedia, getTaskById, uncompleteTask } from "@/services/taskService";
 import { shadows } from "@/theme/shadows";
 import { adjustColor, withOpacity } from "@/utils/colors";
 import { getGreeting } from "@/utils/date";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { BlurView } from "expo-blur";
-import { useRouter } from "expo-router";
-import { Bell, Brain, CalendarDays, Clock, Edit3, FileText, FolderPlus, Layers, Lightbulb, Plus, Search, Trash2 } from "lucide-react-native";
+import { useFocusEffect, useRouter } from "expo-router";
+import { Bell, Brain, CalendarDays, CheckCheck, Clock, Edit3, FileText, FolderPlus, Layers, Lightbulb, Plus, Search, Trash2, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { BackHandler, RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, {
     Extrapolation,
     interpolate,
@@ -60,6 +60,10 @@ export default function HomeScreen() {
   const dialog = useDialog();
   
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<number>>(() => new Set());
+  const [deletingSelection, setDeletingSelection] = useState(false);
+  const deletionInFlight = useRef(false);
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [taskMedia, setTaskMedia] = useState<Record<number, Media[]>>({});
@@ -185,6 +189,7 @@ export default function HomeScreen() {
   }, []);
 
   const loadData = useCallback(async () => {
+    if (deletionInFlight.current) return;
     const version = ++loadVersion.current;
     try {
       const [name, img, allTasks, allGroups, mediaMap] = await Promise.all([
@@ -276,6 +281,76 @@ export default function HomeScreen() {
     return tasks.filter(task => (selectedGroupId === null || task.groupId === selectedGroupId) &&
       (!query || task.title.toLocaleLowerCase('pt-BR').includes(query) || task.content?.toLocaleLowerCase('pt-BR').includes(query)));
   }, [tasks, selectedGroupId, searchQuery]);
+  const exitSelection = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedTaskIds(new Set());
+  }, []);
+  useFocusEffect(useCallback(() => () => exitSelection(), [exitSelection]));
+  useEffect(() => {
+    if (!selectionMode) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!deletionInFlight.current) exitSelection();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [selectionMode, exitSelection]);
+  useEffect(() => {
+    const visibleIds = new Set(filteredTasks.map(task => task.id));
+    setSelectedTaskIds(current => {
+      const next = new Set([...current].filter(id => visibleIds.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [filteredTasks]);
+  const startSelection = useCallback((task: Task) => {
+    closeSwipeRow();
+    setSelectedTaskIds(new Set([task.id]));
+    setSelectionMode(true);
+  }, [closeSwipeRow]);
+  const toggleSelection = useCallback((task: Task) => {
+    if (deletionInFlight.current) return;
+    setSelectedTaskIds(current => {
+      const next = new Set(current);
+      if (next.has(task.id)) next.delete(task.id);
+      else next.add(task.id);
+      return next;
+    });
+  }, []);
+  const allSelected = filteredTasks.length > 0 && selectedTaskIds.size === filteredTasks.length;
+  const selectAll = () => setSelectedTaskIds(allSelected ? new Set() : new Set(filteredTasks.map(task => task.id)));
+  const confirmDeleteSelection = () => {
+    if (selectedTaskIds.size === 0 || deletionInFlight.current) return;
+    const ids = [...selectedTaskIds];
+    dialog.show({
+      title: ids.length === 1 ? 'Excluir nota?' : `Excluir ${ids.length} notas?`,
+      description: 'As notas selecionadas e seus anexos serão excluídos. Esta ação não pode ser desfeita.',
+      buttons: [
+        { text: 'Cancelar', variant: 'ghost' },
+        { text: 'Excluir', variant: 'destructive', onPress: async () => {
+          if (deletionInFlight.current) return;
+          deletionInFlight.current = true;
+          setDeletingSelection(true);
+          // Ignore any refresh that began before the deletion.
+          loadVersion.current++;
+          try {
+            await deleteTasks(ids);
+            loadVersion.current++;
+            const deleted = new Set(ids);
+            setTasks(current => current.filter(task => !deleted.has(task.id)));
+            setTaskMedia(current => Object.fromEntries(Object.entries(current).filter(([id]) => !deleted.has(Number(id)))));
+            exitSelection();
+          } catch (error) {
+            console.error('Failed to delete selected notes', error);
+            // Let the confirmation close before showing a new modal.
+            setTimeout(() => dialog.show({ title: 'Não foi possível excluir', description: 'Tente novamente. Suas notas continuam selecionadas.', variant: 'error' }), 0);
+          } finally {
+            deletionInFlight.current = false;
+            setDeletingSelection(false);
+            setRefreshing(false);
+          }
+        } },
+      ],
+    });
+  };
   const groupKinds = useMemo(() => new Map(groups.map(group => [group.id,
     group.name === 'Mapas Mentais' ? 'mind-map' : group.name === 'Flashcards' ? 'flashcards' : 'note',
   ] as [number, TaskRowKind])), [groups]);
@@ -297,8 +372,9 @@ export default function HomeScreen() {
     }
   }, []);
   const renderTask = useCallback(({ item }: { item: Task }) => (
-    <SwipeableTaskRow task={item} kind={groupKinds.get(item.groupId ?? -1) || 'note'} mediaItems={taskMedia[item.id]} activeRow={activeSwipeRow} onDelete={handleDeleteTask} onToggleComplete={toggleComplete} />
-  ), [groupKinds, taskMedia, handleDeleteTask, toggleComplete]);
+    <SwipeableTaskRow task={item} kind={groupKinds.get(item.groupId ?? -1) || 'note'} mediaItems={taskMedia[item.id]} activeRow={activeSwipeRow} onDelete={handleDeleteTask} onToggleComplete={toggleComplete}
+      selectionMode={selectionMode} selected={selectedTaskIds.has(item.id)} onStartSelection={startSelection} onSelect={toggleSelection} />
+  ), [groupKinds, taskMedia, handleDeleteTask, toggleComplete, selectionMode, selectedTaskIds, startSelection, toggleSelection]);
 
 
   return (
@@ -668,6 +744,7 @@ export default function HomeScreen() {
                   ) : null
                 }
                 renderItem={renderTask}
+                extraData={selectedTaskIds}
                 keyExtractor={taskKey}
                 ItemSeparatorComponent={TaskSeparator}
                 onScrollBeginDrag={closeSwipeRow}
@@ -725,7 +802,28 @@ export default function HomeScreen() {
         </BottomSheet.View>
       </BottomSheet>
 
+      {selectionMode && (
+        <View className="absolute top-0 left-0 right-0 z-50 border-b border-border px-4 pb-2"
+          style={{ paddingTop: insets.top + 4, backgroundColor: isDark ? '#121212' : '#ffffff' }}>
+          <View className="flex-row items-center gap-2" style={{ minHeight: 48 }}>
+            <TouchableOpacity onPress={exitSelection} disabled={deletingSelection} accessibilityRole="button" accessibilityLabel="Cancelar seleção" className="p-3">
+              <X size={22} color={isDark ? '#fff' : '#18181b'} />
+            </TouchableOpacity>
+            <Text className="flex-1 font-sans-semibold text-base text-on-surface" accessibilityLiveRegion="polite">
+              {selectedTaskIds.size} {selectedTaskIds.size === 1 ? 'selecionada' : 'selecionadas'}
+            </Text>
+            <TouchableOpacity onPress={selectAll} disabled={deletingSelection} accessibilityRole="button" accessibilityLabel={allSelected ? 'Desmarcar todas as notas' : 'Selecionar todas as notas da lista'} className="items-center justify-center px-2 py-1 gap-1" style={{ minHeight: 44 }}>
+              <CheckCheck size={20} color={primaryColor} />
+              <Text className="font-sans-semibold text-[10px]" style={{ color: primaryColor }}>{allSelected ? 'Desmarcar todas' : 'Selecionar tudo'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={confirmDeleteSelection} disabled={selectedTaskIds.size === 0 || deletingSelection} accessibilityRole="button" accessibilityLabel="Excluir notas selecionadas" className="p-3" style={{ opacity: selectedTaskIds.size === 0 || deletingSelection ? 0.4 : 1 }}>
+              <Trash2 size={22} color="#ef4444" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
       <TabHeader
+        hidden={selectionMode}
         scrollY={headerScrollY}
         title="Sua Biblioteca"
         backgroundThreshold={[0, 1]}

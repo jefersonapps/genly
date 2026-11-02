@@ -82,15 +82,17 @@ interface TaskCardProps {
   task: Task;
   mediaItems?: Media[];
   onPress: () => void;
+  onLongPress?: () => void;
   onDelete?: () => void;
   onMediaPress?: (media: Media) => void;
   onToggleComplete?: (task: Task) => void;
   selectionMode?: boolean;
+  hideStatusControl?: boolean;
   isSelected?: boolean;
   onSelect?: (task: Task) => void;
 }
 
-export const TaskCard = memo(function TaskCard({ compact = false, task, mediaItems = [], onPress, onDelete, onMediaPress, onToggleComplete, selectionMode, isSelected, onSelect }: TaskCardProps) {
+export const TaskCard = memo(function TaskCard({ compact = false, task, mediaItems = [], onPress, onLongPress, onDelete, onMediaPress, onToggleComplete, selectionMode, hideStatusControl = false, isSelected, onSelect }: TaskCardProps) {
   const { resolvedTheme, primaryColor } = useTheme();
   const { getMappingKey } = useMappingHelper();
   const isDark = resolvedTheme === "dark";
@@ -144,6 +146,7 @@ export const TaskCard = memo(function TaskCard({ compact = false, task, mediaIte
     return (
       <TouchableOpacity
         onPress={onPress}
+        onLongPress={onLongPress}
         activeOpacity={0.8}
         className={compact ? "rounded-2xl p-4 border" : "mb-3 rounded-[24px] p-5 border"}
         style={{
@@ -154,7 +157,7 @@ export const TaskCard = memo(function TaskCard({ compact = false, task, mediaIte
       >
         <View className="flex-row items-center">
           {/* Completion or Selection checkbox */}
-          {selectionMode ? (
+          {!hideStatusControl && (selectionMode ? (
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={(e) => {
@@ -187,7 +190,7 @@ export const TaskCard = memo(function TaskCard({ compact = false, task, mediaIte
                 <Circle size={24} color={isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)"} />
               )}
             </TouchableOpacity>
-          )}
+          ))}
 
           <View className="h-12 w-12 rounded-2xl items-center justify-center mr-4" style={{ backgroundColor: withOpacity(reminderConfig.color, 0.12) }}>
             <Icon size={24} color={reminderConfig.color} />
@@ -244,6 +247,7 @@ export const TaskCard = memo(function TaskCard({ compact = false, task, mediaIte
   return (
     <TouchableOpacity
       onPress={onPress}
+      onLongPress={onLongPress}
       activeOpacity={0.8}
       className={compact ? "rounded-2xl bg-surface-secondary p-4 border" : "mb-3 rounded-2xl bg-surface-secondary p-4 border"}
       style={[{
@@ -288,7 +292,7 @@ export const TaskCard = memo(function TaskCard({ compact = false, task, mediaIte
 
       <View className="flex-row items-start">
          {/* Completion or Selection checkbox */}
-         {selectionMode ? (
+         {!hideStatusControl && (selectionMode ? (
            <TouchableOpacity
              activeOpacity={0.8}
              onPress={(e) => {
@@ -321,7 +325,7 @@ export const TaskCard = memo(function TaskCard({ compact = false, task, mediaIte
                <Circle size={22} color={isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)"} />
              )}
            </TouchableOpacity>
-         )}
+         ))}
 
          <View className="flex-1">
             {/* Title */}

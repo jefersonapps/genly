@@ -1,4 +1,4 @@
-import { desc, eq, ne, or, sql } from "drizzle-orm";
+import { desc, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { db } from "../db/client";
 import { groups, media, tasks, type Group, type Media, type Task } from "../db/schema";
 import { NotificationService } from "./notificationService";
@@ -187,6 +187,20 @@ export async function deleteTask(id: number): Promise<void> {
   await db.delete(tasks).where(eq(tasks.id, id));
 
   // Refresh widgets after deletion
+  refreshAllWidgets();
+}
+
+/** Delete a selection atomically, without refreshing every widget for every note. */
+export async function deleteTasks(taskIds: number[]): Promise<void> {
+  const ids = [...new Set(taskIds)];
+  if (ids.length === 0) return;
+  await Promise.all(ids.map(id => NotificationService.cancelReminder(id)));
+  db.transaction(tx => {
+    // Stay below SQLite's parameter limit even for large libraries.
+    for (let offset = 0; offset < ids.length; offset += 500) {
+      tx.delete(tasks).where(inArray(tasks.id, ids.slice(offset, offset + 500))).run();
+    }
+  });
   refreshAllWidgets();
 }
 
