@@ -1,300 +1,148 @@
 import { useTheme } from "@/providers/ThemeProvider";
 import { shadows } from "@/theme/shadows";
-import { LucideIcon } from "lucide-react-native";
-import React, {
-  createContext,
-  forwardRef,
-  useContext,
-  useRef,
-  useState
-} from "react";
-import {
-  LayoutRectangle,
-  Modal,
-  Text as RNText,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View
-} from "react-native";
-import Animated, {
-  FadeOut,
-  withSpring,
-  withTiming,
-} from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { anchorInDropdownWindow, dropdownLayout, type DropdownRect } from "@/utils/dropdownLayout";
+import type { LucideIcon } from "lucide-react-native";
+import React, { createContext, forwardRef, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Modal, Pressable, Text as RNText, ScrollView, TouchableOpacity, View, useWindowDimensions, type GestureResponderEvent, type LayoutRectangle } from "react-native";
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 
-// ─── Context ─────────────────────────────────────
+type NativeView = React.ComponentRef<typeof View>;
 interface DropdownContextType {
   close: () => void;
   layout: LayoutRectangle | null;
   setLayout: (layout: LayoutRectangle) => void;
+  triggerRef: React.RefObject<NativeView | null>;
 }
 const DropdownContext = createContext<DropdownContextType | null>(null);
+interface TriggerProps { children: React.ReactElement; asChild?: boolean }
 
-// ─── Trigger ─────────────────────────────────────
-interface TriggerProps {
-  children: React.ReactElement;
-  asChild?: boolean;
-}
-
-const Trigger = forwardRef<React.ComponentRef<typeof View>, TriggerProps>(({ children, asChild }, ref) => {
+const Trigger = forwardRef<NativeView, TriggerProps>(({ children }, ref) => {
   const context = useContext(DropdownContext);
-  const triggerRef = useRef<React.ComponentRef<typeof View>>(null);
-
-  const measureAndOpen = () => {
-    triggerRef.current?.measure((x, y, width, height, pageX, pageY) => {
-      context?.setLayout({ x: pageX, y: pageY, width, height });
-    });
+  const child = children as React.ReactElement<{ onPress?: (event: GestureResponderEvent) => void; ref?: React.Ref<NativeView> }>;
+  const assignRef = (node: NativeView | null) => {
+    if (context) context.triggerRef.current = node;
+    if (typeof ref === 'function') ref(node);
+    else if (ref) ref.current = node;
   };
-
-  const childElement = children as React.ReactElement;
-  
-  const childProps = {
-    ref: triggerRef,
-    onPress: (e: any) => {
-      measureAndOpen();
-      // Call original onPress if exists
-      if (childElement.props && (childElement.props as any).onPress) {
-        (childElement.props as any).onPress(e);
-      }
+  return React.cloneElement(child, {
+    ref: assignRef,
+    onPress: event => {
+      context?.triggerRef.current?.measureInWindow((x, y, width, height) => {
+        if (width > 0 && height > 0) context.setLayout({ x, y, width, height });
+      });
+      child.props.onPress?.(event);
     },
-  };
-
-  return React.cloneElement(childElement, childProps);
+  });
 });
-
-// ─── Content ─────────────────────────────────────
 interface ContentProps {
   children: React.ReactNode;
   width?: number;
-  align?: "start" | "end" | "center";
-  direction?: "top" | "bottom";
+  maxHeight?: number;
+  align?: 'start' | 'end' | 'center';
+  direction?: 'top' | 'bottom';
 }
-
-function Content({ children, width = 200, align = "start", direction = "bottom" }: ContentProps) {
+function Content(props: ContentProps) {
   const context = useContext(DropdownContext);
-  const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
-  const insets = useSafeAreaInsets();
-
   if (!context?.layout) return null;
-
-  const { x, y, width: tWidth, height: tHeight } = context.layout;
-
-  let left = x;
-  if (align === "end") {
-    left = x + tWidth - width;
-  } else if (align === "center") {
-    left = x + tWidth / 2 - width / 2;
-  }
-
-  // Basic boundary check for left
-  if (left < 10) left = 10;
-  // TODO: check right boundary if needed
-
-  // Position above or below? Default below
-  let top = y + tHeight + 4;
-  let bottom: number | undefined;
-
-  if (direction === "top") {
-    // If opening upwards, we position relative to the top of the trigger
-    // But we don't know the content height easily without measuring.
-    // However, we can use bottom positioning if we are careful.
-    // The Modal uses absolute positioning.
-    // top = y - contentHeight - 4;
-    // Just using `bottom` style in the absolute view might work if we set top to undefined?
-    // But we need to know the window height to calculate precise 'top' if we want to animate from there?
-    // Let's try setting `bottom` style instead of `top` for the View.
-    // layout.y is distance from top.
-    // distance from bottom = windowHeight - y.
-    // so user wants menu ABOVE trigger.
-    // bottom of menu = y - 4? No.
-    // View style: { bottom: windowHeight - y + 4 }
-    // We need window height.
-    top = undefined as any;
-  }
-
-  const renderMenu = (calculatedStyle: any) => (
-    <Animated.View
-      className="absolute rounded-xl border p-1.5"
-      style={[
-        calculatedStyle,
-        {
-          width,
-          backgroundColor: isDark ? "#18181B" : "#FFFFFF",
-          borderColor: isDark ? "#27272A" : "#E4E4E7",
-        },
-        shadows.lg
-      ]}
-      entering={(values: any) => {
-        "worklet";
-        const animations = {
-          transform: [
-            {
-              translateY: withSpring(0, {
-                damping: 18,
-                stiffness: 120,
-                mass: 1,
-              }),
-            },
-            {
-              scale: withSpring(1, {
-                damping: 18,
-                stiffness: 120,
-                mass: 1,
-              }),
-            },
-          ],
-          opacity: withTiming(1, { duration: 200 }),
-        };
-
-        const initialValues = {
-          transform: [
-            {
-              translateY: direction === "top" ? 10 : -10,
-            },
-            { scale: 0.9 },
-          ],
-          opacity: 0,
-          originX: values.targetOriginX,
-          originY: values.targetOriginY,
-          width: values.targetWidth,
-          height: values.targetHeight,
-          globalOriginX: values.targetGlobalOriginX,
-          globalOriginY: values.targetGlobalOriginY,
-        };
-
-        return {
-          initialValues,
-          animations,
-        };
-      }}
-      exiting={FadeOut.duration(150)}
-    >
-      {children}
-    </Animated.View>
-  );
-
   return (
-    <Modal
-      transparent
-      visible={!!context.layout}
-      onRequestClose={context.close}
-      animationType="none"
-    >
-      <TouchableWithoutFeedback onPress={context.close}>
-        <View className="flex-1">
-          <ContextDimensions 
-            direction={direction} 
-            align={align}
-            triggerLayout={context.layout} 
-            menuWidth={width}
-          >
-            {renderMenu}
-          </ContextDimensions>
-        </View>
-      </TouchableWithoutFeedback>
+    <Modal transparent visible onRequestClose={context.close} animationType="none" statusBarTranslucent navigationBarTranslucent>
+      <SafeAreaProvider>
+        <MenuViewport {...props} context={context} />
+      </SafeAreaProvider>
     </Modal>
   );
 }
 
-import { useWindowDimensions } from "react-native";
+function MenuViewport({ children, context, width = 200, maxHeight = 320, align = 'start', direction = 'bottom' }: ContentProps & { context: DropdownContextType }) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
+  const insets = useSafeAreaInsets();
+  const dimensions = useWindowDimensions();
+  const viewportRef = useRef<NativeView>(null);
+  const [geometry, setGeometry] = useState<{ anchor: DropdownRect; viewport: { width: number; height: number } } | null>(null);
+  const [contentHeight, setContentHeight] = useState<number | undefined>();
+  const opacity = useSharedValue(0);
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
-// Helper to get window dimensions safely
-function ContextDimensions({ direction, align, triggerLayout, menuWidth, children }: any) {
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  const { x, y, width: tWidth, height: tHeight } = triggerLayout;
+  const measure = useCallback(() => {
+    viewportRef.current?.measureInWindow((originX, originY, viewportWidth, viewportHeight) => {
+      context.triggerRef.current?.measureInWindow((x, y, triggerWidth, triggerHeight) => {
+        if (viewportWidth <= 0 || viewportHeight <= 0 || triggerWidth <= 0 || triggerHeight <= 0) return;
+        setGeometry({
+          anchor: anchorInDropdownWindow({ x, y, width: triggerWidth, height: triggerHeight }, { x: originX, y: originY }),
+          viewport: { width: viewportWidth, height: viewportHeight },
+        });
+      });
+    });
+  }, [context.triggerRef]);
 
-  let style: any = {};
-  
-  // Vertical positioning: Add a 4px gap for breathing room
-  if (direction === "top") {
-    // Position menu's bottom edge above the trigger
-    style.bottom = windowHeight - y + 8;
-  } else {
-    // Position menu's top edge below the trigger
-    style.top = y + tHeight + 8;
-  }
+  // Popup resizing and rotation can change both the viewport and trigger position.
+  useLayoutEffect(() => {
+    const frame = requestAnimationFrame(measure);
+    return () => cancelAnimationFrame(frame);
+  }, [measure, dimensions.width, dimensions.height]);
+  const ready = geometry !== null && contentHeight !== undefined;
+  useLayoutEffect(() => {
+    if (ready) opacity.value = withTiming(1, { duration: 120 });
+  }, [ready, opacity]);
 
-  // Horizontal positioning
-  if (align === "end") {
-    // Align right edge of menu with right edge of trigger
-    let rightPos = windowWidth - (x + tWidth);
-    if (rightPos < 10) rightPos = 10; // safety padding
-    style.right = rightPos;
-  } else if (align === "center") {
-    let leftPos = x + (tWidth / 2) - (menuWidth / 2);
-    if (leftPos < 10) leftPos = 10;
-    if (leftPos + menuWidth > windowWidth - 10) leftPos = windowWidth - menuWidth - 10;
-    style.left = leftPos;
-  } else {
-    // start (default)
-    let leftPos = x;
-    if (leftPos + menuWidth > windowWidth - 10) leftPos = windowWidth - menuWidth - 10;
-    if (leftPos < 10) leftPos = 10;
-    style.left = leftPos;
-  }
+  const position = geometry ? dropdownLayout({
+    ...geometry, insets, width, contentHeight: contentHeight === undefined ? undefined : contentHeight + 2,
+    maxHeight, align, direction,
+  }) : null;
 
-  return children(style);
+  return (
+    <View ref={viewportRef} collapsable={false} style={{ flex: 1 }} onLayout={measure}>
+      <Pressable onPress={context.close} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} accessibilityLabel="Fechar menu" />
+      {position && (
+        <Animated.View
+          accessibilityViewIsModal
+          className="absolute rounded-xl border overflow-hidden"
+          style={[{ left: position.left, top: position.top, width: position.width, height: position.height,
+            backgroundColor: isDark ? '#18181B' : '#FFFFFF', borderColor: isDark ? '#27272A' : '#E4E4E7' }, shadows.lg, animatedStyle]}
+        >
+          <ScrollView
+            style={{ height: Math.max(1, position.height - 2) }}
+            contentContainerStyle={{ padding: 6 }}
+            onContentSizeChange={(_width, height) => setContentHeight(height)}
+            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled
+            indicatorStyle={isDark ? 'white' : 'black'}
+          >
+            {children}
+          </ScrollView>
+        </Animated.View>
+      )}
+    </View>
+  );
 }
 
-// ─── Item ────────────────────────────────────────
-interface ItemProps {
-  icon?: LucideIcon;
-  label: string;
-  onPress: () => void;
-  destructive?: boolean;
-}
-
+interface ItemProps { icon?: LucideIcon; label: string; onPress: () => void; destructive?: boolean }
 function Item({ icon: Icon, label, onPress, destructive }: ItemProps) {
   const context = useContext(DropdownContext);
   const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
-
-  const handlePress = () => {
-    context?.close();
-    requestAnimationFrame(() => {
-      onPress();
-    });
-  };
-
-  const textColor = destructive ? "#EF4444" : isDark ? "#E4E4E7" : "#3F3F46";
-
+  const isDark = resolvedTheme === 'dark';
+  const textColor = destructive ? '#EF4444' : isDark ? '#E4E4E7' : '#3F3F46';
   return (
     <TouchableOpacity
-      onPress={handlePress}
+      onPress={() => { context?.close(); requestAnimationFrame(onPress); }}
+      accessibilityRole="menuitem"
       activeOpacity={0.8}
       className="flex-row items-center gap-2.5 py-2.5 px-2.5 rounded-lg mb-0.5"
-      style={[
-        destructive && { backgroundColor: isDark ? "rgba(239, 68, 68, 0.1)" : "#FEF2F2" },
-      ]}
+      style={{ minHeight: 44, ...(destructive ? { backgroundColor: isDark ? 'rgba(239,68,68,0.1)' : '#FEF2F2' } : {}) }}
     >
-      {Icon && <Icon size={18} color={textColor} className="mr-2.5" />}
-      <RNText className="text-sm font-sans-semibold" style={{ color: textColor }}>{label}</RNText>
+      {Icon && <Icon size={18} color={textColor} />}
+      <RNText className="text-sm font-sans-semibold" style={{ color: textColor, flexShrink: 1 }}>{label}</RNText>
     </TouchableOpacity>
   );
 }
-
-// ─── Root ────────────────────────────────────────
-interface DropdownProps {
-  children: React.ReactNode;
-}
-
+interface DropdownProps { children: React.ReactNode }
 function DropdownRoot({ children }: DropdownProps) {
   const [layout, setLayout] = useState<LayoutRectangle | null>(null);
-
-  const close = () => setLayout(null);
-
-  return (
-    <DropdownContext.Provider value={{ close, layout, setLayout }}>
-      {children}
-    </DropdownContext.Provider>
-  );
+  const triggerRef = useRef<NativeView>(null);
+  const close = useCallback(() => setLayout(null), []);
+  const value = useMemo(() => ({ close, layout, setLayout, triggerRef }), [close, layout]);
+  return <DropdownContext.Provider value={value}>{children}</DropdownContext.Provider>;
 }
-
-// ─── Compound Export ─────────────────────────────
-export const Dropdown = Object.assign(DropdownRoot, {
-  Trigger,
-  Content,
-  Item,
-});
+export const Dropdown = Object.assign(DropdownRoot, { Trigger, Content, Item });

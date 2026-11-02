@@ -152,15 +152,13 @@ export default function UnitConverterScreen() {
                             </TouchableOpacity>
                         </Dropdown.Trigger>
                         <Dropdown.Content width={220} align="end">
-                            <ScrollView style={{ maxHeight: 300 }} indicatorStyle={isDark ? "white" : "black"}>
-                                {currentUnits.map(u => (
-                                    <Dropdown.Item 
-                                        key={u.id}
-                                        label={`${u.name} (${u.symbol})`}
-                                        onPress={() => setFromUnitId(u.id)}
-                                    />
-                                ))}
-                            </ScrollView>
+                            {currentUnits.map(u => (
+                                <Dropdown.Item
+                                    key={u.id}
+                                    label={`${u.name} (${u.symbol})`}
+                                    onPress={() => setFromUnitId(u.id)}
+                                />
+                            ))}
                         </Dropdown.Content>
                     </Dropdown>
                 </View>
@@ -204,15 +202,13 @@ export default function UnitConverterScreen() {
                             </TouchableOpacity>
                         </Dropdown.Trigger>
                         <Dropdown.Content width={220} align="end">
-                            <ScrollView style={{ maxHeight: 300 }} indicatorStyle={isDark ? "white" : "black"}>
-                                {currentUnits.map(u => (
-                                    <Dropdown.Item 
-                                        key={u.id}
-                                        label={`${u.name} (${u.symbol})`}
-                                        onPress={() => setToUnitId(u.id)}
-                                    />
-                                ))}
-                            </ScrollView>
+                            {currentUnits.map(u => (
+                                <Dropdown.Item
+                                    key={u.id}
+                                    label={`${u.name} (${u.symbol})`}
+                                    onPress={() => setToUnitId(u.id)}
+                                />
+                            ))}
                         </Dropdown.Content>
                     </Dropdown>
                 </View>
