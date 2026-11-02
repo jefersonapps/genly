@@ -681,11 +681,13 @@ export default function HomeScreen() {
                             accessibilityRole="button"
                             accessibilityLabel="Adicionar widget deste grupo à tela inicial"
                             activeOpacity={0.7}
-                            className="flex-row items-center gap-2 px-3 py-3 rounded-xl"
-                            style={{ minHeight: 44, backgroundColor: withOpacity(primaryColor, 0.1), opacity: pinningGroupWidget || selectionMode ? 0.5 : 1 }}
+                            className="flex-row items-center justify-center"
+                            style={{ alignSelf: 'center', flexGrow: 0, flexShrink: 0, minHeight: 44, paddingHorizontal: 12, paddingVertical: 8,
+                              gap: 6, borderRadius: 12, borderWidth: 1, borderColor: isDark ? '#27272a' : '#e4e4e7',
+                              backgroundColor: isDark ? '#18181b' : '#f4f4f5', opacity: pinningGroupWidget || selectionMode ? 0.5 : 1 }}
                           >
                             {pinningGroupWidget ? <ActivityIndicator size="small" color={primaryColor} /> : <LayoutGrid size={17} color={primaryColor} />}
-                            <Text className="font-sans-semibold text-xs" style={{ color: primaryColor }}>Adicionar widget</Text>
+                            <Text className="font-sans-semibold text-xs" style={{ color: primaryColor }}>Widget</Text>
                           </TouchableOpacity>
                         )}
                         {!selectedGroupId && (

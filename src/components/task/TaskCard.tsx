@@ -1,3 +1,4 @@
+import { getReminderStatus } from "@/utils/reminderStatus";
 import { Image } from "expo-image";
 import { useMappingHelper } from "@shopify/flash-list";
 import { MediaPreview } from "@/components/task/MediaPreview";
@@ -110,33 +111,10 @@ export const TaskCard = memo(function TaskCard({ compact = false, task, mediaIte
 
   const getReminderConfig = () => {
     if (!task.deliveryDate) return null;
-    
-    const now = new Date();
-    const target = new Date(`${task.deliveryDate}T${task.deliveryTime || "00:00:00"}`);
-    
-    // Reset times to compare just dates for "today" and "tomorrow"
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    const targetDate = new Date(target.getFullYear(), target.getMonth(), target.getDate());
-
-    if (target.getTime() < now.getTime()) {
-      return { label: "Expirado", color: "#EF4444", icon: AlertCircle };
-    } else if (targetDate.getTime() === today.getTime()) {
-      return { label: "Hoje", color: primaryColor, icon: Bell };
-    } else if (targetDate.getTime() === tomorrow.getTime()) {
-      return { label: "Amanhã", color: "#F59E0B", icon: Clock };
-    } else {
-      const diffDays = Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDays <= 7) {
-        return { label: `Em ${diffDays} dias`, color: "#3B82F6", icon: Calendar };
-      } else {
-        return { 
-          label: target.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }), 
-          color: "#10B981", 
-          icon: Calendar 
-        };
-      }
-    }
+    const status = getReminderStatus(task.deliveryDate, task.deliveryTime, task.completed);
+    if (!status) return null;
+    const icons = { complete: CheckCircle2, expired: AlertCircle, today: Bell, tomorrow: Clock, upcoming: Calendar, future: Calendar };
+    return { ...status, color: status.kind === 'today' ? safeAccent : status.color, icon: icons[status.kind] };
   };
 
   const reminderConfig = getReminderConfig();

@@ -67,7 +67,7 @@ export function RecentMindMapsWidget({ tasks, colors }: RecentMindMapsWidgetProp
             justifyContent: 'center',
           }}
           clickAction="OPEN_URI"
-          clickActionData={{ uri: createWidgetLink('/tools/mind-map') }}
+          clickActionData={{ uri: createWidgetLink('/tools/mind-map', { newMap: 1 }) }}
         >
           <TextWidget
             text="+"

@@ -77,7 +77,7 @@ test('recent notes preserve filtering/order/limit in one query without loading n
     }
     const notes = await service.getRecentTasks(1);
     assert.deepEqual(notes.map((note) => note.id), [2]);
-    assert.deepEqual(Object.keys(notes[0]).sort(), ['deliveryDate', 'deliveryTime', 'id', 'title']);
+    assert.deepEqual(Object.keys(notes[0]).sort(), ['completed', 'deliveryDate', 'deliveryTime', 'id', 'title']);
     assert.equal(queries.length, 1);
     assert.ok(!queries[0].includes('content'));
     sqlite.exec('DELETE FROM groups');

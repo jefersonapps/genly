@@ -12,7 +12,7 @@ import {
   type SkFont
 } from '@shopify/react-native-skia';
 import React, { useMemo } from 'react';
-import { useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 import { useDerivedValue, type SharedValue } from 'react-native-reanimated';
 import { computeEdges } from './layoutEngine';
 import type { DragState, ResizeState } from './useMapGestures';
@@ -444,7 +444,7 @@ const NodeImage = React.memo(function NodeImage({
   const clip = useDerivedValue(() => {
     'worklet';
     return Skia.RRectXY(Skia.XYWHRect(x.value, y.value, width.value, height.value), 12, 12);
-  }, [x, y, width, height]);
+  }, Platform.OS === 'web' ? [x, y, width, height] : undefined);
 
   if (!image) return null;
   return (
@@ -483,7 +483,7 @@ const SingleLine = React.memo(function SingleLine({
     const lineWidth = font.measureText(lineStr).width;
     if (align === 'center') return (w - lineWidth) / 2;
     return w - H_PAD - lineWidth;
-  }, [node]);
+  }, Platform.OS === 'web' ? [node] : undefined);
 
   const y = useDerivedValue(() => {
     'worklet';
@@ -525,7 +525,7 @@ const NodeText = React.memo(function NodeText({
   const textColor = getNodeTextColor(node.depth, isDark, node.color);
 
   // If we are editing this node inline, hide the Skia text to avoid overlap with TextInput
-  const textOpacity = useDerivedValue(() => isEditing ? 0 : 1, [isEditing]);
+  const textOpacity = useDerivedValue(() => isEditing ? 0 : 1, Platform.OS === 'web' ? [isEditing] : undefined);
 
   /**
    * Compute wrapped lines + Y positions as a derived value (worklet).
@@ -568,12 +568,12 @@ const NodeText = React.memo(function NodeText({
       imageH: imgH,
       imageW: w - H_PAD * 2
     };
-  }, [node]);
+  }, Platform.OS === 'web' ? [node] : undefined);
 
-  const imgX = useDerivedValue(() => H_PAD, [node]);
-  const imgY = useDerivedValue(() => allLines.value.imageY, [node]);
-  const imgW = useDerivedValue(() => allLines.value.imageW, [node]);
-  const imgH = useDerivedValue(() => allLines.value.imageH, [node]);
+  const imgX = useDerivedValue(() => H_PAD, Platform.OS === 'web' ? [node] : undefined);
+  const imgY = useDerivedValue(() => allLines.value.imageY, Platform.OS === 'web' ? [node] : undefined);
+  const imgW = useDerivedValue(() => allLines.value.imageW, Platform.OS === 'web' ? [node] : undefined);
+  const imgH = useDerivedValue(() => allLines.value.imageH, Platform.OS === 'web' ? [node] : undefined);
 
   return (
     <>
@@ -628,7 +628,7 @@ const NodeItem = React.memo(function NodeItem({
       return [{ translateX: dragState.dragAbsX.value }, { translateY: dragState.dragAbsY.value }];
     }
     return [{ translateX: node.x }, { translateY: node.y }];
-  }, [node]);
+  }, Platform.OS === 'web' ? [node] : undefined);
 
   return (
     <Group transform={nodeTransform}>

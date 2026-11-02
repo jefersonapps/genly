@@ -1,6 +1,7 @@
 'use no memo';
 /** @jsxImportSource react */
 import React from 'react';
+import { getReminderStatus } from '../utils/reminderStatus';
 import { WidgetIcon } from './WidgetIcon';
 import { createWidgetLink } from './links';
 import { FlexWidget, ListWidget, TextWidget } from 'react-native-android-widget';
@@ -120,7 +121,9 @@ export function RemindersWidget({ tasks, colors }: RemindersWidgetProps) {
               width: 'match_parent',
             }}
           >
-            {tasks.map((task, index) => (
+            {tasks.map((task) => {
+              const status = getReminderStatus(task.deliveryDate, task.deliveryTime, task.completed);
+              return (
               <FlexWidget
                 key={task.id}
                 style={{
@@ -143,7 +146,7 @@ export function RemindersWidget({ tasks, colors }: RemindersWidgetProps) {
                     }}
                     clickAction="OPEN_URI"
                     clickActionData={{ uri: createWidgetLink(`/task/${task.id}`) }}
-                    accessibilityLabel={`Lembrete: ${task.title}`}
+                    accessibilityLabel={`Lembrete: ${task.title}. ${status?.label || ""}`}
                   >
                     <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', width: 'match_parent' }}>
                       <FlexWidget
@@ -167,8 +170,14 @@ export function RemindersWidget({ tasks, colors }: RemindersWidgetProps) {
                       </FlexWidget>
                     </FlexWidget>
                     
-                    <FlexWidget style={{ width: 'match_parent', alignItems: 'flex-end', marginTop: 4 }}>
+                    <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+                      {status && <FlexWidget style={{ backgroundColor: `${status.color}20`, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, marginRight: 8 }}>
+                        <TextWidget text={status.label} style={{ fontSize: 10, fontFamily: 'Montserrat-SemiBold', color: status.color }} />
+                      </FlexWidget>}
+                      <FlexWidget style={{ flex: 1, alignItems: 'flex-end' }}>
                       <TextWidget
+                        maxLines={1}
+                        truncate="END"
                         text={formatWidgetDate(task.deliveryDate, task.deliveryTime)}
                         style={{
                           fontSize: 11,
@@ -176,10 +185,11 @@ export function RemindersWidget({ tasks, colors }: RemindersWidgetProps) {
                           color: colors.textSecondary,
                         }}
                       />
+                      </FlexWidget>
                     </FlexWidget>
                   </FlexWidget>
               </FlexWidget>
-            ))}
+            ); })}
           </ListWidget>
         )}
       </FlexWidget>

@@ -88,7 +88,7 @@ export function GroupWidget({ group, tasks, colors }: GroupWidgetProps) {
           clickAction="OPEN_URI"
           clickActionData={{ 
             uri: group.name === 'Mapas Mentais' 
-              ? createWidgetLink('/tools/mind-map')
+              ? createWidgetLink('/tools/mind-map', { newMap: 1 })
               : group.name === 'Flashcards' 
                 ? createWidgetLink('/tools/flashcards')
                 : createWidgetLink('/task/editor', { groupId: group.id })

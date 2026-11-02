@@ -1,3 +1,5 @@
+import { hasMindMapContent, MindMapAutosave, type AutosaveState } from '@/lib/mindmap/autosave';
+import { saveMindMapDocument } from '@/services/mindMapPersistence';
 import { useBackOrHome } from "@/hooks/useBackOrHome";
 import BottomSheet from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
@@ -19,7 +21,7 @@ import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useFont } from '@shopify/react-native-skia';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   AlignCenter,
   AlignLeft,
@@ -40,6 +42,8 @@ import {
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
+  BackHandler,
   Keyboard,
   Platform,
   Text,
@@ -49,13 +53,18 @@ import {
   useWindowDimensions
 } from "react-native";
 
-import { createTask, getGroupByName, getTaskById, updateTask } from '@/services/taskService';
+import { getTaskById } from '@/services/taskService';
 import { shadows } from '@/theme/shadows';
 import * as MediaLibrary from 'expo-media-library/legacy';
 import * as Sharing from 'expo-sharing';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+function currentMapDocument() {
+  const { nodes, rootId, canvasBgColor, bgPattern } = useMindMapStore.getState();
+  return { nodes, rootId, canvasBgColor, bgPattern };
+}
 
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
  
@@ -93,7 +102,7 @@ const InlineNodeEditor = React.memo(({
       zIndex: 9999,
       justifyContent: 'center',
     };
-  }, [node, transform]);
+  }, Platform.OS === 'web' ? [node, transform] : undefined);
 
   const animatedTextStyle = useAnimatedStyle(() => {
     const s = transform.scale.value;
@@ -281,67 +290,65 @@ export default function MindMapScreen() {
     }
   };
 
-  const { taskId, template } = useLocalSearchParams<{ taskId?: string, template?: string }>();
-
-  // Use a ref to prevent double initialization of templates on mount
-  const hasInitializedTemplate = useRef(false);
+  const { taskId, template, mapSession } = useLocalSearchParams<{ taskId?: string; template?: string; mapSession?: string }>();
   const hasCenteredOnLoad = useRef(false);
+  const autosaveRef = useRef<MindMapAutosave | null>(null);
+  const hasTypedMapText = useRef(false);
+  const initializedSession = useRef<string | null>(null);
+  const leavingRef = useRef(false);
+  const [savedMapId, setSavedMapId] = useState<number | null>(null);
+  const [autosaveStatus, setAutosaveStatus] = useState<AutosaveState>('saved');
+  const [isLoadingMap, setIsLoadingMap] = useState(true);
+
+  const handleBack = useCallback(async () => {
+    if (leavingRef.current) return;
+    leavingRef.current = true;
+    try {
+      autosaveRef.current?.update(currentMapDocument(), hasTypedMapText.current);
+      await autosaveRef.current?.flush();
+      goBack();
+    } catch {
+      dialog.show({ title: 'Não foi possível salvar', description: 'O mapa continua aberto. Tente voltar novamente para salvar suas alterações.', variant: 'error' });
+    } finally { leavingRef.current = false; }
+  }, [goBack, dialog.show]);
+
+  useFocusEffect(useCallback(() => {
+    const back = BackHandler.addEventListener('hardwareBackPress', () => { void handleBack(); return true; });
+    const background = AppState.addEventListener('change', state => {
+      if (state !== 'active') {
+        autosaveRef.current?.update(currentMapDocument(), hasTypedMapText.current);
+        void autosaveRef.current?.flush().catch(() => {});
+      }
+    });
+    return () => {
+      back.remove(); background.remove();
+      void autosaveRef.current?.flush().catch(() => {});
+    };
+  }, [handleBack]));
 
   const handleSaveToDatabase = async (createNew = false) => {
-    // Flush any pending text edits to the store before saving
-    if (isEditTopicVisible) {
-      if (selectedId && editText.trim()) {
-        updateNodeTitle(selectedId, editText.trim());
-      }
-      setIsEditTopicVisible(false);
-    }
-    
     Keyboard.dismiss();
-
+    setIsEditTopicVisible(false);
     exportSheetRef.current?.dismiss();
     setIsExporting(true);
     try {
-      const mapsGroup = await getGroupByName("Mapas Mentais");
-      if (!mapsGroup) {
-         dialog.show({ title: 'Erro', description: "Grupo 'Mapas Mentais' não encontrado.", variant: 'error' });
-         return;
+      const saver = autosaveRef.current;
+      if (!saver) return;
+      if (!hasMindMapContent(currentMapDocument())) {
+        dialog.show({ title: 'Adicione conteúdo ao mapa', description: 'Escreva uma ideia ou adicione uma imagem antes de salvar.', variant: 'info' });
+        return;
       }
-
-      const rootNode = nodes.find(n => n.id === rootId);
-      const minTitle = rootNode ? rootNode.title : "Novo Mapa Mental";
-
-      const mapData = {
-          nodes,
-          rootId,
-          canvasBgColor,
-          bgPattern
-      };
-
-      if (taskId && !createNew) {
-          await updateTask(Number(taskId), {
-              title: minTitle,
-              content: JSON.stringify(mapData),
-              groupId: mapsGroup.id
-          });
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          dialog.show({ title: 'Sucesso', description: 'Mapa mental atualizado!', variant: 'success' });
-      } else {
-          // Create new task
-          const newTask = await createTask(minTitle, JSON.stringify(mapData), mapsGroup.id);
-          router.setParams({ taskId: newTask.id.toString() });
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          dialog.show({ title: 'Sucesso', description: 'Novo mapa salvo no grupo Mapas Mentais!', variant: 'success' });
+      saver.update(currentMapDocument(), true);
+      await saver.flush();
+      if (createNew) {
+        const id = await saveMindMapDocument(null, currentMapDocument());
+        router.setParams({ taskId: String(id) });
       }
-
-    } catch (e) {
-      console.error("Failed to save mind map:", e);
-      dialog.show({ title: 'Erro', description: 'Ocorreu um erro ao salvar o mapa mental.', variant: 'error' });
-    } finally {
-      setIsExporting(false);
-    }
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch {
+      dialog.show({ title: 'Não foi possível salvar', description: 'Tente novamente. Suas alterações continuam abertas.', variant: 'error' });
+    } finally { setIsExporting(false); }
   };
-
-
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -373,59 +380,63 @@ export default function MindMapScreen() {
   };
 
 
-  useEffect(() => {
-    async function hydrateFromTask() {
-      if (taskId) {
-        try {
-          const task = await getTaskById(Number(taskId));
-          if (task && task.content) {
-            const mapData = JSON.parse(task.content);
-            if (mapData && mapData.nodes) {
-               useMindMapStore.getState().setWholeState({
-                  nodes: mapData.nodes,
-                  rootId: mapData.rootId,
-                  canvasBgColor: mapData.canvasBgColor,
-                  bgPattern: mapData.bgPattern || 'none'
-               });
-            }
-          }
-        } catch (e) {
-          console.error("Failed to parse map data from task", e);
+  useFocusEffect(useCallback(() => {
+    let cancelled = false;
+    const sessionKey = JSON.stringify([taskId, template, mapSession]);
+    const continuingSession = initializedSession.current === sessionKey;
+    initializedSession.current = sessionKey;
+    let unsubscribe: (() => void) | undefined;
+    setIsLoadingMap(true);
+    setIsEditTopicVisible(false);
+    hasCenteredOnLoad.current = false;
+    hasTypedMapText.current = false;
+    const previous = autosaveRef.current;
+    autosaveRef.current = null;
+    async function initializeMap() {
+      try {
+        await previous?.flush();
+        if (cancelled) return;
+        useMindMapStore.getState().reset();
+        const id: number | null = taskId ? Number(taskId) : continuingSession ? previous?.id ?? null : null;
+        if (id !== null) {
+          const task = await getTaskById(id);
+          if (cancelled) return;
+          const data = task?.content ? JSON.parse(task.content) : null;
+          if (!data || !Array.isArray(data.nodes)) throw new Error('Mapa não encontrado');
+          useMindMapStore.getState().setWholeState({ nodes: data.nodes, rootId: data.rootId,
+            canvasBgColor: data.canvasBgColor ?? null, bgPattern: data.bgPattern || 'none', selectedId: null });
+        } else if (template) {
+          const store = useMindMapStore.getState();
+          store.initRoot(template === 'study' ? 'Tópico de Estudo' : 'Ideia Principal');
+          const root = useMindMapStore.getState().rootId!;
+          for (const title of template === 'study' ? ['Conceitos Chave', 'Exemplos', 'Dúvidas'] : ['Prós', 'Contras', 'Recursos']) store.addNode(root, title);
+          hasTypedMapText.current = true;
+        } else if (mapSession) {
+          useMindMapStore.getState().initRoot('Ideia Central');
         }
-      } else if (template && !hasInitializedTemplate.current) {
-         hasInitializedTemplate.current = true;
-         // Clear current state first
-         const store = useMindMapStore.getState();
-         store.reset();
-
-         if (template === 'brainstorming') {
-             store.initRoot('Ideia Principal');
-             setTimeout(() => {
-                 const newRoot = useMindMapStore.getState().nodes[0];
-                 if (newRoot) {
-                     useMindMapStore.getState().addNode(newRoot.id, 'Prós');
-                     useMindMapStore.getState().addNode(newRoot.id, 'Contras');
-                     useMindMapStore.getState().addNode(newRoot.id, 'Recursos');
-                 }
-             }, 100);
-         } else if (template === 'study') {
-             store.initRoot('Tópico de Estudo');
-             setTimeout(() => {
-                 const newRoot = useMindMapStore.getState().nodes[0];
-                 if (newRoot) {
-                     useMindMapStore.getState().addNode(newRoot.id, 'Conceitos Chave');
-                     useMindMapStore.getState().addNode(newRoot.id, 'Exemplos');
-                     useMindMapStore.getState().addNode(newRoot.id, 'Dúvidas');
-                 }
-             }, 100);
-         }
-      } else if (!taskId && !template && !hasInitializedTemplate.current) {
-          hasInitializedTemplate.current = true;
-          useMindMapStore.getState().reset();
-      }
+        if (cancelled) return;
+        const saver = new MindMapAutosave(id, saveMindMapDocument, (status, savedId) => {
+          if (!cancelled) { setAutosaveStatus(status); setSavedMapId(savedId); }
+        });
+        if (id !== null) saver.initialize(currentMapDocument());
+        autosaveRef.current = saver;
+        setSavedMapId(id);
+        setAutosaveStatus(hasMindMapContent(currentMapDocument()) ? 'saved' : 'empty');
+        unsubscribe = useMindMapStore.subscribe(() => saver.update(currentMapDocument(), hasTypedMapText.current));
+        if (template && id === null) saver.update(currentMapDocument(), true);
+      } catch {
+        if (!cancelled) { autosaveRef.current = previous; setAutosaveStatus('error'); }
+        if (!cancelled) dialog.show({ title: 'Não foi possível abrir o mapa', description: 'Volte à biblioteca e tente novamente.', variant: 'error' });
+      } finally { if (!cancelled) setIsLoadingMap(false); }
     }
-    hydrateFromTask();
-  }, [taskId, template]);
+    void initializeMap();
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+      const saver = autosaveRef.current;
+      void saver?.flush().catch(() => {});
+    };
+  }, [taskId, template, mapSession]));
 
 
   const openEditSheet = useCallback((id: string) => {
@@ -609,6 +620,7 @@ export default function MindMapScreen() {
       }
 
       const { nodes: newNodes, rootId: newRootId } = convertMindMapJSON(result.data);
+      hasTypedMapText.current = true;
       useMindMapStore.getState().setWholeState({
         nodes: newNodes,
         rootId: newRootId,
@@ -637,27 +649,34 @@ export default function MindMapScreen() {
 
   // Center on load for existing tasks
   useEffect(() => {
-    if (nodes.length > 0 && taskId && !hasCenteredOnLoad.current) {
+    if (!isLoadingMap && nodes.length > 0 && (taskId || mapSession || template || savedMapId) && !hasCenteredOnLoad.current) {
       hasCenteredOnLoad.current = true;
       // Give layout memo a chance to update
       requestAnimationFrame(() => {
         handleZoomToFit();
       });
     }
-  }, [nodes, taskId, handleZoomToFit]);
+  }, [nodes, taskId, mapSession, template, savedMapId, isLoadingMap, handleZoomToFit]);
 
   const selectedNode = layoutNodes.find((n) => n.id === selectedId);
 
 
   // If loading a map from DB and nodes array is not hydrated yet or creating new
+  if (isLoadingMap) return <View className="flex-1 bg-surface items-center justify-center"><ActivityIndicator color={primaryColor} /></View>;
+
   if (nodes.length === 0) {
     return (
       <View style={{ paddingTop: insets.top }} className="flex-1 bg-surface">
         <View className="flex-row items-center border-b border-border/10 px-4 pb-4 pt-2">
-          <TouchableOpacity activeOpacity={0.8} onPress={goBack} className="mr-3 p-2 -ml-2">
+          <TouchableOpacity activeOpacity={0.8} onPress={handleBack} className="mr-3 p-2 -ml-2">
             <ChevronLeft size={28} color={isDark ? '#FFFFFF' : '#000000'} />
           </TouchableOpacity>
-          <Text className="font-sans-semibold text-xl text-on-surface">Mapa Mental</Text>
+          <View>
+            <Text className="font-sans-semibold text-xl text-on-surface">Mapa Mental</Text>
+            {(savedMapId !== null || autosaveStatus !== 'saved') && <Text className="font-sans text-[10px]" style={{ color: autosaveStatus === 'error' ? '#EF4444' : isDark ? '#A1A1AA' : '#71717A' }}>
+              {autosaveStatus === 'error' ? 'Não foi possível salvar' : autosaveStatus === 'empty' ? 'Mapa vazio — não salvo' : autosaveStatus === 'saved' ? 'Salvo automaticamente' : 'Salvando…'}
+            </Text>}
+          </View>
         </View>
         <View className="flex-1 justify-center items-center px-8">
           <View 
@@ -768,10 +787,15 @@ export default function MindMapScreen() {
       {/* Header */}
       <View className="flex-row items-center justify-between border-b border-border/10 px-4 pb-3 pt-2">
         <View className="flex-row items-center">
-          <TouchableOpacity activeOpacity={0.8} onPress={goBack} className="mr-3 p-2 -ml-2">
+          <TouchableOpacity activeOpacity={0.8} onPress={handleBack} className="mr-3 p-2 -ml-2">
             <ChevronLeft size={28} color={isDark ? '#FFFFFF' : '#000000'} />
           </TouchableOpacity>
-          <Text className="font-sans-semibold text-xl text-on-surface">Mapa Mental</Text>
+          <View>
+            <Text className="font-sans-semibold text-xl text-on-surface">Mapa Mental</Text>
+            {(savedMapId !== null || autosaveStatus !== 'saved') && <Text className="font-sans text-[10px]" style={{ color: autosaveStatus === 'error' ? '#EF4444' : isDark ? '#A1A1AA' : '#71717A' }}>
+              {autosaveStatus === 'error' ? 'Não foi possível salvar' : autosaveStatus === 'empty' ? 'Mapa vazio — não salvo' : autosaveStatus === 'saved' ? 'Salvo automaticamente' : 'Salvando…'}
+            </Text>}
+          </View>
         </View>
         <View className="flex-row items-center gap-1">
            <TouchableOpacity
@@ -851,7 +875,13 @@ export default function MindMapScreen() {
           <InlineNodeEditor
               node={selectedNode}
               text={editText}
-              onTextChange={setEditText}
+              onTextChange={(text) => {
+                setEditText(text);
+                if (selectedId) {
+                  hasTypedMapText.current = true;
+                  updateNodeTitle(selectedId, text);
+                }
+              }}
               onSave={saveEdit}
               transform={transform}
               isDark={isDark}
@@ -1196,7 +1226,7 @@ export default function MindMapScreen() {
           <BottomSheet.Header title="Opções" />
 
           <BottomSheet.ItemGroup>
-            {taskId ? (
+            {savedMapId ? (
               <>
                 <BottomSheet.Item
                   icon={<Network size={18} color={primaryColor} />}

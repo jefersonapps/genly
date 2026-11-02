@@ -6,6 +6,7 @@ import type { WidgetTask } from '../widgets/types';
 const widgetTaskColumns = {
   id: tasks.id,
   title: tasks.title,
+  completed: tasks.completed,
   deliveryDate: tasks.deliveryDate,
   deliveryTime: tasks.deliveryTime,
 };
