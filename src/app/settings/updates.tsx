@@ -1,3 +1,4 @@
+import { formatUpdateBytes, updateDownloadWaitingMessage } from "@/utils/updateDownload";
 import { Button } from "@/components/ui/Button";
 import { useTheme } from "@/providers/ThemeProvider";
 import { useAppUpdateStore } from "@/store/useAppUpdateStore";
@@ -30,17 +31,29 @@ export default function UpdatesSettingsScreen() {
   const isChecking = useAppUpdateStore((s) => s.isChecking);
   const isDownloading = useAppUpdateStore((s) => s.isDownloading);
   const downloadProgress = useAppUpdateStore((s) => s.downloadProgress);
+  const downloadInfo = useAppUpdateStore((s) => s.downloadInfo);
+  const downloadStatus = useAppUpdateStore((s) => s.downloadStatus);
+  const downloadedBytes = useAppUpdateStore((s) => s.downloadedBytes);
+  const downloadTotalBytes = useAppUpdateStore((s) => s.downloadTotalBytes);
+  const downloadReason = useAppUpdateStore((s) => s.downloadReason);
+  const isRestoringDownload = useAppUpdateStore((s) => s.isRestoringDownload);
+  const isInstalling = useAppUpdateStore((s) => s.isInstalling);
+  const installMessage = useAppUpdateStore((s) => s.installMessage);
+  const installDownloadedUpdate = useAppUpdateStore((s) => s.installDownloadedUpdate);
+  const cancelDownload = useAppUpdateStore((s) => s.cancelDownload);
   const downloadError = useAppUpdateStore((s) => s.downloadError);
   const checkError = useAppUpdateStore((s) => s.checkError);
   
   const checkForUpdates = useAppUpdateStore((s) => s.checkForUpdates);
   const downloadAndInstall = useAppUpdateStore((s) => s.downloadAndInstall);
+  const showCheckError = !downloadError && downloadStatus !== 'complete' && Boolean(checkError);
 
   useEffect(() => {
-    // Busca atualizações automaticamente ao abrir a tela se não estiver baixando e não tiver buscado
-    if (!hasUpdate && !isDownloading) {
-      checkForUpdates();
-    }
+    void (async () => {
+      await useAppUpdateStore.getState().refreshDownload();
+      const state = useAppUpdateStore.getState();
+      if (!state.hasUpdate && !state.isDownloading) await state.checkForUpdates();
+    })();
   }, []);
 
   return (
@@ -70,40 +83,62 @@ export default function UpdatesSettingsScreen() {
 
         {/* Status Card */}
         <View className="rounded-2xl p-6 border mb-8" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
-            {isChecking ? (
-                <View className="items-center py-6">
-                    <ActivityIndicator color={primaryColor} size="large" />
-                    <Text className="font-sans text-base mt-6 text-center" style={{ color: colors.textSecondary }}>Verificando atualizações...</Text>
-                </View>
+            {isRestoringDownload ? (
+                <View className="items-center py-6"><ActivityIndicator color={primaryColor} /><Text className="font-sans text-sm mt-3" style={{ color: colors.textSecondary }}>Recuperando download...</Text></View>
             ) : isDownloading ? (
                 <View className="py-2">
-                    <Text className="font-sans-bold text-xl mb-3" style={{ color: colors.text }}>Baixando atualização...</Text>
-                    <Text className="font-sans mb-6 text-base" style={{ color: colors.textSecondary }}>Versão {updateInfo?.version}</Text>
-                    
-                    {/* Progress Bar Container */}
-                    <View className="h-3 rounded-full overflow-hidden w-full mb-3" style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }}>
-                        <View 
-                            className="h-full rounded-full" 
-                            style={{ backgroundColor: primaryColor, width: `${downloadProgress}%` }} 
-                        />
+                    <Text className="font-sans-bold text-xl mb-3" style={{ color: colors.text }}>
+                        {downloadStatus === 'paused' ? 'Download em espera' : 'Baixando atualização...'}
+                    </Text>
+                    <Text className="font-sans mb-6 text-base" style={{ color: colors.textSecondary }}>Versão {downloadInfo?.version}</Text>
+                    {downloadProgress === null ? (
+                        <ActivityIndicator color={primaryColor} style={{ marginBottom: 12 }} />
+                    ) : (
+                        <View accessible accessibilityRole="progressbar"
+                            accessibilityValue={{ min: 0, max: 100, now: downloadProgress }}
+                            style={{ height: 8, borderRadius: 4, overflow: 'hidden', marginBottom: 12,
+                                backgroundColor: isDark ? '#333333' : '#E4E4E7' }}>
+                            <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0,
+                                borderRadius: 4, backgroundColor: primaryColor, width: `${downloadProgress}%` }} />
+                        </View>
+                    )}
+                    <View className="flex-row items-center justify-between gap-3 mb-4">
+                        <Text className="font-sans text-xs" style={{ color: colors.textSecondary }}>
+                            {formatUpdateBytes(downloadedBytes)}{downloadTotalBytes > 0 ? ` de ${formatUpdateBytes(downloadTotalBytes)}` : ' baixados'}
+                        </Text>
+                        {downloadProgress !== null && <Text className="font-sans-bold text-sm" style={{ color: primaryColor }}>{downloadProgress}%</Text>}
                     </View>
-                    <Text className="font-sans-bold text-right text-sm" style={{ color: primaryColor }}>{downloadProgress}%</Text>
+                    <Text className="font-sans text-sm mb-5 leading-relaxed" style={{ color: colors.textSecondary }}>
+                        {downloadStatus === 'paused' ? updateDownloadWaitingMessage(downloadReason) : 'Você pode usar outros apps. O Android continuará o download em segundo plano.'}
+                    </Text>
+                    <Button variant="outline" onPress={cancelDownload} className="w-full rounded-xl"><Button.Text>Cancelar download</Button.Text></Button>
                 </View>
-            ) : (checkError || downloadError) ? (
+            ) : (showCheckError || downloadError) ? (
                 <View className="items-center py-6">
                     <View className="p-4 rounded-full mb-5" style={{ backgroundColor: colors.bg }}>
                         <AlertCircle size={40} color={colors.textSecondary} />
                     </View>
                     <Text className="font-sans-bold text-xl text-center" style={{ color: colors.text }}>
-                        {checkError ? 'Não foi possível verificar' : 'Atualização interrompida'}
+                        {showCheckError ? 'Não foi possível verificar' : 'Atualização interrompida'}
                     </Text>
                     <Text className="font-sans text-base mt-3 mb-6 text-center leading-relaxed" style={{ color: colors.textSecondary }}>
-                        {checkError || downloadError}
+                        {showCheckError ? checkError : downloadError}
                     </Text>
-                    <Button onPress={() => { if (checkError) void checkForUpdates(); else void downloadAndInstall(); }} className="w-full rounded-xl">
+                    <Button onPress={() => { if (showCheckError) void checkForUpdates(); else if (downloadStatus === 'complete') void installDownloadedUpdate(); else void downloadAndInstall(); }} className="w-full rounded-xl">
                         <Button.Text>Tentar novamente</Button.Text>
                     </Button>
                 </View>
+            ) : downloadStatus === 'complete' ? (
+                <View className="py-2">
+                    <Text className="font-sans-bold text-xl mb-3" style={{ color: colors.text }}>Atualização pronta</Text>
+                    <Text className="font-sans text-base mb-5 leading-relaxed" style={{ color: colors.textSecondary }}>
+                        A versão {downloadInfo?.version} já foi baixada. Toque abaixo para instalar.
+                    </Text>
+                    {installMessage && <Text className="font-sans text-sm mb-5" style={{ color: colors.textSecondary }}>{installMessage}</Text>}
+                    <Button onPress={installDownloadedUpdate} loading={isInstalling} className="w-full rounded-xl"><Button.Text>Instalar atualização</Button.Text></Button>
+                </View>
+            ) : isChecking ? (
+                <View className="items-center py-6"><ActivityIndicator color={primaryColor} size="large" /><Text className="font-sans text-base mt-6 text-center" style={{ color: colors.textSecondary }}>Verificando atualizações...</Text></View>
             ) : hasUpdate ? (
                 <View className="py-2">
                     <View className="flex-row items-center mb-3">
@@ -176,7 +211,7 @@ export default function UpdatesSettingsScreen() {
         <View className="flex-1" />
 
         {/* Manual Check Button */}
-        {!isChecking && !isDownloading && !hasUpdate && !checkError && !downloadError && (
+        {!isRestoringDownload && !isChecking && !isDownloading && downloadStatus !== 'complete' && !hasUpdate && !checkError && !downloadError && (
              <Button variant="outline" onPress={() => { void checkForUpdates(); }} className="w-full py-4 border-2 rounded-xl" style={{ borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)" }}>
                 <Button.Text className="text-base">Procurar atualizações</Button.Text>
              </Button>

@@ -1,3 +1,4 @@
+import { useUpdateDownloadMonitor } from "@/hooks/useUpdateDownloadMonitor";
 import '../global.css';
 import { useDevelopmentTools } from '@/dev/useDevelopmentTools';
 import { InAppUpdateDialog } from "@/components/updates/InAppUpdateDialog";
@@ -310,6 +311,7 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   useDevelopmentTools();
+  useUpdateDownloadMonitor();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ShareIntentProvider options={{ resetOnBackground: false }}>

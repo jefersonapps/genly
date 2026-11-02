@@ -83,6 +83,9 @@ cd android && ./gradlew clean && cd ..
 
 # Inicia a criação e o empacotamento estático do APK final
 cd android && ./gradlew assembleRelease
+
+# Criação do APK apenas para a arquitetura ARM
+./gradlew assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a
 ```
 > O artefato (APK) de saída será injetado no diretório absoluto: `android/app/build/outputs/apk/release/app-release.apk`
 > *Nota: Garantir assinatura de builds em produção usando a keystore JKS correta nas variáveis de ambiente.*

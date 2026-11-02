@@ -11,6 +11,9 @@ import Markdown from 'react-native-markdown-renderer';
 export function InAppUpdateDialog() {
   const { primaryColor } = useTheme();
   
+  const isRestoringDownload = useAppUpdateStore((s) => s.isRestoringDownload);
+  const isDownloading = useAppUpdateStore((s) => s.isDownloading);
+  const downloadStatus = useAppUpdateStore((s) => s.downloadStatus);
   const hasUpdate = useAppUpdateStore((s) => s.hasUpdate);
   const updateInfo = useAppUpdateStore((s) => s.updateInfo);
   const downloadAndInstall = useAppUpdateStore((s) => s.downloadAndInstall);
@@ -33,12 +36,14 @@ export function InAppUpdateDialog() {
   const hasShownRef = useRef(false);
 
   useEffect(() => {
+    let cancelled = false;
+    if (isDownloading || downloadStatus === 'complete') setVisible(false);
     // Only auto-show if we have an update, the user has finished onboarding,
     // and we haven't already shown the dialog in this session.
     const checkOnboardingAndShow = async () => {
-      if (hasUpdate && updateInfo && !hasShownRef.current) {
+      if (hasUpdate && updateInfo && !hasShownRef.current && !isRestoringDownload && !isDownloading && downloadStatus !== 'complete') {
         const onboardingStatus = await getSetting("has_completed_onboarding");
-        if (onboardingStatus === "1") {
+        if (!cancelled && onboardingStatus === "1") {
           hasShownRef.current = true;
           setVisible(true);
         }
@@ -46,7 +51,8 @@ export function InAppUpdateDialog() {
     };
     
     checkOnboardingAndShow();
-  }, [hasUpdate, updateInfo, pathname]);
+    return () => { cancelled = true; };
+  }, [hasUpdate, updateInfo, pathname, isRestoringDownload, isDownloading, downloadStatus]);
 
   const handleUpdate = () => {
     setVisible(false);

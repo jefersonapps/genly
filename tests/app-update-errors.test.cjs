@@ -5,24 +5,26 @@ const helper = createSourceLoader()('src/utils/updateErrors.ts');
 const offline = () => Promise.reject(new TypeError('Network request failed'));
 const release = { version: 'v1.1.0', downloadUrl: 'https://example.test/app.apk', releaseNotes: '' };
 
-async function withStore(fetcher, run, blobOverrides = {}) {
+async function withStore(fetcher, run, downloadOverrides = {}) {
   const previousFetch = global.fetch;
   const previousError = console.error;
   let errors = 0;
   global.fetch = fetcher;
   console.error = () => errors++;
-  const blob = {
-    fs: { dirs: { DownloadDir: '/downloads', DocumentDir: '/documents' }, ls: async () => [], unlink: async () => {} },
-    config: () => ({ fetch: () => ({ progress: () => offline() }) }),
-    android: { actionViewIntent: async () => {} },
-    ...blobOverrides,
+  const download = {
+    getDownload: async () => null,
+    startDownload: offline,
+    cancelDownload: async () => {},
+    installDownload: async () => 'opened',
+    ...downloadOverrides,
   };
   try {
     const store = createSourceLoader({
       '@/utils/updateErrors': helper,
       'expo-constants': { expoConfig: { version: '1.0.0' } },
       'react-native': { Platform: { OS: 'android' } },
-      'react-native-blob-util': blob,
+      '@/services/updateDownloadService': { updateDownloadService: download },
+      '@/utils/updateDownload': createSourceLoader()('src/utils/updateDownload.ts'),
     })('src/store/useAppUpdateStore.ts').useAppUpdateStore;
     await run(store, () => errors);
   } finally { global.fetch = previousFetch; console.error = previousError; }
@@ -80,12 +82,12 @@ test('download connectivity errors stay in the update screen state without conso
 }));
 test('installer promise failures are handled and never expose their technical message', () => withStore(offline, async store => {
   store.setState({ hasUpdate: true, updateInfo: release });
-  await store.getState().downloadAndInstall();
+  store.setState({ downloadStatus: 'complete' });
+  await store.getState().installDownloadedUpdate();
   assert.match(store.getState().downloadError, /Não foi possível abrir o instalador/);
   assert.doesNotMatch(store.getState().downloadError, /INSTALL_INTERNAL_ERROR/);
 }, {
-  config: () => ({ fetch: () => ({ progress: async () => ({ path: () => '/downloads/app.apk' }) }) }),
-  android: { actionViewIntent: async () => { throw new Error('INSTALL_INTERNAL_ERROR'); } },
+  installDownload: async () => { throw new Error('INSTALL_INTERNAL_ERROR'); },
 }));
 test('server failures receive a readable service message rather than a network diagnosis', () => withStore(async () => ({ ok: false, status: 500 }), async store => {
   await store.getState().checkForUpdates();
