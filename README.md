@@ -97,16 +97,14 @@ No arquivo `package.json`:
 ### 2. Efetuar o Build de Distribuição
 Compile o novo *bundle* para ambiente de produção (Release). 
 
+Execute a partir da raiz do projeto para gerar um único APK para dispositivos ARM:
+
 ```bash
-# Limpeza geral de recursos locais nativos (Opcional, mas recomendado)
-cd android && ./gradlew clean && cd ..
-
-# Inicia a criação e o empacotamento estático do APK final
-cd android && ./gradlew assembleRelease
-
-# Criação do APK apenas para a arquitetura ARM
+cd android
 ./gradlew assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a
 ```
+
+Os comandos são executados dentro de `android`; use `./gradlew` com a barra. Se a pasta nativa não existir, gere-a com `npx expo prebuild --platform android` a partir da raiz. Quando `android` já existe, confira se `android/app/build.gradle` contém a mesma versão e `versionCode` do `app.json`, pois a pasta gerada não é versionada.
 > O artefato (APK) de saída será injetado no diretório absoluto: `android/app/build/outputs/apk/release/app-release.apk`
 > *Nota: Garantir assinatura de builds em produção usando a keystore JKS correta nas variáveis de ambiente.*
 
