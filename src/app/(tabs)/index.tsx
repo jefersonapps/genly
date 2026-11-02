@@ -22,6 +22,7 @@ import { getGreeting } from "@/utils/date";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { BlurView } from "expo-blur";
+import * as Haptics from "expo-haptics";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Bell, Brain, CalendarDays, CheckCheck, Clock, Edit3, FileText, FolderPlus, Layers, Lightbulb, Plus, Search, Trash2, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -305,6 +306,7 @@ export default function HomeScreen() {
     closeSwipeRow();
     setSelectedTaskIds(new Set([task.id]));
     setSelectionMode(true);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
   }, [closeSwipeRow]);
   const toggleSelection = useCallback((task: Task) => {
     if (deletionInFlight.current) return;
