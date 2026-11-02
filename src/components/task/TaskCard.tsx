@@ -147,6 +147,7 @@ export const TaskCard = memo(function TaskCard({ compact = false, task, mediaIte
       <TouchableOpacity
         onPress={onPress}
         onLongPress={onLongPress}
+        delayLongPress={250}
         activeOpacity={0.8}
         className={compact ? "rounded-2xl p-4 border" : "mb-3 rounded-[24px] p-5 border"}
         style={{
@@ -248,6 +249,7 @@ export const TaskCard = memo(function TaskCard({ compact = false, task, mediaIte
     <TouchableOpacity
       onPress={onPress}
       onLongPress={onLongPress}
+      delayLongPress={250}
       activeOpacity={0.8}
       className={compact ? "rounded-2xl bg-surface-secondary p-4 border" : "mb-3 rounded-2xl bg-surface-secondary p-4 border"}
       style={[{
