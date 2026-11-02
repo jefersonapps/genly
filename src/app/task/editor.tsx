@@ -5,11 +5,13 @@ import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
     ArrowLeft,
     Bell,
     Bold,
+    Camera,
     Check,
     CheckSquare,
     Code,
@@ -37,6 +39,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Keyboard,
+    Linking,
     Platform,
     ScrollView as FormScrollView,
     Text,
@@ -464,6 +467,54 @@ export default function TaskEditor() {
   };
 
   // ─── Media Handlers ─────────────────
+  const cameraInFlight = useRef(false);
+
+  const handleTakePhoto = async () => {
+    if (cameraInFlight.current) return;
+    cameraInFlight.current = true;
+    Keyboard.dismiss();
+    try {
+      let permission = await ImagePicker.getCameraPermissionsAsync();
+      if (!permission.granted && permission.canAskAgain) {
+        permission = await ImagePicker.requestCameraPermissionsAsync();
+      }
+      if (!permission.granted) {
+        dialog.show({
+          title: "Acesso à câmera",
+          description: permission.canAskAgain
+            ? "Permita o acesso à câmera para tirar uma foto e anexá-la à nota."
+            : "Ative a permissão de câmera nas configurações do app para anexar uma foto.",
+          buttons: permission.canAskAgain ? [{ text: "OK" }] : [
+            { text: "Cancelar", variant: "ghost" },
+            { text: "Abrir configurações", onPress: () => Linking.openSettings().catch(() => {}) },
+          ],
+        });
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ["images"],
+        allowsEditing: false,
+        quality: 0.85,
+      });
+      if (!result.canceled && result.assets.length > 0) {
+        setTempMedia((prev) => [...prev, ...result.assets.map((asset) => ({
+          uri: asset.uri,
+          type: "image" as const,
+        }))]);
+      }
+    } catch (error) {
+      console.error("Failed to capture note photo", error);
+      dialog.show({
+        title: "Não foi possível tirar a foto",
+        description: "Verifique se a câmera está disponível e tente novamente.",
+        variant: "error",
+      });
+    } finally {
+      cameraInFlight.current = false;
+    }
+  };
+
   const handlePickImage = async () => {
     try {
       const uris = await pickImages();
@@ -1207,7 +1258,8 @@ export default function TaskEditor() {
                     </TouchableOpacity>
                  </Dropdown.Trigger>
                  <Dropdown.Content width={180} direction="top" align="start">
-                   <Dropdown.Item label="Imagem" icon={ImageIcon} onPress={handlePickImage} />
+                   <Dropdown.Item label="Galeria" icon={ImageIcon} onPress={handlePickImage} />
+                   <Dropdown.Item label="Tirar foto" icon={Camera} onPress={handleTakePhoto} />
                    <Dropdown.Item label="Equação LaTeX" icon={Sigma} onPress={() => openLatexEditor()} />
                    <Dropdown.Item label="Documento PDF" icon={FileText} onPress={handlePickDocument} />
                  </Dropdown.Content>
