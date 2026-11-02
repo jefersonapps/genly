@@ -1,8 +1,5 @@
 import { AnimatedGlowButton } from "@/components/ui/AnimatedGlowButton";
 import { useTheme } from "@/providers/ThemeProvider";
-import { ScreenContext } from "@/providers/ScreenProvider";
-import { BlurView } from "expo-blur";
-import NativeMaskedView from "@react-native-masked-view/masked-view";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { shadows } from "@/theme/shadows";
@@ -16,8 +13,8 @@ import {
     Wrench as IconTool,
     User as IconUser,
 } from "lucide-react-native";
-import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { LayoutChangeEvent, Platform, StyleSheet, View, type ViewProps } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { LayoutChangeEvent, StyleSheet, View } from "react-native";
 import Animated, {
     Easing,
     useAnimatedStyle,
@@ -26,35 +23,13 @@ import Animated, {
 } from "react-native-reanimated";
 import { TabButton } from "./TabButton";
 
-// The library's legacy class declaration is incompatible with React 19 JSX types.
-const MaskedView = NativeMaskedView as unknown as React.ComponentType<ViewProps & {
-  maskElement: React.ReactElement;
-  androidRenderingMode?: "hardware" | "software";
-}>;
-
-const TAB_BLUR_MASK = (
-  <View style={{ flex: 1, backgroundColor: "transparent" }}>
-    <Svg width="100%" height="100%">
-      <Defs>
-        <LinearGradient id="tabBlurFade" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="48">
-          <Stop offset="0" stopColor="#000" stopOpacity={0} />
-          <Stop offset="0.3" stopColor="#000" stopOpacity={0.15} />
-          <Stop offset="0.7" stopColor="#000" stopOpacity={0.75} />
-          <Stop offset="1" stopColor="#000" stopOpacity={1} />
-        </LinearGradient>
-      </Defs>
-      <Rect width="100%" height="100%" fill="url(#tabBlurFade)" />
-    </Svg>
-  </View>
-);
-
 export function CustomTabBar({ state, navigateToTab }: BottomTabBarProps) {
   const { primaryColor, resolvedTheme } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { screenRef, isReady } = useContext(ScreenContext);
-  const canBlur = Platform.OS === "ios" || (Platform.OS === "android" && Number(Platform.Version) >= 31 && isReady);
+
   const isDark = resolvedTheme === "dark";
+  const backgroundColor = isDark ? "#0A0A0A" : "#FFFFFF";
 
   const [layout, setLayout] = useState({ width: 0, height: 0 });
   
@@ -111,32 +86,26 @@ export function CustomTabBar({ state, navigateToTab }: BottomTabBarProps) {
       className="absolute bottom-0 left-0 right-0 items-center justify-center"
       style={{ height: 100 + insets.bottom, paddingBottom: insets.bottom }}
     >
-      {canBlur && (
-        <MaskedView
-          pointerEvents="none"
-          androidRenderingMode="hardware"
-          style={[StyleSheet.absoluteFill, { top: -24 }]}
-          maskElement={TAB_BLUR_MASK}
-        >
-          <BlurView
-            blurTarget={screenRef}
-            blurMethod="dimezisBlurViewSdk31Plus"
-            intensity={55}
-            blurReductionFactor={3}
-            tint={isDark ? "dark" : "light"}
-            style={StyleSheet.absoluteFill}
-          />
-        </MaskedView>
-      )}
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { top: -24 }]}>
+        <Svg width="100%" height="100%">
+          <Defs>
+            <LinearGradient id="tabBackgroundFade" x1="0%" y1="0%" x2="0%" y2="100%">
+              <Stop offset="0" stopColor={backgroundColor} stopOpacity={0} />
+              <Stop offset="0.35" stopColor={backgroundColor} stopOpacity={0.4} />
+              <Stop offset="0.7" stopColor={backgroundColor} stopOpacity={0.95} />
+              <Stop offset="1" stopColor={backgroundColor} stopOpacity={1} />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill="url(#tabBackgroundFade)" />
+        </Svg>
+      </View>
       <View
         onLayout={onLayout}
         className="flex-row bottom-3 w-[90%] rounded-[32px] h-16 border items-center px-2"
         style={[
           {
-            // Let the blurred content show through on supported devices.
-            backgroundColor: canBlur
-              ? (isDark ? "rgba(18,18,18,0.3)" : "rgba(255,255,255,0.35)")
-              : (isDark ? "#121212" : "#FFFFFF"),
+            // Keep the pill solid above the background gradient.
+            backgroundColor: isDark ? "#121212" : "#FFFFFF",
             borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
           },
           shadows.lg

@@ -26,7 +26,6 @@
     "@jacobjmc/react-native-background-remover": "1.0.2",
     "@likashefqet/react-native-image-zoom": "^4.3.0",
     "@react-native-community/datetimepicker": "9.2.1",
-    "@react-native-masked-view/masked-view": "0.3.2",
     "@react-native-ml-kit/barcode-scanning": "^2.0.0",
     "@react-native-ml-kit/text-recognition": "^2.0.0",
     "@s77rt/react-native-date-picker": "^3.1.1",

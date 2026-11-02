@@ -1,24 +1,12 @@
 import { CustomTabBar } from "@/components/navigation/CustomTabBar";
-import { ScreenContext, ScreenProvider } from "@/providers/ScreenProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { Tabs, useRouter, type Href } from "expo-router";
 import { scheduleIdleTask } from "@/utils/idle";
-import React, { useCallback, useContext, useEffect, useRef } from "react";
-import { BlurTargetView } from "expo-blur";
-import { useFocusEffect } from "expo-router";
-import { View } from "react-native";
-
-export default function TabLayout() {
-  return (
-    <ScreenProvider>
-      <TabNavigator />
-    </ScreenProvider>
-  );
-}
+import React, { useEffect } from "react";
 
 const TAB_PREFETCH: Href[] = ['/(tabs)/tools', '/(tabs)/finances', '/(tabs)/settings'];
 
-function TabNavigator() {
+export default function TabLayout() {
   const router = useRouter();
   useEffect(() => {
     let index = 0;
@@ -38,7 +26,6 @@ function TabNavigator() {
 
   return (
     <Tabs
-      screenLayout={({ children }) => <TabBackdrop>{children}</TabBackdrop>}
       screenOptions={{
         headerShown: false,
         animation: "none",
@@ -64,16 +51,4 @@ function TabNavigator() {
       />
     </Tabs>
   );
-}
-
-// Only screen content belongs to the blur target; the tab bar stays outside it.
-function TabBackdrop({ children }: { children: React.ReactNode }) {
-  const ref = useRef<React.ComponentRef<typeof View>>(null);
-  const { setScreenRef } = useContext(ScreenContext);
-  useFocusEffect(useCallback(() => {
-    setScreenRef(ref.current);
-    // Keep the current target until the next focused tab registers its view.
-    // Clearing it here would unmount and recreate the blur on every switch.
-  }, [setScreenRef]));
-  return <BlurTargetView ref={ref} style={{ flex: 1 }}>{children}</BlurTargetView>;
 }

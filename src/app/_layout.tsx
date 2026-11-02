@@ -1,4 +1,5 @@
 import '../global.css';
+import { useDevelopmentTools } from '@/dev/useDevelopmentTools';
 import { InAppUpdateDialog } from "@/components/updates/InAppUpdateDialog";
 import { DatabaseProvider } from "@/providers/DatabaseProvider";
 import { DialogProvider } from "@/providers/DialogProvider";
@@ -370,6 +371,7 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  useDevelopmentTools();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <DatabaseProvider>

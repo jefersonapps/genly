@@ -31,7 +31,7 @@
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/adaptive-icon.png"
       },
-      "predictiveBackGestureEnabled": false,
+      "predictiveBackGestureEnabled": true,
       "package": "com.genly.app",
       "versionCode": 8,
       "permissions": [
@@ -145,6 +145,7 @@
       ],
       "./plugins/withMaterialPickerStyles.js",
       "./plugins/withShareTargets.js",
+      "./plugins/withPredictiveBackCompatibility.js",
       "@react-native-community/datetimepicker",
       "expo-image",
       "expo-web-browser",
