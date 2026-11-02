@@ -17,7 +17,7 @@ import {
 } from "@/services/financeService";
 import { getSetting, setSetting } from "@/services/settingsService";
 import { extractCentsFromInput, formatBRL, formatBRLInput } from "@/utils/currency";
-import { withOpacity } from "@/utils/colors";
+import { getTransactionColors } from "@/theme/finance";
 import { useRouter } from "expo-router";
 import {
   BanknoteArrowDown,
@@ -46,6 +46,8 @@ export default function FinancesScreen() {
   const { primaryColor, resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const safeAccent = getContrastSafeColor(primaryColor, isDark);
+  const incomeColors = getTransactionColors('income', isDark);
+  const expenseColors = getTransactionColors('expense', isDark);
   const dialog = useDialog();
 
   const { scrollY, headerScrollY, scrollHandler } = useHeaderSnap({ snapThreshold: 50 });
@@ -282,10 +284,10 @@ export default function FinancesScreen() {
             activeOpacity={0.7}
             onPress={() => router.push({ pathname: "/finance/editor", params: { type: "income" } })}
             className="flex-1 flex-row items-center justify-center gap-2 px-3 rounded-xl"
-            style={{ minHeight: 44, backgroundColor: withOpacity(primaryColor, isDark ? 0.16 : 0.1), borderWidth: 1, borderColor: withOpacity(primaryColor, 0.3) }}
+            style={{ minHeight: 44, backgroundColor: incomeColors.background, borderWidth: 1, borderColor: incomeColors.border }}
           >
-            <BanknoteArrowUp size={18} strokeWidth={1.8} color={safeAccent} />
-            <Text className="font-sans-semibold text-[13px]" style={{ color: safeAccent }}>Receita</Text>
+            <BanknoteArrowUp size={18} strokeWidth={1.8} color={incomeColors.text} />
+            <Text className="font-sans-semibold text-[13px]" style={{ color: incomeColors.text }}>Receita</Text>
           </TouchableOpacity>
           <TouchableOpacity
             accessibilityRole="button"
@@ -293,10 +295,10 @@ export default function FinancesScreen() {
             activeOpacity={0.7}
             onPress={() => router.push({ pathname: "/finance/editor", params: { type: "expense" } })}
             className="flex-1 flex-row items-center justify-center gap-2 px-3 rounded-xl"
-            style={{ minHeight: 44, backgroundColor: isDark ? "#28282C" : "#FFFFFF", borderWidth: 1, borderColor: isDark ? "#3B3B40" : colors.border }}
+            style={{ minHeight: 44, backgroundColor: expenseColors.background, borderWidth: 1, borderColor: expenseColors.border }}
           >
-            <BanknoteArrowDown size={18} strokeWidth={1.8} color={colors.textSecondary} />
-            <Text className="font-sans-semibold text-[13px]" style={{ color: colors.text }}>Despesa</Text>
+            <BanknoteArrowDown size={18} strokeWidth={1.8} color={expenseColors.text} />
+            <Text className="font-sans-semibold text-[13px]" style={{ color: expenseColors.text }}>Despesa</Text>
           </TouchableOpacity>
         </View>
       </View>

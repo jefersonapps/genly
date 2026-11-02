@@ -1,7 +1,7 @@
+import { getTransactionColors } from "@/theme/finance";
 import { getContrastSafeColor } from "@/components/editor/Editor";
 import { Button } from "@/components/ui/Button";
 import { KeyboardAvoidingView } from "@/components/ui/KeyboardAvoidingView";
-import { useKeyboard } from "@/hooks/useKeyboard";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import {
@@ -53,13 +53,6 @@ export default function TransactionEditor() {
   const [isAmountUndefined, setIsAmountUndefined] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(!isEditing);
-
-  const { isVisible: isKeyboardVisible } = useKeyboard();
-  const [flexToggle, setFlexToggle] = useState(true);
-
-  useEffect(() => {
-    setFlexToggle(!isKeyboardVisible);
-  }, [isKeyboardVisible]);
 
   const colors = {
     text: isDark ? "#FAFAFA" : "#18181B",
@@ -137,107 +130,89 @@ export default function TransactionEditor() {
     }
   };
 
-  const isIncome = type === "income";
-  const typeColor = isIncome ? "#22C55E" : "#EF4444";
 
   return (
     <KeyboardAvoidingView
-      className="flex-1"
-      style={[
-        { paddingTop: insets.top, backgroundColor: colors.surface },
-        flexToggle ? { flexGrow: 1 } : { flex: 1 }
-      ]}
-      behavior={Platform.OS === "ios" ? "padding" : "padding"}
+      style={{ flex: 1, paddingTop: insets.top, backgroundColor: colors.surface }}
+      enabled={Platform.OS === "ios"}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       {/* Header */}
       <View
-        className="flex-row items-center justify-between px-4 py-3 border-b"
+        className="flex-row items-center justify-between px-4 py-2 border-b"
         style={[
           { borderBottomColor: colors.border, backgroundColor: colors.surface },
         ]}
       >
-        <View className="flex-row items-center flex-1">
-          <Button variant="icon" onPress={() => router.back()} className="mr-1">
+        <View className="flex-row items-center flex-1 min-w-0 mr-3">
+          <Button variant="icon" size="sm" onPress={() => router.back()} className="mr-1" style={{ minWidth: 44, minHeight: 44 }}>
             <Button.Icon
-              icon={<ArrowLeft size={24} color={colors.text} />}
+              icon={<ArrowLeft size={21} color={colors.text} />}
             />
           </Button>
-          <Text className="font-sans-bold text-xl ml-1" style={[{ color: colors.text }]}>
+          <Text className="font-sans-semibold text-lg ml-1 flex-1" numberOfLines={1} style={{ color: colors.text }}>
             {isEditing ? "Editar Transação" : "Nova Transação"}
           </Text>
         </View>
 
-        <Button rounded="full" onPress={handleSave} loading={saving}>
-          <Button.Icon icon={<Check size={18} color="#FFF" />} />
+        <Button size="sm" rounded="full" onPress={handleSave} loading={saving} disabled={!dataLoaded} style={{ minHeight: 40, paddingHorizontal: 14 }} hitSlop={2}>
+          <Button.Icon icon={<Check size={16} color="#FFF" />} />
           <Button.Text className="ml-2">Salvar</Button.Text>
         </Button>
       </View>
 
       <ScrollView 
-        contentContainerStyle={[{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: flexToggle ? 40 : 100 }]} 
+        style={{ flex: 1, minHeight: 0 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: insets.bottom + 24 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Type Toggle */}
-        <View className="flex-row gap-3 mb-5">
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setType("income")}
-            className="flex-1 flex-row items-center justify-center gap-2 py-[14px] rounded-2xl border"
-            style={[
-              {
-                backgroundColor: isIncome ? "#22C55E18" : colors.surfaceSecondary,
-                borderColor: isIncome ? "#22C55E50" : colors.border,
-              },
-            ]}
-          >
-            <TrendingUp size={18} color={isIncome ? "#22C55E" : colors.textSecondary} />
-            <Text
-              className="font-sans-bold text-[15px]"
-              style={[
-                { color: isIncome ? "#22C55E" : colors.textSecondary },
-              ]}
-            >
-              Receita
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setType("expense")}
-            className="flex-1 flex-row items-center justify-center gap-2 py-[14px] rounded-2xl border"
-            style={[
-              {
-                backgroundColor: !isIncome ? "#EF444418" : colors.surfaceSecondary,
-                borderColor: !isIncome ? "#EF444450" : colors.border,
-              },
-            ]}
-          >
-            <TrendingDown size={18} color={!isIncome ? "#EF4444" : colors.textSecondary} />
-            <Text
-              className="font-sans-bold text-[15px]"
-              style={[
-                { color: !isIncome ? "#EF4444" : colors.textSecondary },
-              ]}
-            >
-              Despesa
-            </Text>
-          </TouchableOpacity>
+        {/* Compact segmented control */}
+        <View className="flex-row p-1 rounded-xl border mb-5" style={{ backgroundColor: colors.surfaceSecondary, borderColor: colors.border }}>
+          {(['income', 'expense'] as const).map(value => {
+            const selected = type === value;
+            const palette = getTransactionColors(value, isDark);
+            const Icon = value === 'income' ? TrendingUp : TrendingDown;
+            return (
+              <TouchableOpacity
+                key={value}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                activeOpacity={0.75}
+                onPress={() => setType(value)}
+                className="flex-1 flex-row items-center justify-center gap-2 rounded-lg"
+                style={{ minHeight: 40, paddingVertical: 8, borderWidth: 1,
+                  backgroundColor: selected ? palette.background : 'transparent',
+                  borderColor: selected ? palette.border : 'transparent' }}
+              >
+                <Icon size={16} strokeWidth={1.8} color={palette.text} />
+                <Text className="font-sans-semibold text-sm" style={{ color: palette.text }}>
+                  {value === 'income' ? 'Receita' : 'Despesa'}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* Title */}
-        <TextInput
-          placeholder="Título da transação"
-          placeholderTextColor={colors.placeholder}
-          value={title}
-          onChangeText={setTitle}
-          className="font-sans-bold text-[26px] mb-5"
-          style={[{ color: colors.text }]}
-        />
+        <View className="mb-4">
+          <Text className="font-sans-medium text-xs mb-2" style={{ color: colors.textSecondary }}>Título</Text>
+          <TextInput
+            placeholder="Ex.: Compras do mercado"
+            accessibilityLabel="Título da transação"
+            placeholderTextColor={colors.placeholder}
+            value={title}
+            onChangeText={setTitle}
+            className="font-sans text-base rounded-xl border"
+            style={{ minHeight: 48, paddingHorizontal: 14, paddingVertical: 10, color: colors.text,
+              backgroundColor: colors.surfaceSecondary, borderColor: colors.border }}
+          />
+        </View>
 
         {/* Amount Section */}
         <View className="mb-5">
-          <View className="mb-3">
+          <Text className="font-sans-medium text-xs mb-2" style={{ color: colors.textSecondary }}>Valor</Text>
+          <View className="mb-2">
             <TextInput
               placeholder="R$ 0,00"
               placeholderTextColor={colors.placeholder}
@@ -245,10 +220,12 @@ export default function TransactionEditor() {
               onChangeText={(t) => setAmountText(formatBRLInput(t))}
               keyboardType="numeric"
               editable={!isAmountUndefined}
-              className="font-sans-bold text-[28px] px-4 py-[14px] rounded-2xl border"
+              accessibilityLabel="Valor da transação"
+              className="font-sans-semibold text-[22px] rounded-xl border"
               style={[
                 {
-                  color: isAmountUndefined ? colors.textSecondary : typeColor,
+                  color: isAmountUndefined ? colors.textSecondary : colors.text,
+                  minHeight: 54, paddingHorizontal: 14, paddingVertical: 10,
                   backgroundColor: colors.surfaceSecondary,
                   borderColor: colors.border,
                   opacity: isAmountUndefined ? 0.5 : 1,
@@ -257,11 +234,14 @@ export default function TransactionEditor() {
             />
           </View>
 
-          <View className="flex-row items-center justify-between px-1">
-            <Text className="font-sans-semibold text-sm" style={[{ color: colors.textSecondary }]}>
+          <View className="flex-row items-center justify-between px-1"
+            style={{ minHeight: 40 }}>
+            <Text className="font-sans-medium text-xs" style={{ color: colors.textSecondary }}>
               Valor a definir
             </Text>
             <Switch
+              accessibilityLabel="Valor a definir"
+              style={{ transform: [{ scale: 0.85 }] }}
               value={isAmountUndefined}
               onValueChange={setIsAmountUndefined}
               trackColor={{ false: colors.surfaceTertiary, true: safeAccent + "60" }}
@@ -271,8 +251,8 @@ export default function TransactionEditor() {
         </View>
 
         {/* Description */}
-        <View className="border-t pt-4" style={[{ borderColor: colors.border }]}>
-          <Text className="font-sans-bold text-xs uppercase tracking-widest mb-2" style={[{ color: colors.textSecondary }]}>
+        <View>
+          <Text className="font-sans-medium text-xs mb-2" style={[{ color: colors.textSecondary }]}>
             Descrição (opcional)
           </Text>
           <TextInput
@@ -281,11 +261,13 @@ export default function TransactionEditor() {
             value={description}
             onChangeText={setDescription}
             multiline
-            className="font-sans text-base px-4 py-[14px] rounded-2xl border min-h-[120px]"
+            accessibilityLabel="Descrição da transação"
+            className="font-sans text-sm rounded-xl border"
             textAlignVertical="top"
             style={[
               {
                 color: colors.text,
+                minHeight: 96, paddingHorizontal: 14, paddingVertical: 12,
                 backgroundColor: colors.surfaceSecondary,
                 borderColor: colors.border,
               },
