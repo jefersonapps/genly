@@ -668,15 +668,13 @@ export default function MindMapScreen() {
   if (nodes.length === 0) {
     return (
       <View style={{ paddingTop: insets.top }} className="flex-1 bg-surface">
-        <View className="flex-row items-center border-b border-border/10 px-4 pb-4 pt-2">
+        <View className="flex-row items-center px-4 pb-4 pt-2">
           <TouchableOpacity activeOpacity={0.8} onPress={handleBack} className="mr-3 p-2 -ml-2">
             <ChevronLeft size={28} color={isDark ? '#FFFFFF' : '#000000'} />
           </TouchableOpacity>
           <View>
             <Text className="font-sans-semibold text-xl text-on-surface">Mapa Mental</Text>
-            {(savedMapId !== null || autosaveStatus !== 'saved') && <Text className="font-sans text-[10px]" style={{ color: autosaveStatus === 'error' ? '#EF4444' : isDark ? '#A1A1AA' : '#71717A' }}>
-              {autosaveStatus === 'error' ? 'Não foi possível salvar' : autosaveStatus === 'empty' ? 'Mapa vazio — não salvo' : autosaveStatus === 'saved' ? 'Salvo automaticamente' : 'Salvando…'}
-            </Text>}
+
           </View>
         </View>
         <View className="flex-1 justify-center items-center px-8">
@@ -786,7 +784,7 @@ export default function MindMapScreen() {
   return (
     <View style={{ paddingTop: insets.top }} className="flex-1 bg-surface">
       {/* Header */}
-      <View className="flex-row items-center justify-between border-b border-border/10 px-4 pb-3 pt-2">
+      <View className="flex-row items-center justify-between px-4 pb-3 pt-2">
         <View className="flex-row items-center">
           <TouchableOpacity activeOpacity={0.8} onPress={handleBack} className="mr-3 p-2 -ml-2">
             <ChevronLeft size={28} color={isDark ? '#FFFFFF' : '#000000'} />

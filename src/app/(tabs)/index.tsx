@@ -601,7 +601,7 @@ export default function HomeScreen() {
                             <TouchableOpacity 
                                 activeOpacity={0.8}
                                 onPress={handleCreateGroup}
-                                className="mr-10 h-72 w-56 rounded-[3rem] bg-surface-secondary border border-dashed border-border p-6 items-center justify-center"
+                                className="mr-10 h-72 w-56 rounded-[3rem] bg-surface-secondary border border-dashedorder p-6 items-center justify-center"
                             >
                                 <View className="h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: withOpacity(primaryColor, 0.08) }}>
                                     <FolderPlus size={32} color={primaryColor} />
@@ -788,7 +788,7 @@ export default function HomeScreen() {
       </BottomSheet>
 
       {selectionMode && (
-        <View className="absolute top-0 left-0 right-0 z-50 border-b border-border px-4 pb-2"
+        <View className="absolute top-0 left-0 right-0 z-50 px-4 pb-2"
           style={{ paddingTop: insets.top + 4, backgroundColor: isDark ? '#0a0a0a' : '#ffffff' }}>
           <View className="flex-row items-center gap-2" style={{ minHeight: 52 }}>
             <TouchableOpacity

@@ -25,7 +25,7 @@ export default function UpdatesSettingsScreen() {
   };
 
   const currentVersion = Constants.expoConfig?.version || "1.0.0";
-  
+
   const hasUpdate = useAppUpdateStore((s) => s.hasUpdate);
   const updateInfo = useAppUpdateStore((s) => s.updateInfo);
   const isChecking = useAppUpdateStore((s) => s.isChecking);
@@ -43,7 +43,7 @@ export default function UpdatesSettingsScreen() {
   const cancelDownload = useAppUpdateStore((s) => s.cancelDownload);
   const downloadError = useAppUpdateStore((s) => s.downloadError);
   const checkError = useAppUpdateStore((s) => s.checkError);
-  
+
   const checkForUpdates = useAppUpdateStore((s) => s.checkForUpdates);
   const downloadAndInstall = useAppUpdateStore((s) => s.downloadAndInstall);
   const showCheckError = !downloadError && downloadStatus !== 'complete' && Boolean(checkError);
@@ -58,19 +58,19 @@ export default function UpdatesSettingsScreen() {
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.bg, paddingTop: insets.top }}>
-      
+
       {/* Header */}
-      <View 
-        className="flex-row items-center justify-between px-4 py-3 border-b" 
-        style={{ borderBottomColor: colors.border }}
+      <View
+        className="flex-row items-center justify-between px-4 py-3"
+
       >
         <Button variant="icon" onPress={() => router.back()}>
           <Button.Icon icon={<ArrowLeft size={24} color={colors.text} />} />
         </Button>
         <Text className="text-lg font-sans-bold" style={{ color: colors.text }}>Atualizações</Text>
-        <View className="w-10" /> 
+        <View className="w-10" />
       </View>
-      
+
       <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60, flexGrow: 1 }}>
         {/* Device Icon Hero */}
         <View className="items-center mb-10 mt-6">
@@ -149,12 +149,12 @@ export default function UpdatesSettingsScreen() {
                     <Text className="font-sans mb-6 text-base leading-relaxed" style={{ color: colors.textSecondary }}>
                         A versão {updateInfo?.version} está pronta para ser instalada.
                     </Text>
-                    
+
                     {updateInfo?.releaseNotes ? (
                         <View className="p-4 rounded-xl mb-6 border" style={{ backgroundColor: colors.bg, borderColor: colors.border }}>
                              <Text className="font-sans-bold text-sm mb-2" style={{ color: colors.text }}>Novidades:</Text>
-                            <Markdown 
-                                style={{ 
+                            <Markdown
+                                style={{
                                     body: { color: colors.textSecondary, fontSize: 15, lineHeight: 22 },
                                     text: { color: colors.textSecondary },
                                     heading1: { color: colors.text, fontSize: 24, fontWeight: 'bold', marginTop: 16, marginBottom: 8 },
@@ -207,7 +207,7 @@ export default function UpdatesSettingsScreen() {
                 </View>
             )}
         </View>
-        
+
         <View className="flex-1" />
 
         {/* Manual Check Button */}

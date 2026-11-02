@@ -57,7 +57,7 @@ const SettingRow = React.memo(({ label, value, onPressMinus, onPressPlus, unit =
             )}
             <Text className="font-sans-medium text-on-surface text-base flex-1 pr-2" numberOfLines={1}>{label}</Text>
         </View>
-        <View className="flex-row items-center bg-surface rounded-full border border-outline/10 ml-2" style={{ padding: 2 }}>
+        <View className="flex-row items-center bg-surface rounded-full border border-border ml-2" style={{ padding: 2 }}>
             <TouchableOpacity 
                onPress={onPressMinus}
                onPressIn={() => { isPressing.current = true; }}
@@ -322,7 +322,7 @@ export default function PomodoroScreen() {
           if (!isActive) syncTimeLeft();
       }}>
          <View className="flex-1 bg-surface" style={{ paddingTop: isDark ? 20 : insets.top }}>
-             <View className="flex-row items-center justify-between px-6 py-4 border-b border-outline/10">
+             <View className="flex-row items-center justify-between px-6 py-4">
                  <Text className="font-sans-bold text-2xl text-on-surface">Configurações</Text>
                  <TouchableOpacity activeOpacity={0.8} onPress={() => { setShowSettings(false); if (!isActive) syncTimeLeft(); }} className="w-10 h-10 items-center justify-center rounded-full bg-surface-secondary">
                      <X size={24} color={isDark ? "#FFF" : "#000"} />
@@ -369,7 +369,7 @@ export default function PomodoroScreen() {
                  <TouchableOpacity 
                    activeOpacity={0.8}
                    onPress={handleResetSettings}
-                   className="mt-8 flex-row items-center justify-center py-4 rounded-2xl bg-surface-secondary border border-outline/5"
+                   className="mt-8 flex-row items-center justify-center py-4 rounded-2xl bg-surface-secondary border border-border"
                  >
                    <RotateCcw size={18} color={isDark ? "#A1A1AA" : "#71717A"} />
                    <Text className="font-sans-medium text-on-surface-secondary ml-2">Resetar Configurações</Text>

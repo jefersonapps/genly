@@ -32,9 +32,9 @@ export default function NativePDFViewerScreen() {
     <View className="flex-1" style={[{ backgroundColor: isDark ? '#121212' : '#F4F4F5' }]}>
       <TransparencyGrid size={24} opacity={0.4} />
       {/* Header */}
-      <View 
-        className="flex-row items-center justify-between px-4 pb-3 border-b z-10" 
-        style={[{ paddingTop: insets.top, backgroundColor: isDark ? '#18181b' : '#FFFFFF', borderBottomColor: 'rgba(0,0,0,0.05)' }]}
+      <View
+        className="flex-row items-center justify-between px-4 pb-3 z-10"
+        style={[{ paddingTop: insets.top, backgroundColor: isDark ? '#18181b' : '#FFFFFF' }]}
       >
         <TouchableOpacity activeOpacity={0.8}  onPress={() => router.back()} className="p-1">
           <ChevronLeft size={28} color={isDark ? '#FFF' : '#000'} />
@@ -73,7 +73,7 @@ export default function NativePDFViewerScreen() {
             <Text style={{ color: isDark ? '#FFF' : '#000' }}>URI de PDF inválida</Text>
           </View>
         )}
-        
+
         {loading && (
           <View className="absolute inset-0 items-center justify-center bg-black/20">
              <ActivityIndicator size="large" color={primaryColor} />

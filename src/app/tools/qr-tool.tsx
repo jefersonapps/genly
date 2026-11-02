@@ -339,7 +339,7 @@ export default function QrToolScreen() {
       ]}
     >
       {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-2 border-b border-outline/10">
+      <View className="flex-row items-center justify-between px-4 py-2">
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => router.back()}
@@ -530,11 +530,11 @@ export default function QrToolScreen() {
 
                     {scanResult.type === "wifi" && scanResult.wifiData ? (
                         <View className="gap-4">
-                            <View className="p-4 bg-surface/50 rounded-2xl border border-outline/5">
+                            <View className="p-4 bg-surface/50 rounded-2xl border border-border">
                                 <Text className="font-sans text-xs text-on-surface-secondary mb-1">SSID (Nome da Rede)</Text>
                                 <Text className="font-sans-bold text-lg text-on-surface">{scanResult.wifiData.ssid || "Desconhecido"}</Text>
                             </View>
-                            <View className="p-4 bg-surface/50 rounded-2xl border border-outline/5 relative">
+                            <View className="p-4 bg-surface/50 rounded-2xl border border-border relative">
                                 <Text className="font-sans text-xs text-on-surface-secondary mb-1">Senha</Text>
                                 <Text className="font-sans-bold text-lg text-on-surface">{scanResult.wifiData.password || "Sem senha"}</Text>
                                 <TouchableOpacity 
@@ -556,7 +556,7 @@ export default function QrToolScreen() {
                             </Button>
                         </View>
                     ) : (
-                        <View className="p-5 bg-surface/50 rounded-2xl border border-outline/5 min-h-[100px] justify-center">
+                        <View className="p-5 bg-surface/50 rounded-2xl border border-border min-h-[100px] justify-center">
                             <Text className="font-sans text-base text-on-surface">{scanResult.data}</Text>
                         </View>
                     )}

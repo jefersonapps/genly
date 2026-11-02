@@ -865,9 +865,9 @@ export default function TaskEditor() {
     >
       {/* ── Header ── */}
       <View
-        className="flex-row items-center justify-between px-4 py-3 border-b"
+        className="flex-row items-center justify-between px-4 py-3"
         style={[
-          { borderBottomColor: colors.border, backgroundColor: colors.surface },
+          { backgroundColor: colors.surface },
         ]}
       >
         <View className="flex-row items-center flex-1 mr-2" style={{ minWidth: 0 }}>

@@ -265,7 +265,7 @@ export default function TaskDetail() {
   return (
     <View className="flex-1 bg-surface" style={{ paddingTop: insets.top }}>
       {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
+      <View className="flex-row items-center justify-between px-4 py-3">
         <View className="flex-row items-center flex-1">
           <Button variant="icon" onPress={goBack}>
             <Button.Icon icon={<ArrowLeft size={24} color={colors.text} />} />

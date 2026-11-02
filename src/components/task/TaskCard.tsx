@@ -348,7 +348,7 @@ export const TaskCard = memo(function TaskCard({ compact = false, task, mediaIte
                     // Flashcard detection
                     if (Array.isArray(parsed) && parsed[0] && typeof parsed[0] === 'object' && 'front' in parsed[0]) {
                         return (
-                            <View className="mt-3 p-3 rounded-2xl bg-surface border border-outline/5"
+                            <View className="mt-3 p-3 rounded-2xl bg-surface border border-border"
                                 style={{
                                     backgroundColor: isDark ? 'rgba(59, 130, 246, 0.05)' : 'rgba(59, 130, 246, 0.03)',
                                     borderColor: isDark ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.1)'

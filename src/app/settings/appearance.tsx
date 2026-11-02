@@ -72,7 +72,7 @@ export default function AppearanceScreen() {
                 <View style={{ width: 40, height: 6, borderRadius: 3, backgroundColor: mockText1 }} />
                 <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: mockText1 }} />
             </View>
-            
+
             {/* Content Mock 1 */}
             <View
               style={{
@@ -96,13 +96,13 @@ export default function AppearanceScreen() {
             {/* Bottom Bar Mock */}
             <View className="mt-auto flex-row items-center justify-around px-1">
                  <View className="w-3 h-3 rounded-full" style={[{ backgroundColor: mockText2 }]} />
-                 
+
                  {/* FAB mimic */}
                  <View className="w-6 h-6 rounded-full items-center justify-center" style={[{ backgroundColor: primaryColor }]}>
                     <View className="w-2.5 h-0.5 rounded-sm" style={[{ backgroundColor: '#FFF' }]} />
                     <View className="absolute w-0.5 h-2.5 rounded-sm" style={[{ backgroundColor: '#FFF' }]} />
                  </View>
- 
+
                  <View className="w-3 h-3 rounded-full" style={[{ backgroundColor: mockText2 }]} />
             </View>
           </View>
@@ -129,22 +129,22 @@ export default function AppearanceScreen() {
   return (
     <View className="flex-1" style={[{ backgroundColor: colors.bg, paddingTop: insets.top }]}>
       {/* Header */}
-      <View 
-        className="flex-row items-center justify-between px-4 py-3 border-b" 
-        style={[{ borderBottomColor: colors.border }]}
+      <View
+        className="flex-row items-center justify-between px-4 py-3"
+
       >
         <Button variant="icon" onPress={() => router.back()}>
           <Button.Icon icon={<ArrowLeft size={24} color={colors.text} />} />
         </Button>
         <Text className="text-lg font-sans-bold" style={[{ color: colors.text }]}>Aparência</Text>
-        <View className="w-10" /> 
+        <View className="w-10" />
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 20 }}>
         {/* ── Theme Mode Section ── */}
         <View className="mb-6">
           <Text className="text-[13px] font-sans-semibold mb-3 tracking-[0.5px] opacity-60" style={[{ color: colors.text }]}>TEMA</Text>
-          
+
           <View className="flex-row gap-4">
             <ThemeCard
               mode="light"
@@ -159,7 +159,7 @@ export default function AppearanceScreen() {
               onPress={() => setThemeMode("dark")}
             />
           </View>
- 
+
           <View className="flex-row items-center justify-between p-4 rounded-xl mt-4" style={[{ backgroundColor: colors.surface }]}>
             <Text className="text-base font-sans-medium" style={[{ color: colors.text }]}>Automático</Text>
             <Switch
@@ -179,7 +179,7 @@ export default function AppearanceScreen() {
           <Text className="text-[13px] font-sans-semibold mb-3 tracking-[0.5px] opacity-60 mt-6" style={[{ color: colors.text }]}>
             COR DE DESTAQUE
           </Text>
-          
+
           <ColorPicker
             selectedColor={primaryColor}
             onSelect={(color) => setPrimaryColor(color)}
@@ -187,7 +187,7 @@ export default function AppearanceScreen() {
             colors={["#208AEF", "#6a57e3", "#22c55e", "#f97316", "#ec4899", "#ef4444", "#14b8a6", "#eab308"]}
           />
         </View>
- 
+
       </ScrollView>
     </View>
   );

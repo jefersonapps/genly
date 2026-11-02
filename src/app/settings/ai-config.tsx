@@ -99,9 +99,8 @@ export default function AIConfigScreen() {
       }}
     >
       <View
-        className="flex-row items-center justify-between px-5 py-3 border-b"
+        className="flex-row items-center justify-between px-5 py-3"
         style={{
-          borderBottomColor: colors.border,
         }}
       >
         <Button variant="icon" onPress={() => router.back()}>

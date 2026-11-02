@@ -572,7 +572,7 @@ export default function PDFOrganizerScreen() {
   return (
     <>
     <View style={{ paddingTop: insets.top }} className="flex-1 bg-surface">
-      <View className="flex-row items-center justify-between border-b border-border/10 px-4 pb-4 pt-2">
+      <View className="flex-row items-center justify-between px-4 pb-4 pt-2">
         <View className="flex-row items-center">
           <TouchableOpacity
             activeOpacity={0.8}

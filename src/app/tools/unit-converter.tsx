@@ -83,7 +83,7 @@ export default function UnitConverterScreen() {
   return (
     <View className="flex-1 bg-surface" style={{ paddingTop: insets.top }}>
       {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-2 border-b border-outline/10">
+      <View className="flex-row items-center justify-between px-4 py-2">
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => router.back()}

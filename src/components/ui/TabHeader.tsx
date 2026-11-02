@@ -46,7 +46,6 @@ export const TabHeader: React.FC<TabHeaderProps> = ({
 
   // Solid background color — no rgba interpolation needed
   const bgColor = isDark ? '#121212' : '#ffffff';
-  const borderColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
 
   // Background layer: only animates numeric `opacity` — 100% worklet-safe
   const bgLayerStyle = useAnimatedStyle(() => {
@@ -134,11 +133,10 @@ export const TabHeader: React.FC<TabHeaderProps> = ({
       >
         {/* Background layer — solid color, numeric opacity only (no rgba strings) */}
         <Animated.View
-          className="absolute inset-0 border-b"
+          className="absolute inset-0"
           style={[
             {
               backgroundColor: bgColor,
-              borderBottomColor: borderColor,
             },
             bgLayerStyle,
           ]}

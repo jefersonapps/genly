@@ -653,7 +653,7 @@ export default function CalendarScreen() {
             </Animated.View>
 
             {/* Month label + drag handle */}
-            <View className="flex-row items-center justify-between px-5 py-3 border-b" style={[{ borderBottomColor: colors.border }]}>
+            <View className="flex-row items-center justify-between px-5 py-3" >
               <Text className="font-sans-medium text-[13px]" style={[{ color: colors.textSecondary }]}>
                 {MONTHS_PT[viewingMonth.getMonth()]}, {viewingMonth.getFullYear()}
               </Text>

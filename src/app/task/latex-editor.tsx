@@ -313,8 +313,8 @@ export default function LatexEditorRoute() {
         <View className="flex-1">
           {/* Header */}
           <View 
-            className="flex-row items-center justify-between px-4 py-3 border-b"
-            style={[{ borderBottomColor: colors.border }]}
+            className="flex-row items-center justify-between px-4 py-3"
+
           >
             <View className="flex-row items-center">
               <Button variant="icon" onPress={() => router.back()} className="mr-1">

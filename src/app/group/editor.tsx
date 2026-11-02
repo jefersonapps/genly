@@ -131,7 +131,7 @@ export default function GroupEditorScreen() {
     return (
         <View className="flex-1 bg-surface" style={{ paddingTop: insets.top }}>
             {/* Header */}
-            <View className="flex-row items-center justify-between px-4 py-3 border-b border-border bg-surface">
+            <View className="flex-row items-center justify-between px-4 py-3 bg-surface">
                 <View className="flex-row items-center flex-1">
                     <Button variant="icon" onPress={() => router.back()} className="mr-1">
                         <Button.Icon icon={<ArrowLeft size={24} color={isDark ? '#FFF' : '#000'} />} />

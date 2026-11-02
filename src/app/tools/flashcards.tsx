@@ -301,7 +301,7 @@ export default function FlashcardsScreen() {
     >
       <View className="flex-1 bg-surface" style={{ paddingTop: insets.top }}>
         {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-2 border-b border-outline/10">
+      <View className="flex-row items-center justify-between px-4 py-2">
         <View className="flex-row items-center">
           <Button 
             variant="icon" 
@@ -377,7 +377,7 @@ export default function FlashcardsScreen() {
                 </View>
 
                 {cards.length === 0 ? (
-                    <View className="items-center justify-center py-10 px-4 mt-8 rounded-3xl bg-surface-secondary border border-outline/10">
+                    <View className="items-center justify-center py-10 px-4 mt-8 rounded-3xl bg-surface-secondary border border-border">
                         <View className="w-20 h-20 rounded-full items-center justify-center mb-6" style={{ backgroundColor: isDark ? '#EC489920' : '#EC489915' }}>
                             <Library size={40} color="#EC4899" />
                         </View>

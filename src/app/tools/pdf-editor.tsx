@@ -1869,7 +1869,7 @@ export default function PdfEditorTool() {
     return (
       <View style={{ paddingTop: insets.top }} className="flex-1 bg-surface">
         {/* Header */}
-        <View className="flex-row items-center border-b border-border/10 px-4 pb-4 pt-2">
+        <View className="flex-row items-center px-4 pb-4 pt-2">
           <TouchableOpacity activeOpacity={0.8} onPress={() => router.back()} className="mr-3 p-2 -ml-2">
             <ChevronLeft size={28} color={isDark ? '#FFFFFF' : '#000000'} />
           </TouchableOpacity>
@@ -1915,7 +1915,7 @@ export default function PdfEditorTool() {
   return (
     <View style={{ paddingTop: insets.top }} className="flex-1 bg-surface">
       {/* Header */}
-      <View className="flex-row items-center justify-between border-b border-border/10 px-4 pb-3 pt-2">
+      <View className="flex-row items-center justify-between px-4 pb-3 pt-2">
         <View className="flex-row items-center flex-1">
           <TouchableOpacity
             activeOpacity={0.8}
