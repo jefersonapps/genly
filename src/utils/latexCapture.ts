@@ -1,6 +1,5 @@
 import { Directory, File, Paths } from "expo-file-system";
-import { getKatexHtmlHead } from "../lib/katex/katex-assets";
-import { MathJaxBase64 } from "../lib/mathjax/mathjax-asset";
+import { equationScriptValue, getEquationEngineScript, normalizeEquation } from "./equationRendering";
 
 /** Default styling for a new LaTeX equation */
 export interface LatexStyle {
@@ -36,33 +35,13 @@ export function buildCaptureHtml(latex: string, style: LatexStyle, isDark: boole
   const resolvedBg = style.backgroundColor;
   const resolvedOuter = style.outerColor;
   
-  // Robustly strip LaTeX delimiters for MathJax (handles $$, $, and \\[ \\])
-  const cleanLatex = latex
-    .replace(/^\\\[\s*/g, '')
-    .replace(/\s*\\\]$/g, '')
-    .replace(/^\$\$|\$\$$/g, '')
-    .replace(/^\$|\$$/g, '')
-    .trim();
+  const cleanLatex = normalizeEquation(latex);
 
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <script>
-  window.MathJax = {
-    loader: { load: ['[tex]/ams'] },
-    tex: {
-      packages: { '[+]': ['ams'] }
-    },
-    svg: {
-      fontCache: 'local'
-    },
-    startup: {
-      typeset: false
-    }
-  };
-  </script>
-  <script>${atob(MathJaxBase64)}</script>
+  <script>${getEquationEngineScript()}</script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -99,19 +78,17 @@ export function buildCaptureHtml(latex: string, style: LatexStyle, isDark: boole
 </head>
 <body>
   <div id="equation-box">
-    <div id="math-content">$$\\Large ${cleanLatex}$$</div>
+    <div id="math-content" style="width: 600px"></div>
   </div>
   
   <script>
-    function startCapture() {
-      if (window.MathJax && window.MathJax.typesetPromise) {
-        MathJax.typesetPromise([document.getElementById('math-content')]).then(() => {
-          setTimeout(captureResult, 300);
-        }).catch(err => {
-          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'capture_error', error: 'MathJax error: ' + err.message }));
-        });
-      } else {
-        setTimeout(startCapture, 200);
+    async function startCapture() {
+      try {
+        await window.renderEquationSvg(${equationScriptValue(cleanLatex)},
+          document.getElementById('math-content'), ${style.fontSize}, ${equationScriptValue(resolvedTextColor)});
+        captureResult();
+      } catch (err) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'capture_error', error: err.message }));
       }
     }
 
@@ -183,7 +160,6 @@ export function buildCaptureHtml(latex: string, style: LatexStyle, isDark: boole
         var svgStr = new XMLSerializer().serializeToString(mjxSvg);
         var base64Svg = btoa(unescape(encodeURIComponent(svgStr)));
         var img = new Image();
-        img.src = 'data:image/svg+xml;base64,' + base64Svg;
         
         img.onload = function() {
           try {
@@ -206,6 +182,7 @@ export function buildCaptureHtml(latex: string, style: LatexStyle, isDark: boole
         img.onerror = function() {
           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'capture_error', error: 'SVG raster failure' }));
         };
+        img.src = 'data:image/svg+xml;base64,' + base64Svg;
       } catch(e) {
         window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'capture_error', error: e.message }));
       }
@@ -218,76 +195,36 @@ export function buildCaptureHtml(latex: string, style: LatexStyle, isDark: boole
 
 
 
-/** Build the HTML for the live preview only (no capture) */
+/** Standalone preview shares the exact SVG and numbering used in the editor and PNG. */
 export function buildPreviewHtml(latex: string, style: LatexStyle, isDark: boolean): string {
-  const resolvedTextColor = style.textColor;
-  const resolvedBg = style.backgroundColor;
-  const resolvedOuter = style.outerColor;
-
   return `<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  ${getKatexHtmlHead()}
+<html><head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>${getEquationEngineScript()}</script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 16px; display: flex; justify-content: center;
+      background: ${style.containerMode === "transparent" ? "transparent" : style.outerColor}; }
+    #equation-box { padding: 16px; max-width: 100%; overflow-x: auto;
+      background: ${style.containerMode === "full" ? style.backgroundColor : "transparent"};
+      border: ${style.containerMode === "full" ? `${style.borderWidth}px ${style.borderStyle} ${style.borderColor}` : "none"};
+      border-radius: ${style.borderRadius}px; color: ${style.textColor}; font-size: ${style.fontSize}px; }
+  </style>
+</head><body>
+  <div id="equation-box"><div id="math-content" style="width:600px"></div></div>
   <script>
-    window.addEventListener('load', function() {
-      if (typeof renderMathInElement === 'function') {
-        renderMathInElement(document.getElementById('math-content'), {
-          delimiters: [
-            {left: "$$", right: "$$", display: true},
-            {left: "$", right: "$", display: false},
-            {left: "\\\\(", right: "\\\\)", display: false},
-            {left: "\\\\\[", right: "\\\\\]", display: true}
-          ],
-          throwOnError: false
-        });
+    window.addEventListener('load', async function() {
+      try {
+        await window.renderEquationSvg(${equationScriptValue(normalizeEquation(latex))},
+          document.getElementById('math-content'), ${style.fontSize}, ${equationScriptValue(style.textColor)});
+        window.ReactNativeWebView.postMessage(JSON.stringify({type: 'height',
+          height: document.getElementById('equation-box').scrollHeight + 32}));
+      } catch (err) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({type: 'capture_error', error: err.message}));
       }
-      setTimeout(function() {
-        var h = document.getElementById('equation-box').scrollHeight;
-        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'height', height: h + 48 }));
-        document.body.classList.add('rendered');
-      }, 100);
     });
   </script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      background-color: ${style.containerMode === 'transparent' ? 'transparent' : (resolvedOuter === '#FFFFFF' || resolvedOuter === '#fff' ? '#f0f0f0' : resolvedOuter)};
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100px;
-      padding: 16px;
-      font-family: sans-serif;
-    }
-    .katex { font-family: 'KaTeX_Main', serif !important; }
-    #equation-box {
-      background-color: ${style.containerMode === 'full' ? resolvedBg : 'transparent'};
-      border: ${style.containerMode === 'full' ? `${style.borderWidth}px ${style.borderStyle} ${style.borderColor}` : 'none'};
-      border-radius: ${style.borderRadius}px;
-      padding: 16px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: ${resolvedTextColor};
-      font-size: ${style.fontSize}px;
-      max-width: 100%;
-      min-width: 60px;
-      min-height: 40px;
-      transition: opacity 0.2s;
-    }
-    #math-content { display: inline-block; line-height: 1; }
-    #loading { position: absolute; font-size: 14px; color: #999; top: 10px; right: 10px; }
-    body.rendered #loading { display: none; }
-  </style>
-</head>
-<body>
-  <div id="loading">...</div>
-  <div id="equation-box">
-    <div id="math-content">${latex || '<span style="color: #999">Vazio</span>'}</div>
-  </div>
-</body>
-</html>`;
+</body></html>`;
 }
 
 /** Save a base64 PNG string to the media directory */

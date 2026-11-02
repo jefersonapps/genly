@@ -2,10 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import "../../global.css";
-// Import local katex for bundling as a fallback, but we'll try to use global too
-import { KatexCSS } from "../../lib/katex/katex-assets";
-import { KatexFontFaces } from "../../lib/katex/katex-fonts";
-import katex from "../../lib/katex/katex.min.js";
+import { getEquationEngineScript, normalizeEquation } from "../../utils/equationRendering";
 
 export interface KatexDomProps {
   dom?: { matchContents?: boolean; style?: { width?: string | number; height?: string | number } };
@@ -24,208 +21,108 @@ export interface KatexDomProps {
   };
 }
 
-export default function KatexDom({ expression, isDark, equationStyle }: KatexDomProps) {
+type EquationWindow = Window & {
+  renderEquationSvg: (source: string, host: HTMLElement, fontSize: number, color: string) => Promise<SVGSVGElement>;
+};
+
+export default function KatexDom({ expression, equationStyle }: KatexDomProps) {
   const outerRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const innerContentRef = useRef<HTMLSpanElement>(null);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const queueRef = useRef(Promise.resolve());
   const [error, setError] = useState<string | null>(null);
-  const [scale, setScale] = useState(1);
 
-  useEffect(() => {
-    const style = document.createElement("style");
-    style.innerHTML = atob(KatexCSS) + `
-      ${KatexFontFaces}
-      
-      html, body { 
-        height: 100%; 
-        margin: 0; 
-        padding: 0; 
-        overflow: hidden;
-        background-color: transparent;
-      }
-      #root { 
-        height: 100%; 
-      }
-      .katex { font-family: KaTeX_Main, Times New Roman, serif !important; }
-      .katex-display { margin: 0 !important; }
-      .katex { margin: 0 !important; }
-    `;
-    document.head.appendChild(style);
-    
-    return () => {
-      if (document.head.contains(style)) document.head.removeChild(style);
-    };
-  }, []);
-
-  const updateScale = () => {
-    if (!innerContentRef.current || !outerRef.current || !containerRef.current) return;
-    
-    // Measure at scale 1 to get natural dimensions
-    containerRef.current.style.transform = 'scale(1)';
-    
-    const rect = innerContentRef.current.getBoundingClientRect();
-    const contentWidth = rect.width;
-    const contentHeight = rect.height;
-    
-      // Measure total available space from outer container with a safe margin
-      // 16px padding * 2 = 32px, plus 16px safety margin * 2 = 32px. Total 64px.
-      const availableWidth = outerRef.current.offsetWidth - 64; 
-      const availableHeight = outerRef.current.offsetHeight - 64;
-    
-    if (contentWidth > 0 && contentHeight > 0) {
-      const scaleW = availableWidth / contentWidth;
-      const scaleH = availableHeight / contentHeight;
-      const newScale = Math.min(scaleW, scaleH, 1);
-      
-      // Apply directly to DOM for instant update without React render lag
-      containerRef.current.style.transform = `scale(${newScale})`;
-      setScale(newScale);
-    }
-    
-    // Content is now correctly scaled, make it visible
-    containerRef.current.style.visibility = 'visible';
+  const fitEquation = () => {
+    const outer = outerRef.current;
+    const card = cardRef.current;
+    const host = hostRef.current;
+    const svg = host?.querySelector("svg");
+    if (!outer || !card || !host || !svg) return;
+    host.style.transform = "none";
+    const bounds = svg.getBoundingClientRect();
+    const scale = Math.max(0, Math.min(1,
+      (outer.clientWidth - 64) / bounds.width,
+      (outer.clientHeight - 64) / bounds.height));
+    card.style.width = `${bounds.width * scale + 32}px`;
+    card.style.height = `${bounds.height * scale + 32}px`;
+    host.style.transform = `translate(-50%, -50%) scale(${scale})`;
   };
 
-  // MutationObserver to catch KaTeX rendering updates immediately
   useEffect(() => {
-    if (!innerContentRef.current) return;
-    
-    const observer = new MutationObserver(() => {
-       updateScale();
-    });
-    
-    observer.observe(innerContentRef.current, { 
-      childList: true, 
-      subtree: true, 
-      characterData: true,
-      attributes: true
-    });
-    
-    return () => observer.disconnect();
+    const pageStyle = document.createElement("style");
+    pageStyle.textContent = `html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden; background: transparent; }`;
+    document.head.appendChild(pageStyle);
+    const engineWindow = window as EquationWindow;
+    if (!engineWindow.renderEquationSvg) {
+      const script = document.createElement("script");
+      script.textContent = getEquationEngineScript();
+      document.head.appendChild(script);
+    }
+    const observer = new ResizeObserver(fitEquation);
+    if (outerRef.current) observer.observe(outerRef.current);
+    return () => { observer.disconnect(); pageStyle.remove(); };
   }, []);
 
   useEffect(() => {
-    if (!innerContentRef.current || !containerRef.current) return;
-
-    try {
-      let math = expression.trim();
-      const isEnvironment = math.includes("\\begin{align}") || 
-                          math.includes("\\begin{gather}") ||
-                          math.includes("\\begin{equation}");
-
-      math = math.replace(/^\$\$([\s\S]*)\$\$$/g, "$1")
-                 .replace(/^\$([\s\S]*)\$/g, "$1")
-                 .replace(/^\\\[([\s\S]*)\\\]$/g, "$1")
-                 .replace(/^\\\(([\s\S]*)\\\)$/g, "$1")
-                 .trim();
-
-      // Hide container while rendering and measuring to avoid flickering
-      containerRef.current.style.visibility = 'hidden';
-
-      if (!math) {
-        innerContentRef.current.innerHTML = '<div style="opacity: 0.3; font-style: italic;">Digite LaTeX...</div>';
-        setScale(1);
-        containerRef.current.style.transform = 'scale(1)';
-        containerRef.current.style.visibility = 'visible';
-        setError(null);
-        return;
-      }
-
-      const renderMath = () => {
-        if (!innerContentRef.current) return;
-        try {
-          katex.render(math, innerContentRef.current, {
-            displayMode: true, 
-            throwOnError: false,
-            trust: true,
-            strict: false
-          });
+    let cancelled = false;
+    // Keep typing responsive and serialize the engine's shared numbering state.
+    const timer = setTimeout(() => {
+      queueRef.current = queueRef.current.then(async () => {
+        const host = hostRef.current;
+        if (cancelled || !host) return;
+        const math = normalizeEquation(expression);
+        if (!math) {
+          host.textContent = "Digite LaTeX…";
+          host.style.width = "max-content";
+          host.style.transform = "translate(-50%, -50%)";
+          if (cardRef.current) {
+            cardRef.current.style.width = "180px";
+            cardRef.current.style.height = "64px";
+          }
           setError(null);
-          // Scale update is handled by MutationObserver or can be called here
-          updateScale();
-        } catch (err) {
-          setError((err as Error).message);
-          containerRef.current!.style.visibility = 'visible';
+          return;
         }
-      };
-
-      if (document.fonts.status === 'loaded') {
-        renderMath();
-      } else {
-        document.fonts.ready.then(renderMath);
-      }
-    } catch (err) {
-      setError((err as Error).message);
-    }
+        host.style.transform = "none";
+        host.style.width = "600px";
+        try {
+          await (window as EquationWindow).renderEquationSvg(
+            math, host, equationStyle.fontSize, equationStyle.textColor);
+          if (!cancelled) {
+            setError(null);
+            fitEquation();
+          }
+        } catch (err) {
+          if (!cancelled) setError((err as Error).message);
+        }
+      });
+    }, 120);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [expression, equationStyle]);
 
-  useEffect(() => {
-    window.addEventListener('resize', updateScale);
-    return () => window.removeEventListener('resize', updateScale);
-  }, []);
-
-  if (!equationStyle) return null;
-
   return (
-    <div
-      ref={outerRef}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        alignItems: "center",
-        width: "100%",
-        height: "100%",
-        backgroundColor: equationStyle.outerColor,
-        padding: "16px",
-        boxSizing: "border-box",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        ref={cardRef}
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: equationStyle.containerMode === 'full' ? equationStyle.backgroundColor : "transparent",
-          borderColor: equationStyle.containerMode === 'full' ? equationStyle.borderColor : "transparent",
-          borderWidth: equationStyle.containerMode === 'full' ? `${equationStyle.borderWidth}px` : 0,
-          borderStyle: equationStyle.borderStyle,
-          borderRadius: `${equationStyle.borderRadius}px`,
-          padding: "16px",
-          color: equationStyle.textColor,
-          fontSize: `${equationStyle.fontSize}px`,
-          boxSizing: "border-box",
-          width: "auto",
-          maxWidth: "100%",
-          maxHeight: "100%",
-          overflow: "hidden",
-        }}
-      >
-        <div 
-          ref={containerRef} 
-          style={{ 
-            color: "inherit",
-            transform: `scale(${scale})`,
-            transformOrigin: "center center",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-          }} 
-        >
-          <span 
-            ref={innerContentRef} 
-            style={{ display: "inline-block" }}
-          />
-        </div>
+    <div ref={outerRef} style={{
+      display: "flex", justifyContent: "center", alignItems: "center",
+      width: "100%", height: "100%", padding: 16, boxSizing: "border-box",
+      position: "relative", overflow: "hidden",
+      backgroundColor: equationStyle.containerMode === "transparent" ? "transparent" : equationStyle.outerColor,
+    }}>
+      <div ref={cardRef} style={{
+        position: "relative", flexShrink: 0, boxSizing: "border-box",
+        backgroundColor: equationStyle.containerMode === "full" ? equationStyle.backgroundColor : "transparent",
+        border: equationStyle.containerMode === "full"
+          ? `${equationStyle.borderWidth}px ${equationStyle.borderStyle} ${equationStyle.borderColor}` : "none",
+        borderRadius: equationStyle.borderRadius,
+        color: equationStyle.textColor, fontSize: equationStyle.fontSize,
+      }}>
+        <div ref={hostRef} style={{
+          position: "absolute", left: "50%", top: "50%", width: 600,
+          transformOrigin: "center center", lineHeight: 1,
+        }} />
       </div>
-      {error && (
-        <div style={{ color: "red", fontSize: "10px", marginTop: "4px", position: "absolute", bottom: 4 }}>
-          {error}
-        </div>
-      )}
+      {error && <div role="alert" style={{
+        position: "absolute", bottom: 4, left: 8, right: 8,
+        color: "#d32f2f", fontSize: 11, textAlign: "center",
+      }}>{error}</div>}
     </div>
   );
 }
