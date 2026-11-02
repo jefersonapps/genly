@@ -6,7 +6,7 @@ import { WidgetUnavailable } from './WidgetUnavailable';
 import { requestWidgetUpdate, type WidgetTaskHandlerProps } from 'react-native-android-widget';
 
 import {
-  getAllWidgetGroups,
+  deleteWidgetConfig,
   getGroupById,
   getRecentByGroup,
   getRecentByGroupName,
@@ -32,8 +32,7 @@ async function getWidgetContent(widgetName: string, configGroupId?: number): Pro
     case 'RecentMindMaps': return { tasks: await getRecentByGroupName('Mapas Mentais', 10) };
     case 'RecentFlashcards': return { tasks: await getRecentByGroupName('Flashcards', 10) };
     case 'GroupWidget': {
-      let group = configGroupId ? await getGroupById(configGroupId) : undefined;
-      if (!group) group = (await getAllWidgetGroups())[0];
+      const group = configGroupId ? await getGroupById(configGroupId) : undefined;
       return group ? { group, tasks: await getRecentByGroup(group.id, 10) } : { tasks: [] };
     }
     default: return { tasks: [] };
@@ -55,7 +54,7 @@ export async function getThemedWidget(
       case 'RecentMindMaps': return <RecentMindMapsWidget tasks={tasks} colors={colors} />;
       case 'RecentFlashcards': return <RecentFlashcardsWidget tasks={tasks} colors={colors} />;
       case 'GroupWidget':
-        return group ? <GroupWidget group={group} tasks={tasks} colors={colors} /> : <RecentTasksWidget tasks={tasks} colors={colors} />;
+        return group ? <GroupWidget group={group} tasks={tasks} colors={colors} /> : <WidgetUnavailable colors={colors} title="Escolha um grupo" description="Mantenha o widget pressionado e toque em Configurar para escolher um dos seus grupos." />;
       default: return <RecentTasksWidget tasks={tasks} colors={colors} />;
     }
   };
@@ -91,10 +90,20 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
     case 'WIDGET_RESIZED': {
       try {
         // Only group widgets need an instance-specific configuration lookup.
-        const configGroupId = widgetName === 'GroupWidget'
+        let configGroupId = widgetName === 'GroupWidget'
           ? await getWidgetConfig(props.widgetInfo.widgetId)
           : undefined;
-        props.renderWidget(await getThemedWidget(widgetName, configGroupId));
+        let content = await getThemedWidget(widgetName, configGroupId);
+        if (widgetName === 'GroupWidget') {
+          // The launcher's pin callback can persist the group while the first
+          // headless render is reading the database. Don't overwrite it with a placeholder.
+          const latestGroupId = await getWidgetConfig(props.widgetInfo.widgetId);
+          if (latestGroupId !== configGroupId) {
+            configGroupId = latestGroupId;
+            content = await getThemedWidget(widgetName, configGroupId);
+          }
+        }
+        props.renderWidget(content);
       } catch (error) {
         console.error(`[WidgetTaskHandler] Failed to render ${widgetName}:`, error);
         props.renderWidget({
@@ -106,6 +115,7 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
     }
 
     case 'WIDGET_DELETED':
+      if (widgetName === 'GroupWidget') await deleteWidgetConfig(props.widgetInfo.widgetId);
       break;
 
     case 'WIDGET_CLICK':

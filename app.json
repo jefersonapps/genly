@@ -215,7 +215,7 @@
           },
           {
             "name": "GroupWidget",
-            "label": "Genly - Grupo",
+            "label": "Genly - Meu grupo",
             "minWidth": "110dp",
             "minHeight": "40dp",
             "minResizeWidth": "72dp",
@@ -223,7 +223,6 @@
             "targetCellWidth": 4,
             "targetCellHeight": 2,
             "description": "Notas recentes de um grupo",
-            "previewImage": "./assets/widget-preview/group.png",
             "updatePeriodMillis": 1800000,
             "resizeMode": "horizontal|vertical",
             "widgetFeatures": "reconfigurable"

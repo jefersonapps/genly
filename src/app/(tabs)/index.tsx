@@ -15,6 +15,7 @@ import { useHeaderSnap } from "@/hooks/useHeaderSnap";
 import { useDialog } from "@/providers/DialogProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import { getSetting } from "@/services/settingsService";
+import { requestGroupWidget } from "@/services/groupWidgetService";
 import { completeTask, deleteGroup, deleteTask, deleteTasks, getAllGroups, getAllTasks, getAllTaskMedia, getTaskById, uncompleteTask } from "@/services/taskService";
 import { shadows } from "@/theme/shadows";
 import { adjustColor, withOpacity } from "@/utils/colors";
@@ -24,9 +25,9 @@ import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect, useRouter } from "expo-router";
-import { Bell, Brain, CalendarDays, CheckCheck, Clock, Edit3, FileText, FolderPlus, Layers, Lightbulb, Plus, Search, Trash2, X } from "lucide-react-native";
+import { Bell, Brain, CalendarDays, CheckCheck, Clock, Edit3, FileText, FolderPlus, LayoutGrid, Layers, Lightbulb, Plus, Search, Trash2, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BackHandler, RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, BackHandler, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, {
     Extrapolation,
     interpolate,
@@ -67,6 +68,8 @@ export default function HomeScreen() {
   const deletionInFlight = useRef(false);
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [pinningGroupWidget, setPinningGroupWidget] = useState(false);
+  const pinningGroupWidgetRef = useRef(false);
   const [taskMedia, setTaskMedia] = useState<Record<number, Media[]>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -218,6 +221,25 @@ export default function HomeScreen() {
 
   const handleCreateGroup = () => {
     router.push("/group/editor");
+  };
+
+  const handleAddGroupWidget = async () => {
+    const group = groups.find(item => item.id === selectedGroupId);
+    if (!group || pinningGroupWidgetRef.current) return;
+    pinningGroupWidgetRef.current = true;
+    setPinningGroupWidget(true);
+    try {
+      const accepted = await requestGroupWidget(group.id, group.name);
+      if (!accepted) dialog.show({
+        title: 'Adicionar widget',
+        description: 'Não foi possível adicionar automaticamente. Na tela inicial do celular, abra Widgets, escolha “Genly - Meu grupo” e selecione o grupo desejado.',
+      });
+    } catch {
+      dialog.show({ title: 'Não foi possível adicionar o widget', description: 'Volte à tela do grupo e tente novamente.', variant: 'error' });
+    } finally {
+      pinningGroupWidgetRef.current = false;
+      setPinningGroupWidget(false);
+    }
   };
 
   const handleLongPressGroup = (group: Group) => {
@@ -646,12 +668,26 @@ export default function HomeScreen() {
 
                     {/* Section Header */}
                     <View className="mt-6 px-6 flex-row items-center justify-between mb-2">
-                        <View>
-                            <Text className="font-sans-bold text-2xl text-on-surface">
+                        <View className="flex-1 mr-3">
+                            <Text className="font-sans-bold text-2xl text-on-surface" numberOfLines={1}>
                                 {selectedGroupId ? groups.find(g => g.id === selectedGroupId)?.name : "Recentes"}
                             </Text>
                             {filteredTasks.length > 0 && <Text className="font-sans text-sm text-on-surface-secondary">{filteredTasks.length} Notas</Text>}
                         </View>
+                        {Platform.OS === 'android' && selectedGroupId !== null && (
+                          <TouchableOpacity
+                            onPress={handleAddGroupWidget}
+                            disabled={pinningGroupWidget || selectionMode}
+                            accessibilityRole="button"
+                            accessibilityLabel="Adicionar widget deste grupo à tela inicial"
+                            activeOpacity={0.7}
+                            className="flex-row items-center gap-2 px-3 py-3 rounded-xl"
+                            style={{ minHeight: 44, backgroundColor: withOpacity(primaryColor, 0.1), opacity: pinningGroupWidget || selectionMode ? 0.5 : 1 }}
+                          >
+                            {pinningGroupWidget ? <ActivityIndicator size="small" color={primaryColor} /> : <LayoutGrid size={17} color={primaryColor} />}
+                            <Text className="font-sans-semibold text-xs" style={{ color: primaryColor }}>Adicionar widget</Text>
+                          </TouchableOpacity>
+                        )}
                         {!selectedGroupId && (
                           <Button variant="icon" onPress={() => router.push("/calendar")}>
                             <Button.Icon icon={<CalendarDays size={24} color={resolvedTheme === 'dark' ? '#FAFAFA' : '#18181B'} />} />

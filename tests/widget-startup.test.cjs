@@ -153,11 +153,18 @@ test('native initial layouts replace transparent providers and remain idempotent
       const name = widget.name.toLowerCase();
       const provider = await fs.readFile(path.join(res, 'xml', `widgetprovider_${name}.xml`), 'utf8');
       assert.ok(provider.includes(`@layout/genly_widget_initial_${name}`));
+      if (widget.name === 'GroupWidget') {
+        assert.ok(provider.includes('android:previewLayout="@layout/genly_group_widget_preview"'));
+        assert.ok(!provider.includes('android:previewImage'));
+        assert.equal(widget.previewImage, undefined);
+      }
       const layout = await fs.readFile(path.join(res, 'layout', `genly_widget_initial_${name}.xml`), 'utf8');
       assert.ok(layout.includes('ProgressBar') && layout.includes('Carregando'));
     }
+    const beforeGroup = await fs.readFile(path.join(res, 'xml/widgetprovider_groupwidget.xml'), 'utf8');
     const before = await fs.readFile(path.join(res, 'xml/widgetprovider_recenttasks.xml'), 'utf8');
     await apply({ modRequest: { platformProjectRoot: directory } });
     assert.equal(await fs.readFile(path.join(res, 'xml/widgetprovider_recenttasks.xml'), 'utf8'), before);
+    assert.equal(await fs.readFile(path.join(res, 'xml/widgetprovider_groupwidget.xml'), 'utf8'), beforeGroup);
   } finally { await fs.rm(directory, { recursive: true, force: true }); }
 });

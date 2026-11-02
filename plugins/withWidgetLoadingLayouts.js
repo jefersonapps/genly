@@ -61,7 +61,12 @@ module.exports = function withWidgetLoadingLayouts(config) {
 </LinearLayout>
 `);
       const providerPath = path.join(res, 'xml', `widgetprovider_${name}.xml`);
-      const provider = await fs.readFile(providerPath, 'utf8');
+      let provider = await fs.readFile(providerPath, 'utf8');
+      if (widget.name === 'GroupWidget') {
+        provider = provider.replace(/\s+android:previewImage="[^"]*"/g, '')
+          .replace(/\s+android:previewLayout="[^"]*"/g, '')
+          .replace('<appwidget-provider', '<appwidget-provider android:previewLayout="@layout/genly_group_widget_preview"');
+      }
       await fs.writeFile(providerPath, provider.replace(
         /android:initialLayout="[^"]+"/,
         `android:initialLayout="@layout/${layout}"`,

@@ -50,7 +50,6 @@ O **Genly** é um aplicativo móvel voltado para produtividade, finanças e estu
 <div align="center">
 
   <img src="./assets/widget-preview/flashcards.png" width="200" />
-  <img src="./assets/widget-preview/group.png" width="200" />
   <img src="./assets/widget-preview/mind-maps.png" width="200" />
   <img src="./assets/widget-preview/recent-tasks.png" width="200" />
   <img src="./assets/widget-preview/reminders.png" width="200" />

@@ -108,7 +108,14 @@ export async function getWidgetConfig(widgetId: number): Promise<number | undefi
   if (results.length > 0) {
     return parseInt(results[0].value, 10);
   }
-  return undefined;
+  // Pinning from inside a group stores the association in Android's widget options.
+  // The configuration screen's explicit database choice takes priority on reconfigure.
+  const { getPinnedWidgetGroupId } = await import('./groupWidgetService');
+  return getPinnedWidgetGroupId(widgetId);
+}
+
+export async function deleteWidgetConfig(widgetId: number): Promise<void> {
+  await db.delete(settings).where(eq(settings.key, `widget_group_${widgetId}`));
 }
 
 export async function getThemeSettings(): Promise<{

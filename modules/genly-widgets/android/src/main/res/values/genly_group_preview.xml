@@ -1,0 +1,5 @@
+<resources>
+  <color name="genly_group_preview_background">#FFFFFF</color>
+  <color name="genly_group_preview_text">#0A0A0A</color>
+  <color name="genly_group_preview_secondary">#737373</color>
+</resources>
