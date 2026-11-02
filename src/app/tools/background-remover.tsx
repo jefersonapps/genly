@@ -24,22 +24,65 @@ import {
 } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Dimensions,
+  ScrollView,
+  useWindowDimensions,
   Image,
   Text,
   TouchableOpacity,
   View
 } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, { FadeInDown, useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ViewShot from "react-native-view-shot";
 
-const SCREEN_WIDTH = Dimensions.get("window").width;
+const RATIOS = [
+  { label: 'Original', value: 0 }, { label: '1:1', value: 1 },
+  { label: '4:5', value: 4 / 5 }, { label: '3:4', value: 3 / 4 },
+  { label: '2:3', value: 2 / 3 }, { label: '9:16', value: 9 / 16 },
+  { label: '5:4', value: 5 / 4 }, { label: '4:3', value: 4 / 3 },
+  { label: '3:2', value: 3 / 2 }, { label: '16:9', value: 16 / 9 },
+  { label: '21:9', value: 21 / 9 },
+];
 
 type UIState = "landing" | "processing" | "result";
 
 export default function BackgroundRemoverScreen() {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const [sourceRatio, setSourceRatio] = useState(1);
+  const [ratio, setRatio] = useState(0);
+  const aspectRatio = ratio || sourceRatio;
+  const canvasWidth = Math.min(windowWidth - 32, Math.max(180, windowHeight * 0.43) * aspectRatio);
+  const canvasHeight = canvasWidth / aspectRatio;
+  // Store positions relative to the canvas so resizing a popup preserves the composition.
+  const offsetX = useSharedValue(0);
+  const offsetY = useSharedValue(0);
+  const startX = useSharedValue(0);
+  const startY = useSharedValue(0);
+  const zoom = useSharedValue(1);
+  const startZoom = useSharedValue(1);
+  const rotation = useSharedValue(0);
+  const startRotation = useSharedValue(0);
+  const resetPosition = () => { offsetX.value = 0; offsetY.value = 0; zoom.value = 1; rotation.value = 0; };
+  const pan = Gesture.Pan().maxPointers(1).onStart(() => {
+    startX.value = offsetX.value;
+    startY.value = offsetY.value;
+  }).onUpdate(event => {
+    offsetX.value = startX.value + event.translationX / canvasWidth;
+    offsetY.value = startY.value + event.translationY / canvasHeight;
+  });
+  const pinch = Gesture.Pinch().onStart(() => { startZoom.value = zoom.value; }).onUpdate(event => {
+    zoom.value = Math.max(0.15, Math.min(6, startZoom.value * event.scale));
+  });
+  const rotate = Gesture.Rotation().onStart(() => {
+    startRotation.value = rotation.value;
+  }).onUpdate(event => {
+    rotation.value = startRotation.value + event.rotation;
+  });
+  const cutoutStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: offsetX.value * canvasWidth }, { translateY: offsetY.value * canvasHeight }, { scale: zoom.value }, { rotate: `${rotation.value}rad` }],
+  }));
   const router = useRouter();
   const params = useLocalSearchParams();
   const { resolvedTheme, primaryColor } = useTheme();
@@ -120,10 +163,17 @@ export default function BackgroundRemoverScreen() {
 
   const processImage = async (uri: string) => {
     setOriginalImage(uri);
+    resetPosition();
+    setRatio(0);
+    setSourceRatio(1);
+    setBgColor('transparent');
+    setBgImage(null);
     setUiState("processing");
     setIsProcessing(true);
     
     try {
+      const dimensions = await Image.getSize(uri);
+      setSourceRatio(dimensions.width / dimensions.height);
       // Library expects local file URI
       const transparentImageUri = await removeBackground(uri);
       
@@ -165,14 +215,14 @@ export default function BackgroundRemoverScreen() {
   };
 
   const captureCombinedImage = async () => {
-    if (!viewShotRef.current?.capture) return resultImage;
+    if (!viewShotRef.current?.capture) throw new Error("Composition unavailable");
     try {
       setIsProcessing(true);
       const uri = await viewShotRef.current.capture();
       return uri;
     } catch (e) {
       console.error("ViewShot error", e);
-      return resultImage;
+      throw e;
     } finally {
       setIsProcessing(false);
     }
@@ -314,74 +364,54 @@ export default function BackgroundRemoverScreen() {
             </TouchableOpacity>
           </View>
 
-          <View className="flex-1 px-4 mb-4 justify-center items-center">
-            {/* Compositing Area */}
-            <View
-              style={{
-                borderRadius: 28,
-                overflow: "hidden",
-                borderWidth: 1,
-                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
-              }}
-            >
-              <ViewShot ref={viewShotRef} options={{ format: "png", quality: 1 }}>
-                <View
-                  style={{
-                    width: SCREEN_WIDTH - 32,
-                    height: SCREEN_WIDTH - 32,
-                    // If there is no bgImage, apply checkerboard / custom color. 
-                    // If bgImage exists, it occupies the background.
-                    backgroundColor: !bgImage 
-                      ? (bgColor === "transparent" ? (isDark ? "#171717" : "#E5E5E5") : bgColor)
-                      : "transparent", 
-                  }}
-                >
-                    {bgImage && (
-                        <Image
-                           source={{ uri: bgImage }}
-                           style={{ position: 'absolute', width: '100%', height: '100%' }}
-                           resizeMode="cover"
-                        />
-                    )}
-                    <Image
-                        source={{ uri: resultImage }}
-                        style={{ flex: 1 }}
-                        resizeMode="contain"
-                    />
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}>
+            <View style={{ alignItems: 'center', paddingVertical: 12 }}>
+              <GestureDetector gesture={Gesture.Simultaneous(pan, pinch, rotate)}>
+                <View collapsable={false} style={{ width: canvasWidth, height: canvasHeight, backgroundColor: isDark ? '#27272A' : '#E4E4E7', overflow: 'hidden' }}>
+                  <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1, width: 1600, height: Math.round(1600 / aspectRatio) }}>
+                    <View collapsable={false} style={{ width: canvasWidth, height: canvasHeight, overflow: 'hidden', backgroundColor: bgImage ? 'transparent' : bgColor }}>
+                      {bgImage && <Image source={{ uri: bgImage }} style={{ position: 'absolute', width: '100%', height: '100%' }} resizeMode="cover" />}
+                      <Animated.Image source={{ uri: resultImage }} style={[{ width: canvasWidth, height: canvasHeight }, cutoutStyle]} resizeMode="contain" />
+                    </View>
+                  </ViewShot>
                 </View>
-              </ViewShot>
+              </GestureDetector>
             </View>
-
-            {/* Background Customization Controls */}
-            <Animated.View
-                entering={FadeInDown.duration(400).delay(200).springify()}
-                className="mt-6 flex-row w-full justify-center gap-4 px-4"
-            >
-                <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => setColorPickerVisible(true)}
-                    className="flex-1 flex-row items-center justify-center py-3 rounded-2xl border border-border"
-                    style={{ backgroundColor: isDark ? "#171717" : "#FFF" }}
-                >
-                    <Palette size={20} color={isDark ? "#FFF" : "#000"} />
-                    <Text className="font-sans-medium text-on-surface ml-2">Cor de Fundo</Text>
+            <View className="flex-row items-center justify-between mb-5">
+              <Text className="font-sans text-xs text-on-surface-secondary flex-1 mr-2">Arraste para mover · Use dois dedos para ampliar e girar</Text>
+              <TouchableOpacity onPress={resetPosition} accessibilityRole="button" className="p-2">
+                <Text className="font-sans-semibold text-xs" style={{ color: primaryColor }}>Centralizar</Text>
+              </TouchableOpacity>
+            </View>
+            <Text className="font-sans-semibold text-base text-on-surface mb-3">Proporção</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 6 }}>
+              {RATIOS.map(option => (
+                <TouchableOpacity key={option.label} onPress={() => setRatio(option.value)} accessibilityRole="button" accessibilityState={{ selected: ratio === option.value }}
+                  className="rounded-xl px-4 py-3 border bg-surface-secondary" style={{ borderColor: ratio === option.value ? primaryColor : isDark ? '#303034' : '#E4E4E7' }}>
+                  <Text className="font-sans-medium text-xs" style={{ color: ratio === option.value ? primaryColor : isDark ? '#FAFAFA' : '#27272A' }}>{option.label}</Text>
                 </TouchableOpacity>
-
-                <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={handlePickBgImage}
-                    className="flex-1 flex-row items-center justify-center py-3 rounded-2xl border border-border"
-                    style={{ backgroundColor: isDark ? "#171717" : "#FFF" }}
-                >
-                    <ImagePlus size={20} color={isDark ? "#FFF" : "#000"} />
-                    <Text className="font-sans-medium text-on-surface ml-2">Imagem</Text>
-                </TouchableOpacity>
-            </Animated.View>
-          </View>
+              ))}
+            </ScrollView>
+            <Text className="font-sans-semibold text-base text-on-surface mt-5 mb-3">Fundo</Text>
+            <View className="flex-row gap-3">
+              <TouchableOpacity onPress={() => setColorPickerVisible(true)} accessibilityRole="button" className="flex-1 flex-row items-center justify-center py-3 rounded-xl border border-border bg-surface-secondary">
+                <Palette size={18} color={primaryColor} />
+                <Text className="font-sans-medium text-on-surface ml-2">Cor</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handlePickBgImage} accessibilityRole="button" className="flex-1 flex-row items-center justify-center py-3 rounded-xl border border-border bg-surface-secondary">
+                <ImagePlus size={18} color={primaryColor} />
+                <Text className="font-sans-medium text-on-surface ml-2">Imagem</Text>
+              </TouchableOpacity>
+            </View>
+            {(bgImage || bgColor !== 'transparent') && <TouchableOpacity onPress={() => { setBgImage(null); setBgColor('transparent'); }} className="self-start py-3" accessibilityRole="button">
+              <Text className="font-sans-medium text-xs text-on-surface-secondary">Remover fundo personalizado</Text>
+            </TouchableOpacity>}
+          </ScrollView>
 
            <Animated.View
                 entering={FadeInDown.duration(300).springify()}
-                className="px-6 mb-8 flex-row justify-center gap-4"
+                className="px-6 flex-row justify-center gap-4"
+                style={{ paddingBottom: Math.max(insets.bottom, 16), paddingTop: 8 }}
             >
                 <TouchableOpacity
                     activeOpacity={0.8}
