@@ -20,18 +20,19 @@ import { shadows } from "@/theme/shadows";
 import { adjustColor, withOpacity } from "@/utils/colors";
 import { getGreeting } from "@/utils/date";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
-import { FlashList } from "@shopify/flash-list";
+import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
 import { Bell, Brain, CalendarDays, Clock, Edit3, FileText, FolderPlus, Layers, Lightbulb, Plus, Search, Trash2 } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { LayoutAnimation, RefreshControl, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, {
     Extrapolation,
     interpolate,
     useAnimatedScrollHandler,
     useAnimatedStyle,
     useSharedValue,
+    useReducedMotion,
     withDelay,
     withSpring,
     withTiming
@@ -75,7 +76,8 @@ export default function HomeScreen() {
   // Animation values for the "fan" effect
   const fanProgress = useSharedValue(0);
   const { scrollY, headerScrollY, scrollHandler } = useHeaderSnap({ snapThreshold: 60 });
-  const scrollViewRef = React.useRef<any>(null);
+  const scrollViewRef = React.useRef<FlashListRef<Task>>(null);
+  const reduceMotion = useReducedMotion();
   const contentHeight = useSharedValue(0);
   const layoutHeight = useSharedValue(0);
   const groupsScrollRef = React.useRef<React.ComponentRef<typeof ScrollView>>(null);
@@ -291,11 +293,21 @@ export default function HomeScreen() {
       if (task.completed === 1) await uncompleteTask(task.id);
       else await completeTask(task.id);
       const updated = await getTaskById(task.id);
-      if (updated) setTasks(current => current.map(item => item.id === updated.id ? updated : item).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
+      if (updated) {
+        if (!reduceMotion) {
+          // Preserve each note's native cell while its position changes.
+          scrollViewRef.current?.prepareForLayoutAnimationRender();
+          LayoutAnimation.configureNext({
+            duration: 280,
+            update: { type: LayoutAnimation.Types.easeInEaseOut },
+          });
+        }
+        setTasks(current => current.map(item => item.id === updated.id ? updated : item).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
+      }
     } finally {
       pendingCompletions.current.delete(task.id);
     }
-  }, []);
+  }, [reduceMotion]);
   const renderTask = useCallback(({ item }: { item: Task }) => (
     <SwipeableTaskRow task={item} kind={groupKinds.get(item.groupId ?? -1) || 'note'} mediaItems={taskMedia[item.id]} activeRow={activeSwipeRow} onDelete={handleDeleteTask} onToggleComplete={toggleComplete} />
   ), [groupKinds, taskMedia, handleDeleteTask, toggleComplete]);
@@ -331,6 +343,7 @@ export default function HomeScreen() {
                     />
                 }
                 data={filteredTasks}
+                maintainVisibleContentPosition={{ disabled: true }}
                 ListHeaderComponent={
                   <>
                     {/* Spacer block to replace content padding — crucial for RefreshControl stability on Android */}
