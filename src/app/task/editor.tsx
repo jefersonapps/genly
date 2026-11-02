@@ -38,6 +38,7 @@ import {
     ActivityIndicator,
     Keyboard,
     Platform,
+    ScrollView as FormScrollView,
     Text,
     TextInput,
     TouchableOpacity,
@@ -249,7 +250,6 @@ export default function TaskEditor() {
   const [undoStack, setUndoStack] = useState<string[]>([]);
   const [redoStack, setRedoStack] = useState<string[]>([]);
   const lastSavedHtmlRef = useRef<string>("");
-  const [flexToggle, setFlexToggle] = useState(true);
 
   const memoizedDate = React.useMemo(() => {
     return deliveryDate ? new Date(deliveryDate + 'T00:00:00') : new Date();
@@ -347,9 +347,6 @@ export default function TaskEditor() {
     }
   }, [params.sharedText, params.sharedImages, params.reminderDate, params.deliveryDate, params.deliveryTime]);
  
-  useEffect(() => {
-    setFlexToggle(!isKeyboardVisible);
-  }, [isKeyboardVisible]);
 
   const loadInitialData = async (isActive: () => boolean) => {
     const allGroups = await getAllGroups();
@@ -810,12 +807,10 @@ export default function TaskEditor() {
   return (
     <KeyboardAvoidingView 
       className="flex-1" 
-      behavior="padding"
-      keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 20}
-      style={[
-        { paddingTop: insets.top, backgroundColor: colors.surface },
-        flexToggle ? { flexGrow: 1 } : { flex: 1 }
-      ]}
+      enabled={Platform.OS === "ios"}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 0}
+      style={{ flex: 1, paddingTop: insets.top, backgroundColor: colors.surface }}
     >
       {/* ── Header ── */}
       <View
@@ -824,11 +819,11 @@ export default function TaskEditor() {
           { borderBottomColor: colors.border, backgroundColor: colors.surface },
         ]}
       >
-        <View className="flex-row items-center">
+        <View className="flex-row items-center flex-1 mr-2" style={{ minWidth: 0 }}>
           <Button variant="icon" onPress={goBack} className="mr-1">
             <Button.Icon icon={<ArrowLeft size={24} color={colors.text} />} />
           </Button>
-          <Text className="font-sans-bold text-lg ml-2" style={[{ color: colors.text }]}>
+          <Text numberOfLines={1} className="font-sans-bold text-lg ml-2" style={{ color: colors.text, flexShrink: 1 }}>
             {isEditing ? "Editar Nota" : "Nova Nota"}
           </Text>
         </View>
@@ -839,6 +834,15 @@ export default function TaskEditor() {
         </Button>
       </View>
 
+      <FormScrollView
+        style={{ flex: 1, minHeight: 0 }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + 16 }}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "none"}
+        contentInsetAdjustmentBehavior="never"
+        nestedScrollEnabled
+        showsVerticalScrollIndicator
+      >
       <View className="px-5 pt-2.5">
         {/* Title */}
         {isTitleFocused ? (
@@ -1043,9 +1047,9 @@ export default function TaskEditor() {
           />
         </ScrollView>
       </View>
-        <View className="flex-1 px-5">
-          {/* Rich text editor container */}
-          <View className="flex-1">
+        <View className="px-5" style={{ flexGrow: 1, minHeight: 200, paddingBottom: 16 }}>
+          {/* Expand with the document; the form owns vertical scrolling. */}
+          <View style={{ flexGrow: 1, minHeight: 200 }}>
           {dataLoaded && (
             <EnrichedTextInput
               key={`${taskId}-${initialContent?.length || 0}`}
@@ -1110,22 +1114,21 @@ export default function TaskEditor() {
               style={{
                 fontSize: 18,
                 color: colors.text,
-                flex: 1,
+                flexGrow: 1,
+                minHeight: 200,
               }}
-              scrollEnabled={true}
+              scrollEnabled={false}
             />
           )}
  
         </View>
         </View>
 
-        {/* ── Bottom Toolbar ── */}
-        {/* Media section */}
-        {/* Media section */}
+        {/* Optional note metadata follows the editor instead of squeezing it. */}
         {(!isKeyboardVisible || showDatePicker || showTimePicker) && (
           <View 
             className="px-5 pt-2.5 bg-surface" 
-            style={[{ paddingBottom: insets.bottom + 10, backgroundColor: colors.surface }]}
+            style={{ paddingBottom: 10, backgroundColor: colors.surface }}
           >
             {/* Group picker */}
             <View className="mb-3">
@@ -1288,6 +1291,8 @@ export default function TaskEditor() {
           </View>
         )}
 
+
+      </FormScrollView>
 
       {Platform.OS === "ios" && showDatePicker && (
         <DateTimePicker
