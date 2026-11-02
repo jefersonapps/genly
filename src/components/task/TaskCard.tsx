@@ -152,7 +152,7 @@ export const TaskCard = memo(function TaskCard({ compact = false, task, mediaIte
         style={{
           backgroundColor: isSelected ? withOpacity(primaryColor || "#3b82f6", 0.1) : (isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)"),
           borderColor: isSelected ? withOpacity(primaryColor || "#3b82f6", 0.3) : (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"),
-          opacity: (isCompleted && !selectionMode) ? 0.5 : 1,
+          opacity: isCompleted ? 0.5 : 1,
         }}
       >
         <View className="flex-row items-center">
@@ -253,7 +253,7 @@ export const TaskCard = memo(function TaskCard({ compact = false, task, mediaIte
       style={[{
         backgroundColor: isSelected ? withOpacity(primaryColor || "#3b82f6", 0.08) : (isDark ? "#18181b" : "#f4f4f5"),
         borderColor: isSelected ? withOpacity(primaryColor || "#3b82f6", 0.3) : (isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"),
-        opacity: (isCompleted && !selectionMode) ? 0.5 : 1,
+        opacity: isCompleted ? 0.5 : 1,
       }, shadows.sm]}
     >
       {/* Media thumbnails scroll row */}
@@ -388,7 +388,7 @@ export const TaskCard = memo(function TaskCard({ compact = false, task, mediaIte
                 }
 
                 if (compact) {
-                    return snippet ? <Text className="mt-1 font-sans text-sm text-on-surface-secondary" numberOfLines={2} style={{ lineHeight: 20 }}>{snippet}</Text> : null;
+                    return snippet ? <Text className="mt-1 font-sans text-sm text-on-surface-secondary" numberOfLines={2} style={{ lineHeight: 20, textDecorationLine: isCompleted ? 'line-through' : 'none' }}>{snippet}</Text> : null;
                 }
 
                 if (task.content) {
