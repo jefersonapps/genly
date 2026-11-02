@@ -1,4 +1,7 @@
 import BottomSheet from "@/components/ui/BottomSheet";
+import { Dialog } from "@/components/ui/Dialog";
+import { Input } from "@/components/ui/Input";
+import { normalizeScannedDocumentName } from "@/utils/scannedDocumentName";
 import { Button } from "@/components/ui/Button";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { ToolActions } from "@/components/ui/ToolActions";
@@ -31,6 +34,7 @@ import {
 import { PDFDocument, degrees, rgb } from "pdf-lib";
 import React, { useCallback, useRef, useState } from "react";
 import {
+  Keyboard,
   Platform,
   StyleSheet,
   Switch,
@@ -61,6 +65,10 @@ export default function DocumentScannerScreen() {
 
   const [pages, setPages] = useState<ScannedPageItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [documentName, setDocumentName] = useState("Documento digitalizado");
+  const [saveTarget, setSaveTarget] = useState<'pdf' | 'gallery' | null>(null);
+  const saveInProgress = useRef(false);
+  const normalizedName = normalizeScannedDocumentName(documentName);
   const [isOCREnabled, setIsOCREnabled] = useState(false);
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
@@ -228,17 +236,16 @@ export default function DocumentScannerScreen() {
     }
   };
 
-  const handleSavePDF = async () => {
-    bottomSheetModalRef.current?.dismiss();
-    const base64Data = await generatePDFBase64();
-    if (!base64Data) return;
+  const savePDF = async (name: string) => {
     try {
+      const base64Data = await generatePDFBase64();
+      if (!base64Data) return;
       if (Platform.OS === "android") {
         const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
         if (permissions.granted) {
           const uri = await FileSystem.StorageAccessFramework.createFileAsync(
             permissions.directoryUri,
-            `documento-${Date.now()}.pdf`,
+            `${name}.pdf`,
             "application/pdf"
           );
           await FileSystem.writeAsStringAsync(uri, base64Data, {
@@ -248,7 +255,7 @@ export default function DocumentScannerScreen() {
           dialog.show({ title: "Sucesso", description: "PDF salvo com sucesso." });
         }
       } else {
-        const fileUri = `${FileSystem.cacheDirectory}documento-${Date.now()}.pdf`;
+        const fileUri = `${FileSystem.cacheDirectory}${name}.pdf`;
         await FileSystem.writeAsStringAsync(fileUri, base64Data, {
           encoding: FileSystem.EncodingType.Base64,
         });
@@ -258,6 +265,8 @@ export default function DocumentScannerScreen() {
     } catch (error) {
       console.error("Error saving PDF:", error);
       dialog.show({ title: "Erro", description: "Falha ao salvar o PDF." });
+    } finally {
+      saveInProgress.current = false;
     }
   };
 
@@ -281,8 +290,8 @@ export default function DocumentScannerScreen() {
     }
   };
 
-  const handleSaveGallery = async () => {
-    bottomSheetModalRef.current?.dismiss();
+  const saveGallery = async (name: string) => {
+    const temporaryDirectory = `${FileSystem.cacheDirectory}scan-${Date.now()}/`;
     try {
       setIsProcessing(true);
       const { status } = await MediaLibrary.requestPermissionsAsync();
@@ -291,8 +300,12 @@ export default function DocumentScannerScreen() {
         return;
       }
 
-      for (const page of pages) {
-        await MediaLibrary.saveToLibraryAsync(page.uri);
+      await FileSystem.makeDirectoryAsync(temporaryDirectory, { intermediates: true });
+      for (let index = 0; index < pages.length; index++) {
+        const suffix = pages.length > 1 ? `-${String(index + 1).padStart(2, '0')}` : '';
+        const namedUri = `${temporaryDirectory}${name}${suffix}.jpg`;
+        await FileSystem.copyAsync({ from: pages[index].uri, to: namedUri });
+        await MediaLibrary.saveToLibraryAsync(namedUri);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       dialog.show({ title: "Sucesso", description: "Imagens salvas na galeria." });
@@ -301,7 +314,25 @@ export default function DocumentScannerScreen() {
       dialog.show({ title: "Erro", description: "Falha ao salvar imagens." });
     } finally {
       setIsProcessing(false);
+      saveInProgress.current = false;
+      await FileSystem.deleteAsync(temporaryDirectory, { idempotent: true }).catch(() => {});
     }
+  };
+
+  const requestSave = (target: 'pdf' | 'gallery') => {
+    if (!pages.length || isProcessing || saveInProgress.current) return;
+    bottomSheetModalRef.current?.dismiss();
+    setSaveTarget(target);
+  };
+
+  const confirmSave = () => {
+    if (!normalizedName || !saveTarget || saveInProgress.current) return;
+    saveInProgress.current = true;
+    setDocumentName(normalizedName);
+    setSaveTarget(null);
+    Keyboard.dismiss();
+    if (saveTarget === 'pdf') void savePDF(normalizedName);
+    else void saveGallery(normalizedName);
   };
 
   const handleShareImages = async () => {
@@ -655,7 +686,7 @@ export default function DocumentScannerScreen() {
           <View className="flex-row gap-3">
               <Button
                 variant="ghost"
-                onPress={handleSavePDF}
+                onPress={() => requestSave("pdf")}
                 className="flex-1 flex-row items-center p-2 bg-surface-secondary rounded-2xl border border-border"
               >
                 <Download size={18} color={primaryColor} />
@@ -676,7 +707,7 @@ export default function DocumentScannerScreen() {
           <View className="flex-row gap-2">
             <Button
                 variant="ghost"
-                onPress={handleSaveGallery}
+                onPress={() => requestSave("gallery")}
                 className="flex-1 flex-row items-center p-2 bg-surface-secondary rounded-2xl border border-border"
               >
                 <Camera size={18} color={primaryColor} />
@@ -694,6 +725,28 @@ export default function DocumentScannerScreen() {
 
         </BottomSheet.View>
       </BottomSheet>
+      <Dialog visible={saveTarget !== null} onClose={() => setSaveTarget(null)}>
+        <Dialog.Header>
+          <Dialog.Title>Salvar documento</Dialog.Title>
+          <Dialog.Description>Defina o nome do documento antes de salvar. A extensão será adicionada automaticamente.</Dialog.Description>
+        </Dialog.Header>
+        <Input
+          label="Nome do documento"
+          value={documentName}
+          onChangeText={setDocumentName}
+          placeholder="Ex.: Contrato de aluguel"
+          maxLength={120}
+          autoFocus
+          selectTextOnFocus
+          autoCorrect={false}
+          returnKeyType="done"
+          onSubmitEditing={confirmSave}
+        />
+        <Dialog.Footer>
+          <Dialog.Button variant="ghost">Cancelar</Dialog.Button>
+          <Dialog.Button disabled={!normalizedName} onPress={confirmSave}>Salvar</Dialog.Button>
+        </Dialog.Footer>
+      </Dialog>
     </View>
   );
 }
