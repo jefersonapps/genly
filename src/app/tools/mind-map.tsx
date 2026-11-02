@@ -342,7 +342,7 @@ export default function MindMapScreen() {
       await saver.flush();
       if (createNew) {
         const id = await saveMindMapDocument(null, currentMapDocument());
-        router.setParams({ taskId: String(id) });
+        if (id !== null) router.setParams({ taskId: String(id) });
       }
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     } catch {
@@ -397,7 +397,7 @@ export default function MindMapScreen() {
         await previous?.flush();
         if (cancelled) return;
         useMindMapStore.getState().reset();
-        const id: number | null = taskId ? Number(taskId) : continuingSession ? previous?.id ?? null : null;
+        const id: number | null = continuingSession && previous ? previous.id : taskId ? Number(taskId) : null;
         if (id !== null) {
           const task = await getTaskById(id);
           if (cancelled) return;
@@ -423,7 +423,8 @@ export default function MindMapScreen() {
         setSavedMapId(id);
         setAutosaveStatus(hasMindMapContent(currentMapDocument()) ? 'saved' : 'empty');
         unsubscribe = useMindMapStore.subscribe(() => saver.update(currentMapDocument(), hasTypedMapText.current));
-        if (template && id === null) saver.update(currentMapDocument(), true);
+        // Also clean up an empty map loaded from older versions of the app.
+        saver.update(currentMapDocument(), hasTypedMapText.current);
       } catch {
         if (!cancelled) { autosaveRef.current = previous; setAutosaveStatus('error'); }
         if (!cancelled) dialog.show({ title: 'Não foi possível abrir o mapa', description: 'Volte à biblioteca e tente novamente.', variant: 'error' });

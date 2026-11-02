@@ -9,8 +9,11 @@ de outro mapa ser carregado.
 Somente mapas com texto real ou imagens podem ser gravados. Textos padrão como
 “Ideia Central” e “Novo tópico”, espaços e textos vazios não contam como conteúdo.
 A validação se aplica tanto à criação quanto à atualização. Se um mapa já salvo
-ficar vazio, a última versão com conteúdo é preservada e o editor mostra
-**Mapa vazio — não salvo**. Isso não exclui automaticamente mapas existentes.
+ficar vazio, seu registro é excluído da biblioteca e o editor mostra
+**Mapa vazio — não salvo**. Ao adicionar conteúdo de novo, um novo registro é criado.
+A remoção participa da mesma fila de gravação, inclusive se o conteúdo for apagado
+durante a primeira criação ou se novas edições chegarem durante a exclusão.
+Mapas vazios carregados de versões anteriores também são removidos.
 
 O botão “+” dos widgets envia uma intenção de criação; `+native-intent.tsx`
 atribui uma sessão nova para cada abertura, inclusive em links antigos dos widgets.
@@ -45,7 +48,7 @@ npx tsc --noEmit --pretty false
 ```
 
 Os testes cobrem gravação automática, novas edições durante a criação, conteúdo
-apagado antes e durante a gravação, atualizações vazias de IDs existentes, repetição
+apagado antes e durante a gravação, exclusão de IDs existentes que ficaram vazios, repetição
 de links dos widgets e a inicialização do NativeWind sem acessar o getter
 `ImageBackground`. O comportamento visual e os gestos precisam ser conferidos no
 aparelho; não é necessário gerar um build para verificar essas alterações de JS

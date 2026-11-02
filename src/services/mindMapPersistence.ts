@@ -1,8 +1,11 @@
 import { hasMindMapContent, type MindMapDocument } from '@/lib/mindmap/autosave';
-import { createGroup, createTask, getGroupByName, updateTask } from './taskService';
+import { createGroup, createTask, deleteTask, getGroupByName, updateTask } from './taskService';
 
-export async function saveMindMapDocument(id: number | null, document: MindMapDocument): Promise<number> {
-  if (!hasMindMapContent(document)) throw new Error('Empty mind map');
+export async function saveMindMapDocument(id: number | null, document: MindMapDocument): Promise<number | null> {
+  if (!hasMindMapContent(document)) {
+    if (id !== null) await deleteTask(id);
+    return null;
+  }
   const group = await getGroupByName('Mapas Mentais') || await createGroup('Mapas Mentais', 'brain', '#8B5CF6');
   const root = document.nodes.find(node => node.id === document.rootId);
   const placeholder = (title: string) => ['Ideia Central', 'Novo tópico'].includes(title.trim());

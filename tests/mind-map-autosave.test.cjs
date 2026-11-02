@@ -132,42 +132,95 @@ test('a meaningful child or an attached image counts as content', async () => {
   await imageSaver.flush();
   assert.equal(calls.length, 2);
 });
-test('clearing an already saved map never writes an empty document or reports it as saved', async () => {
+test('clearing a saved map removes it, and typing again creates a new record', async () => {
   const calls = [], statuses = [];
-  const saver = new MindMapAutosave(null, async (id, document) => { calls.push([id, document]); return 42; }, status => statuses.push(status));
+  let nextId = 41;
+  const saver = new MindMapAutosave(null, async (id, document) => {
+    calls.push([id, document.nodes[0].title]);
+    return hasMindMapContent(document) ? id ?? ++nextId : null;
+  }, status => statuses.push(status));
   saver.update(doc('Ideia com conteúdo'), true);
   await saver.flush();
+  assert.equal(saver.id, 42);
   saver.update(doc(''), true);
   await saver.flush();
-  assert.equal(calls.length, 1);
+  assert.equal(saver.id, null);
   assert.equal(statuses.at(-1), 'empty');
   saver.update(doc('Ideia com conteúdo'), true);
   await saver.flush();
-  assert.equal(calls.length, 1);
-  assert.equal(statuses.at(-1), 'saved');
+  assert.equal(saver.id, 43);
+  assert.deepEqual(calls, [[null, 'Ideia com conteúdo'], [42, ''], [null, 'Ideia com conteúdo']]);
 });
-test('a map cleared while the first write is pending preserves only its last nonempty document', async () => {
+test('a map cleared during its first write is deleted as soon as creation finishes', async () => {
   let finish;
   const calls = [], statuses = [];
-  const saver = new MindMapAutosave(null, async (_id, value) => {
-    calls.push(value); await new Promise(resolve => { finish = resolve; }); return 42;
+  const saver = new MindMapAutosave(null, async (id, value) => {
+    calls.push([id, value.nodes[0].title]);
+    if (!hasMindMapContent(value)) return null;
+    await new Promise(resolve => { finish = resolve; });
+    return 42;
   }, state => statuses.push(state));
   saver.update(doc('Texto'), true);
   const saving = saver.flush();
   saver.update(doc(''), true);
   finish();
   await saving;
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].nodes[0].title, 'Texto');
+  assert.deepEqual(calls, [[null, 'Texto'], [42, '']]);
+  assert.equal(saver.id, null);
   assert.equal(statuses.at(-1), 'empty');
 });
-test('persistence rejects empty content for existing IDs as well as new maps', async () => {
-  let writes = 0;
+test('persistence deletes empty existing maps and never creates empty new maps', async () => {
+  const deleted = [];
   const { saveMindMapDocument } = createSourceLoader({
     '@/lib/mindmap/autosave': { hasMindMapContent },
-    './taskService': { getGroupByName: async () => { writes++; return { id: 3 }; } },
+    './taskService': {
+      getGroupByName: async () => { throw new Error('Must not load/create a group for an empty map'); },
+      deleteTask: async id => deleted.push(id),
+    },
   })('src/services/mindMapPersistence.ts');
-  await assert.rejects(saveMindMapDocument(42, doc('')), /Empty mind map/);
-  await assert.rejects(saveMindMapDocument(null, doc('Ideia Central')), /Empty mind map/);
-  assert.equal(writes, 0);
+  assert.equal(await saveMindMapDocument(42, doc('')), null);
+  assert.equal(await saveMindMapDocument(null, doc('Ideia Central')), null);
+  assert.deepEqual(deleted, [42]);
+});
+test('an already empty map loaded from storage is removed even without further edits', async () => {
+  const deleted = [];
+  const saver = new MindMapAutosave(42, async (id, value) => {
+    assert.equal(hasMindMapContent(value), false);
+    deleted.push(id);
+    return null;
+  }, () => {});
+  saver.initialize(doc(''));
+  saver.update(doc(''), false);
+  await saver.flush();
+  assert.deepEqual(deleted, [42]);
+  assert.equal(saver.id, null);
+});
+test('new content arriving during deletion is recreated without updating the removed ID', async () => {
+  let finish;
+  const calls = [];
+  const saver = new MindMapAutosave(42, async (id, value) => {
+    calls.push([id, value.nodes[0].title]);
+    if (!hasMindMapContent(value)) { await new Promise(resolve => { finish = resolve; }); return null; }
+    assert.equal(id, null);
+    return 43;
+  }, () => {});
+  saver.initialize(doc('Antigo'));
+  saver.update(doc(''), true);
+  const deleting = saver.flush();
+  saver.update(doc('Texto novo'), true);
+  finish();
+  await deleting;
+  assert.deepEqual(calls, [[42, ''], [null, 'Texto novo']]);
+  assert.equal(saver.id, 43);
+});
+test('failed deletion remains pending and can be retried before leaving the editor', async () => {
+  let fail = true;
+  const saver = new MindMapAutosave(42, async () => { if (fail) throw new Error('disk'); return null; }, () => {});
+  saver.initialize(doc('Texto'));
+  saver.update(doc(''), true);
+  await assert.rejects(saver.flush(), /disk/);
+  assert.equal(saver.id, 42);
+  fail = false;
+  await saver.flush();
+  assert.equal(saver.id, null);
 });
