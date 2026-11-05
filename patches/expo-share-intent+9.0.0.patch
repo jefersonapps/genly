@@ -184,7 +184,8 @@ diff --git a/node_modules/expo-share-intent/android/src/main/java/expo/modules/s
 @@ -140,16 +171,27 @@
              } else {
                  // files / medias
-                 if (intent.action == Intent.ACTION_SEND) {
+-                if (intent.action == Intent.ACTION_SEND) {
++                if (intent.action == Intent.ACTION_SEND || intent.action == Intent.ACTION_VIEW) {
 -                    val uri = intent.parcelable<Uri>(Intent.EXTRA_STREAM);
 +                    val uri = intent.parcelable<Uri>(Intent.EXTRA_STREAM) ?: intent.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.uri ?: intent.data;
 +                    val component = intent.component?.className

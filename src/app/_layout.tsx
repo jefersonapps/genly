@@ -17,7 +17,7 @@ import * as Linking from "expo-linking";
 import * as Notifications from "expo-notifications";
 import { Stack, useRootNavigationState, useRouter, type Href } from "expo-router";
 import { ShareIntentProvider, ShareIntentModule, useShareIntentContext } from "expo-share-intent";
-import { ShareDelivery, shareDestination, shareRequestId } from "@/navigation/shareIntentNavigation";
+import { activeAppRoute, ShareDelivery, shareDestination, shareRequestId } from "@/navigation/shareIntentNavigation";
 import { useDialog } from "@/providers/DialogProvider";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -137,7 +137,7 @@ function RootLayoutNav() {
     }
   }
 
-  const activeRoute = navigationState?.routes[navigationState.index ?? 0];
+  const activeRoute = activeAppRoute(navigationState);
   const shareNavigationReady = isNavigationReady && fontsLoaded && isAuthenticated && hasCompletedOnboarding === true && !!activeRoute && !['index', 'setup', 'onboarding'].includes(activeRoute.name);
 
   useEffect(() => {

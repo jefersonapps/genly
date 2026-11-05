@@ -1,6 +1,21 @@
 import type { ShareIntent } from 'expo-share-intent';
 
 export type ShareDestination = { pathname: string; params: Record<string, string> };
+
+type AppNavigationRoute = { name: string; params?: object; state?: AppNavigationState };
+type AppNavigationState = { index?: number; routes: readonly AppNavigationRoute[] };
+
+/** Expo Router can wrap the app stack in an internal __root navigator. */
+export function activeAppRoute(state: AppNavigationState | undefined): AppNavigationRoute | undefined {
+  let route = state?.routes[state.index ?? 0];
+  while (route?.name === '__root') {
+    const nested = route.state;
+    // Wait for the app navigator to mount rather than treating its wrapper as ready.
+    route = nested?.routes[nested.index ?? 0];
+  }
+  return route;
+}
+
 export function shareRequestId(share: ShareIntent): string {
   return share.meta?.shareId || JSON.stringify([share.type, share.meta?.component, share.text, share.webUrl, share.files]);
 }
