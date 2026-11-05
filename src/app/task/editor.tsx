@@ -457,7 +457,7 @@ export default function TaskEditor() {
           finalThumbnailUri
         );
       }
-      goBack();
+      router.dismissTo("/(tabs)");
     } catch (e) {
       dialog.show({ title: "Erro", description: "Falha ao salvar a nota." });
       console.error(e);
