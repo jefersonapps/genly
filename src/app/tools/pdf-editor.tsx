@@ -64,6 +64,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Internal components
 import { PdfDrawingCanvas } from "@/components/pdf/PdfDrawingCanvas";
+import { PdfAnnotationText } from '@/components/pdf/PdfAnnotationText';
+import { TEXT_FONT_FAMILY, TEXT_LINE_HEIGHT, TEXT_PADDING } from '@/lib/pdfEditor/textLayout';
 import { PdfEyedropperOverlay } from "@/components/pdf/PdfEyedropperOverlay";
 import { ColorPicker } from "@/components/ui/ColorPicker";
 import { Dropdown } from '@/components/ui/Dropdown';
@@ -493,13 +495,14 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
 
         {/* Content */}
         {annotation.type === 'text' && (
-          <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 4 }}>
+          <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: isEditingText ? TEXT_PADDING : 0 }}>
             {isEditingText && onTextChange ? (
               <TextInput
                 ref={inputRef}
                 value={annotation.content}
                 onChangeText={(text) => onTextChange(annotation.id, text)}
                 multiline
+                allowFontScaling={false}
                 scrollEnabled={false}
                 onContentSizeChange={(e) => {
                   const newHeight = Math.max(40, e.nativeEvent.contentSize.height + 16); // Plus some padding
@@ -512,7 +515,9 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
                 style={{
                   fontSize: annotation.fontSize,
                   color: annotation.fontColor || '#000',
-                  fontFamily: 'Montserrat-Medium',
+                  fontFamily: TEXT_FONT_FAMILY,
+                  lineHeight: annotation.fontSize * TEXT_LINE_HEIGHT,
+                  includeFontPadding: false,
                   padding: 0,
                   margin: 0,
                   textAlignVertical: 'center',
@@ -520,16 +525,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
                 }}
               />
             ) : (
-              <Text
-                style={{
-                  fontSize: annotation.fontSize,
-                  color: annotation.fontColor || '#000',
-                  fontFamily: 'Montserrat-Medium',
-                }}
-                numberOfLines={0}
-              >
-                {annotation.content}
-              </Text>
+              <PdfAnnotationText annotation={annotation} />
             )}
           </View>
         )}

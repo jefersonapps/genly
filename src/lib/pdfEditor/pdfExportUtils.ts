@@ -22,6 +22,8 @@ import {
     translate,
 } from 'pdf-lib';
 import type { Annotation, FormField } from './usePdfEditorStore';
+import { embedAnnotationFont } from './annotationFont';
+import { layoutAnnotationText } from './textLayout';
 
 // ─── Helpers ──────────────────────────────────────────
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -83,6 +85,8 @@ export async function exportEditedPdf(
     });
     const pdfDoc = await PDFDocument.load(pdfBase64);
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const annotationFont = annotations.some(annotation => annotation.type === 'text')
+      ? await embedAnnotationFont(pdfDoc) : font;
     const pages = pdfDoc.getPages();
 
     // Apply Form Fields
@@ -242,29 +246,15 @@ export async function exportEditedPdf(
         case 'text': {
           const color = hexToRgb(annotation.fontColor || '#000000');
           const fontSize = annotation.fontSize * s;
-          const lines = (annotation.content || '').split('\n');
-          
-          // React Native Text line height roughly defaults to 1.2x font size
-          const lineHeight = fontSize * 1.2;
-          const totalTextHeight = lines.length * lineHeight;
+          const layout = layoutAnnotationText(annotation, annotationFont);
 
-          // React Native View has paddingHorizontal: 4
-          const textX = annX + (4 * s);
-
-          // React Native View has justifyContent: 'center'
-          // Center the text block vertically in the annotation box.
-          // In PDF, Y origin is bottom. 
-          // Center Y = annY + (annH / 2)
-          // Top of the text block = Center Y + (totalTextHeight / 2)
-          // Baseline of the first line is roughly 0.85 * fontSize below the top of its line box (Montserrat font metrics)
-          const textStartY = annY + (annH / 2) + (totalTextHeight / 2) - (fontSize * 0.85);
-
-          for (let i = 0; i < lines.length; i++) {
-            page.drawText(lines[i], {
-              x: textX,
-              y: textStartY - (i * lineHeight),
+          for (const line of layout.lines) {
+            if (!line.text) continue;
+            page.drawText(line.text, {
+              x: annX + line.x * s,
+              y: pdfH - (annotation.y + line.baseline) * s,
               size: fontSize,
-              font,
+              font: annotationFont,
               color: rgb(color.r, color.g, color.b),
             });
           }
