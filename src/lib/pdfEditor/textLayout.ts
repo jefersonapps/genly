@@ -4,7 +4,7 @@ export const TEXT_PADDING = 4;
 export const TEXT_FONT_FAMILY = 'Montserrat-Medium';
 export const TEXT_LINE_HEIGHT = 1.2;
 
-type TextBox = { content: string; width: number; height: number; fontSize: number };
+type TextBox = { content: string; width: number; height: number; fontSize: number; lineSpacing?: number };
 type TextFont = Pick<PDFFont, 'widthOfTextAtSize' | 'heightAtSize'>;
 
 /** One layout in display coordinates, shared by the preview and PDF export. */
@@ -38,7 +38,7 @@ export function layoutAnnotationText(box: TextBox, font: TextFont) {
 
   const ascent = font.heightAtSize(box.fontSize, { descender: false });
   const fontHeight = font.heightAtSize(box.fontSize);
-  const lineHeight = box.fontSize * TEXT_LINE_HEIGHT;
+  const lineHeight = box.fontSize * (box.lineSpacing ?? TEXT_LINE_HEIGHT);
   const top = (box.height - lines.length * lineHeight) / 2;
   return {
     lineHeight,

@@ -3,7 +3,7 @@ import { useKeyboard } from '@/hooks/useKeyboard';
 import { useDialog } from '@/providers/DialogProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 import { withOpacity } from '@/utils/colors';
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import {
   Canvas,
   Skia,
@@ -17,6 +17,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import {
   Brush,
+  Circle as CircleIcon,
+  RectangleHorizontal,
+  Shapes,
   ChevronDown,
   ChevronLeft,
   ChevronRight, Crop,
@@ -34,7 +37,6 @@ import {
   Plus,
   Redo2,
   RefreshCw,
-  Settings2,
   Share2,
   Trash2,
   Type,
@@ -65,7 +67,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Internal components
 import { PdfDrawingCanvas } from "@/components/pdf/PdfDrawingCanvas";
 import { PdfAnnotationText } from '@/components/pdf/PdfAnnotationText';
+import { PdfShapeAnnotation } from '@/components/pdf/PdfShapeAnnotation';
 import { TEXT_FONT_FAMILY, TEXT_LINE_HEIGHT, TEXT_PADDING } from '@/lib/pdfEditor/textLayout';
+import { DEFAULT_TEXT_FONT, PDF_TEXT_FONTS, type PdfTextFont } from '@/lib/pdfEditor/fonts';
+import { isCanvasTool, snapObjectRotation, type EditorTool, type ShapeDraft } from '@/lib/pdfEditor/drawingTools';
 import { PdfEyedropperOverlay } from "@/components/pdf/PdfEyedropperOverlay";
 import { ColorPicker } from "@/components/ui/ColorPicker";
 import { Dropdown } from '@/components/ui/Dropdown';
@@ -108,7 +113,7 @@ interface DraggableAnnotationProps {
   isDark: boolean;
   primaryColor: string;
   onUpdate: (id: string, updates: Partial<Annotation>) => void;
-  activeTool: 'text' | 'image' | 'brush' | 'eraser' | null;
+  activeTool: EditorTool;
   index: number;
 }
 
@@ -218,7 +223,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
 
   // ── Drag ──
   const dragGesture = Gesture.Pan()
-    .enabled(activeTool !== 'brush' && activeTool !== 'eraser')
+    .enabled(!isCanvasTool(activeTool))
     .minDistance(2)
     .onStart(() => {
       'worklet';
@@ -260,7 +265,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
 
   // ── Tap ──
   const tapGesture = Gesture.Tap()
-    .enabled(activeTool !== 'brush' && activeTool !== 'eraser')
+    .enabled(!isCanvasTool(activeTool))
     .maxDuration(300)
     .onEnd(() => {
       'worklet';
@@ -270,7 +275,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
 
   // ── Double tap ──
   const doubleTapGesture = Gesture.Tap()
-    .enabled(activeTool !== 'brush' && activeTool !== 'eraser')
+    .enabled(!isCanvasTool(activeTool))
     .numberOfTaps(2)
     .maxDuration(350)
     .onEnd(() => {
@@ -285,7 +290,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
 
   // ── Long press ──
   const longPressGesture = Gesture.LongPress()
-    .enabled(activeTool !== 'brush' && activeTool !== 'eraser')
+    .enabled(!isCanvasTool(activeTool))
     .minDuration(500)
     .onStart(() => {
       'worklet';
@@ -298,7 +303,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
 
   const createResizeGesture = (edgeX: number, edgeY: number) => {
     return Gesture.Pan()
-      .enabled(activeTool !== 'brush' && activeTool !== 'eraser')
+      .enabled(!isCanvasTool(activeTool))
       .minDistance(2)
       .hitSlop(20)
       .onStart(() => {
@@ -439,7 +444,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
   // ── Rotation (top-center handle) ──
   const startRotation = useSharedValue(0);
   const rotateGesture = Gesture.Pan()
-    .enabled(activeTool !== 'brush' && activeTool !== 'eraser')
+    .enabled(!isCanvasTool(activeTool))
     .minDistance(2)
     .hitSlop(15)
     .onStart(() => {
@@ -448,7 +453,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
     })
     .onUpdate((e) => {
       'worklet';
-      liveRotation.value = startRotation.value + e.translationX / 1.2;
+      liveRotation.value = snapObjectRotation(startRotation.value + e.translationX / 1.2, annotation);
     })
     .onEnd(() => {
       'worklet';
@@ -515,8 +520,8 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
                 style={{
                   fontSize: annotation.fontSize,
                   color: annotation.fontColor || '#000',
-                  fontFamily: TEXT_FONT_FAMILY,
-                  lineHeight: annotation.fontSize * TEXT_LINE_HEIGHT,
+                  fontFamily: annotation.fontFamily || TEXT_FONT_FAMILY,
+                  lineHeight: annotation.fontSize * (annotation.lineSpacing ?? TEXT_LINE_HEIGHT),
                   includeFontPadding: false,
                   padding: 0,
                   margin: 0,
@@ -529,6 +534,8 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
             )}
           </View>
         )}
+
+        {annotation.type === 'shape' && <PdfShapeAnnotation annotation={annotation} />}
 
         {annotation.type === 'image' && (
           <View style={{ flex: 1, overflow: 'hidden', borderRadius: 2 }}>
@@ -1075,6 +1082,7 @@ export default function PdfEditorTool() {
   const router = useRouter();
   const { resolvedTheme, primaryColor } = useTheme();
   const isDark = resolvedTheme === 'dark';
+  const iconColor = isDark ? '#D4D4D8' : '#52525B';
   const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
   const dialog = useDialog();
 
@@ -1106,6 +1114,7 @@ export default function PdfEditorTool() {
   const addText = usePdfEditorStore((s) => s.addText);
   const addImage = usePdfEditorStore((s) => s.addImage);
   const addDrawing = usePdfEditorStore((s) => s.addDrawing);
+  const addShape = usePdfEditorStore((s) => s.addShape);
   const updateAnnotation = usePdfEditorStore((s) => s.updateAnnotation);
   const deleteAnnotation = usePdfEditorStore((s) => s.deleteAnnotation);
   const selectAnnotation = usePdfEditorStore((s) => s.selectAnnotation);
@@ -1113,7 +1122,7 @@ export default function PdfEditorTool() {
   const resetFormFields = usePdfEditorStore((s) => s.resetFormFields);
 
   const [isProcessing, setIsProcessing] = useState(false);
-  const [activeTool, setActiveTool] = useState<'text' | 'image' | 'brush' | 'eraser' | null>(null);
+  const [activeTool, setActiveTool] = useState<EditorTool>(null);
   // Canvas transform shared values
   const scale = useSharedValue(1);
   const translateX = useSharedValue(0);
@@ -1175,17 +1184,20 @@ export default function PdfEditorTool() {
   const brushSheetRef = useRef<BottomSheetModal>(null);
   const editSnapPoints = useMemo(() => ['40%'], []);
   const exportSnapPoints = useMemo(() => ['35%'], []);
-  const brushSnapPoints = useMemo(() => ['55%'], []);
+  const brushSnapPoints = useMemo(() => ['75%'], []);
 
   // Brush / Eraser state
   const [brushColor, setBrushColor] = useState('#000000');
   const [brushThickness, setBrushThickness] = useState(4);
+  const [brushThicknessInput, setBrushThicknessInput] = useState('4');
   // Add state to track which tool opened the eyedropper
   const [eyedropperTarget, setEyedropperTarget] = useState<'brush' | 'text'>('brush');
   const [eyedropperActive, setEyedropperActive] = useState(false);
 
   // Text editing state
   const [editFontSize, setEditFontSize] = useState(24);
+  const [editFontFamily, setEditFontFamily] = useState<PdfTextFont>(DEFAULT_TEXT_FONT);
+  const [editLineSpacing, setEditLineSpacing] = useState(TEXT_LINE_HEIGHT);
   const [editColor, setEditColor] = useState('#000000');
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
 
@@ -1229,7 +1241,7 @@ export default function PdfEditorTool() {
   }, [currentPage]);
 
   const textOptionsSheetRef = useRef<BottomSheetModal>(null);
-  const textOptionsSnapPoints = useMemo(() => ['30%'], []);
+  const textOptionsSnapPoints = useMemo(() => ['75%'], []);
 
   // Brush state TEXT_COLORS = ['#000000', '#EF4444', '#3B82F6', '#22C55E', '#F97316', '#8B5CF6', '#EC4899', '#FFFFFF'];
 
@@ -1650,11 +1662,13 @@ export default function PdfEditorTool() {
   }, [selectedId, updateAnnotation]);
 
   // ─── Handle Drawing Complete ────────────────────────
-  const handlePathComplete = useCallback((pathData: string) => {
+  const handlePathComplete = useCallback((pathData: string, shape?: ShapeDraft) => {
     if (!pdfUri) return;
-    const color = activeTool === 'eraser' ? '#FFFFFF' : brushColor;
-    addDrawing(currentPage, pathData, color, brushThickness);
-  }, [pdfUri, currentPage, addDrawing, brushColor, brushThickness, activeTool]);
+    if (shape) {
+      addShape(currentPage, shape, brushColor, brushThickness);
+      setActiveTool(null);
+    } else addDrawing(currentPage, pathData, brushColor, brushThickness);
+  }, [pdfUri, currentPage, addDrawing, addShape, brushColor, brushThickness]);
 
   // ─── Edit Annotation ──────────────────────────────
   const openTextEdit = useCallback((id: string) => {
@@ -1675,6 +1689,8 @@ export default function PdfEditorTool() {
     selectAnnotation(id);
     setEditFontSize(typeof ann.fontSize === 'number' ? ann.fontSize : 24);
     setEditColor(ann.fontColor || '#000000'); 
+    setEditFontFamily(ann.fontFamily || DEFAULT_TEXT_FONT);
+    setEditLineSpacing(ann.lineSpacing ?? TEXT_LINE_HEIGHT);
     textOptionsSheetRef.current?.present();
   }, [annotations, selectAnnotation]);
 
@@ -1706,8 +1722,20 @@ export default function PdfEditorTool() {
   }, []);
 
   const changeFontSize = useCallback((val: number) => {
-    setEditFontSize(val);
-    if (selectedId) updateAnnotation(selectedId, { fontSize: val });
+    const fontSize = Math.max(1, Math.min(72, val));
+    setEditFontSize(fontSize);
+    if (selectedId) updateAnnotation(selectedId, { fontSize });
+  }, [selectedId, updateAnnotation]);
+
+  const changeFontFamily = useCallback((fontFamily: PdfTextFont) => {
+    setEditFontFamily(fontFamily);
+    if (selectedId) updateAnnotation(selectedId, { fontFamily });
+  }, [selectedId, updateAnnotation]);
+
+  const changeLineSpacing = useCallback((value: number) => {
+    const lineSpacing = Math.round(Math.max(0.5, Math.min(3, value)) * 10) / 10;
+    setEditLineSpacing(lineSpacing);
+    if (selectedId) updateAnnotation(selectedId, { lineSpacing });
   }, [selectedId, updateAnnotation]);
 
   const changeFontColor = useCallback((val: string) => {
@@ -1728,13 +1756,30 @@ export default function PdfEditorTool() {
   }, [updateAnnotation]);
 
   const handleRotateEnd = useCallback((id: string, rotation: number) => {
-    updateAnnotation(id, { rotation });
-  }, [updateAnnotation]);
+    const annotation = annotations.find(item => item.id === id);
+    updateAnnotation(id, { rotation: annotation ? snapObjectRotation(rotation, annotation) : rotation });
+  }, [annotations, updateAnnotation]);
 
   const handleDeleteAnnotation = useCallback((id: string) => {
     deleteAnnotation(id);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }, [deleteAnnotation]);
+
+  const changeBrushColor = useCallback((strokeColor: string) => {
+    setBrushColor(strokeColor);
+    if (selectedId && annotations.find(annotation => annotation.id === selectedId)?.type === 'shape') {
+      updateAnnotation(selectedId, { strokeColor });
+    }
+  }, [selectedId, annotations, updateAnnotation]);
+
+  const changeBrushThickness = useCallback((value: number) => {
+    const strokeWidth = Math.round(Math.max(0.1, Math.min(20, value)) * 1000) / 1000;
+    setBrushThickness(strokeWidth);
+    setBrushThicknessInput(String(strokeWidth));
+    if (selectedId && annotations.find(annotation => annotation.id === selectedId)?.type === 'shape') {
+      updateAnnotation(selectedId, { strokeWidth });
+    }
+  }, [selectedId, annotations, updateAnnotation]);
 
   const actionSheetRef = useRef<BottomSheetModal>(null);
   const [actionAnnotationId, setActionAnnotationId] = useState<string | null>(null);
@@ -1809,7 +1854,7 @@ export default function PdfEditorTool() {
 
   // Pan: 1 finger when zoomed, 2 fingers always (or when something is selected to avoid drag conflict)
   const panGesture = Gesture.Pan()
-    .minPointers((activeTool === 'brush' || activeTool === 'eraser' || selectedId !== null || annotations.some(a => a.isCropping)) ? 2 : 1)
+    .minPointers((isCanvasTool(activeTool) || selectedId !== null || annotations.some(a => a.isCropping)) ? 2 : 1)
     .onStart(() => {
       savedTranslateX.value = translateX.value;
       savedTranslateY.value = translateY.value;
@@ -1858,7 +1903,8 @@ export default function PdfEditorTool() {
   [annotations, currentPage]);
 
   // Active drawing color
-  const activeStrokeColor = activeTool === 'eraser' ? '#FFFFFF' : brushColor;
+  const currentDrawings = useMemo(() => currentAnnotations.filter(annotation => annotation.type === 'drawing' || annotation.type === 'shape'), [currentAnnotations]);
+  const drawingMode = isCanvasTool(activeTool);
 
   // ─── Empty State ──────────────────────────────────
   if (!pdfUri) {
@@ -2101,14 +2147,16 @@ export default function PdfEditorTool() {
                 </View>
 
                 {/* Active Drawing Canvas (On Top) */}
-                {(activeTool === 'brush' || activeTool === 'eraser') && (
+                {drawingMode && (
                   <PdfDrawingCanvas
                     key={`canvas-active-${currentPage}`}
                     width={pdfDisplayWidth}
                     height={pdfDisplayHeight}
-                    strokeColor={activeStrokeColor}
+                    strokeColor={brushColor}
                     strokeWidth={brushThickness}
-                    existingDrawings={[]} // Only current strokes here, static ones are interleaved below
+                    existingDrawings={currentDrawings}
+                    renderExistingDrawings={false}
+                    navigationGestures={[pinchGesture, panGesture]}
                     onPathComplete={handlePathComplete}
                     activeTool={activeTool}
                     onErase={handleDeleteAnnotation}
@@ -2170,7 +2218,7 @@ export default function PdfEditorTool() {
         className="border-t border-border/10 bg-surface"
         style={{ paddingBottom: Math.max(insets.bottom, 16) }}
       >
-        {(activeTool === 'brush' || activeTool === 'eraser') ? (
+        {drawingMode ? (
           <View className="flex-row items-center justify-around py-3 px-4">
             <TouchableOpacity
               activeOpacity={0.8}
@@ -2214,7 +2262,7 @@ export default function PdfEditorTool() {
               }}
               className="items-center gap-1 px-4 py-2 rounded-2xl"
             >
-              <Settings2 size={22} color={isDark ? '#D4D4D8' : '#52525B'} />
+              <Shapes size={22} color={isDark ? '#D4D4D8' : '#52525B'} />
               <Text className="font-sans-medium text-xs" style={{ color: isDark ? '#D4D4D8' : '#52525B' }}>
                 Ajustes
               </Text>
@@ -2358,9 +2406,21 @@ export default function PdfEditorTool() {
             );
           }
 
-          // Generic selected view (for drawings)
+          // Selected shapes share the brush's color and thickness controls.
           return (
             <View className="flex-row items-center justify-around py-3 px-4">
+              {selectedAnnotation?.type === 'shape' && (
+                <TouchableOpacity activeOpacity={0.8} className="items-center gap-1 px-4 py-2 rounded-2xl"
+                  onPress={() => {
+                    setBrushColor(selectedAnnotation.strokeColor);
+                    setBrushThickness(selectedAnnotation.strokeWidth);
+                    setBrushThicknessInput(String(selectedAnnotation.strokeWidth));
+                    brushSheetRef.current?.present();
+                  }}>
+                  <Palette size={22} color={iconColor} />
+                  <Text className="font-sans-medium text-xs" style={{ color: iconColor }}>Estilo</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => handleDeleteAnnotation(selectedId)}
@@ -2384,7 +2444,7 @@ export default function PdfEditorTool() {
             </View>
           );
         })() : (
-          <View className="flex-row items-center justify-around py-3 px-4">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'space-around', paddingVertical: 12, paddingHorizontal: 8 }}>
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={handleAddText}
@@ -2440,6 +2500,13 @@ export default function PdfEditorTool() {
               </Text>
             </TouchableOpacity>
 
+            <TouchableOpacity activeOpacity={0.8}
+              onPress={() => { selectAnnotation(null); setActiveTool('rectangle'); brushSheetRef.current?.present(); }}
+              className="items-center gap-1 px-3 py-2 rounded-2xl">
+              <Shapes size={22} color={iconColor} />
+              <Text className="font-sans-medium text-xs" style={{ color: iconColor }}>Formas</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => handleImportPdf()}
@@ -2450,7 +2517,7 @@ export default function PdfEditorTool() {
                 Abrir
               </Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         )}
       </View>
 
@@ -2459,8 +2526,24 @@ export default function PdfEditorTool() {
         sheetRef={textOptionsSheetRef}
         snapPoints={textOptionsSnapPoints}
       >
-        <BottomSheet.View>
+        <BottomSheetScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: Math.max(insets.bottom, 24) }}>
           <BottomSheet.Header title="Configurações de Texto" />
+
+          <View>
+            <Text className="font-sans-medium text-sm text-on-surface-secondary mb-2">Fonte</Text>
+            <Dropdown>
+              <Dropdown.Trigger>
+                <TouchableOpacity activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Escolher fonte"
+                  className="flex-row items-center justify-between rounded-2xl bg-surface-secondary p-3">
+                  <Text className="font-sans-medium text-on-surface">{PDF_TEXT_FONTS.find(font => font.id === editFontFamily)?.label}</Text>
+                  <ChevronDown size={18} color={iconColor} />
+                </TouchableOpacity>
+              </Dropdown.Trigger>
+              <Dropdown.Content width={240}>
+                {PDF_TEXT_FONTS.map(font => <Dropdown.Item key={font.id} label={font.label} onPress={() => changeFontFamily(font.id)} />)}
+              </Dropdown.Content>
+            </Dropdown>
+          </View>
 
           {/* Font size */}
           <View className="mb-4">
@@ -2468,20 +2551,38 @@ export default function PdfEditorTool() {
             <View className="flex-row items-center gap-4">
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => changeFontSize(Math.max(8, editFontSize - 2))}
+                onPress={() => changeFontSize(editFontSize - 1)}
                 className="h-10 w-10 rounded-full items-center justify-center"
                 style={{ backgroundColor: isDark ? '#27272A' : '#E5E7EB' }}
               >
                 <Text className="font-sans-bold text-on-surface text-lg">−</Text>
               </TouchableOpacity>
-              <Text className="font-sans-bold text-lg text-on-surface w-10 text-center">{editFontSize}</Text>
+              <TextInput value={String(editFontSize)} selectTextOnFocus keyboardType="number-pad"
+                accessibilityLabel="Tamanho da fonte"
+                onChangeText={text => { if (/^\d+$/.test(text)) changeFontSize(Number(text)); }}
+                className="font-sans-bold text-lg text-on-surface w-16 text-center" />
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => changeFontSize(Math.min(72, editFontSize + 2))}
+                onPress={() => changeFontSize(editFontSize + 1)}
                 className="h-10 w-10 rounded-full items-center justify-center"
                 style={{ backgroundColor: isDark ? '#27272A' : '#E5E7EB' }}
               >
                 <Text className="font-sans-bold text-on-surface text-lg">+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View>
+            <Text className="font-sans-medium text-sm text-on-surface-secondary mb-2">Espaçamento entre linhas</Text>
+            <View className="flex-row items-center gap-4">
+              <TouchableOpacity accessibilityLabel="Diminuir espaçamento" onPress={() => changeLineSpacing(editLineSpacing - 0.1)}
+                className="h-10 w-10 rounded-full items-center justify-center bg-surface-secondary">
+                <Minus size={18} color={iconColor} />
+              </TouchableOpacity>
+              <Text className="font-sans-bold text-lg text-on-surface w-16 text-center">{editLineSpacing.toFixed(1)}×</Text>
+              <TouchableOpacity accessibilityLabel="Aumentar espaçamento" onPress={() => changeLineSpacing(editLineSpacing + 0.1)}
+                className="h-10 w-10 rounded-full items-center justify-center bg-surface-secondary">
+                <Plus size={18} color={iconColor} />
               </TouchableOpacity>
             </View>
           </View>
@@ -2512,7 +2613,7 @@ export default function PdfEditorTool() {
           <BottomSheet.Button onPress={() => textOptionsSheetRef.current?.dismiss()}>
              Concluir
           </BottomSheet.Button>
-        </BottomSheet.View>
+        </BottomSheetScrollView>
       </BottomSheet>
 
       {/* Brush Settings Bottom Sheet */}
@@ -2520,8 +2621,25 @@ export default function PdfEditorTool() {
         sheetRef={brushSheetRef}
         snapPoints={brushSnapPoints}
       >
-        <BottomSheet.View>
-          <BottomSheet.Header title="Pincel" />
+        <BottomSheetScrollView contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: Math.max(insets.bottom, 24) }}>
+          <BottomSheet.Header title="Pincel e formas" subtitle="Escolha uma ferramenta e arraste sobre a página." />
+
+          <View className="flex-row flex-wrap gap-2">
+            {([
+              { tool: 'brush', label: 'Pincel', icon: Brush },
+              { tool: 'circle', label: 'Círculo', icon: CircleIcon },
+              { tool: 'rectangle', label: 'Retângulo', icon: RectangleHorizontal },
+              { tool: 'line', label: 'Linha', icon: Minus },
+            ] as const).map(({ tool, label, icon: Icon }) => (
+              <TouchableOpacity key={tool} accessibilityRole="button" accessibilityState={{ selected: activeTool === tool }}
+                onPress={() => { selectAnnotation(null); setActiveTool(tool); }}
+                className="flex-row items-center gap-2 px-3 py-3 rounded-2xl"
+                style={{ backgroundColor: activeTool === tool ? withOpacity(primaryColor, 0.15) : (isDark ? '#27272A' : '#E5E7EB') }}>
+                <Icon size={18} color={activeTool === tool ? primaryColor : iconColor} />
+                <Text className="font-sans-medium text-on-surface">{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
           {/* Color Picker */}
           <View className="mb-2">
@@ -2542,18 +2660,18 @@ export default function PdfEditorTool() {
             </View>
             <ColorPicker
               selectedColor={brushColor}
-              onSelect={(color) => setBrushColor(color)}
+              onSelect={changeBrushColor}
               isDark={isDark}
             />
           </View>
 
           {/* Thickness control */}
           <View className="mb-2">
-            <Text className="font-sans-medium text-sm text-on-surface-secondary mb-2">Espessura</Text>
+            <Text className="font-sans-medium text-sm text-on-surface-secondary mb-2">Espessura do pincel e das formas</Text>
             <View className="flex-row items-center gap-4">
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => setBrushThickness(Math.max(1, brushThickness - 1))}
+                onPress={() => changeBrushThickness(brushThickness - (brushThickness <= 1 ? 0.1 : 1))}
                 className="h-10 w-10 rounded-full items-center justify-center"
                 style={{ backgroundColor: isDark ? '#27272A' : '#E5E7EB' }}
               >
@@ -2563,18 +2681,27 @@ export default function PdfEditorTool() {
               <View className="flex-1 items-center justify-center">
                 <View
                   style={{
-                    width: Math.min(brushThickness * 4, 80),
-                    height: Math.min(brushThickness * 4, 80),
+                    width: 80,
+                    height: brushThickness,
                     borderRadius: 100,
                     backgroundColor: brushColor,
                   }}
                 />
-                <Text className="font-sans-bold text-sm text-on-surface mt-2">{brushThickness}px</Text>
+                <View className="flex-row items-center mt-2">
+                  <BottomSheetTextInput value={brushThicknessInput} onChangeText={setBrushThicknessInput}
+                    keyboardType="decimal-pad" selectTextOnFocus accessibilityLabel="Espessura do traço em pixels"
+                    onEndEditing={({ nativeEvent: { text } }) => {
+                      const value = Number(text.replace(',', '.'));
+                      changeBrushThickness(Number.isFinite(value) && value > 0 ? value : brushThickness);
+                    }}
+                    className="font-sans-bold text-sm text-on-surface text-center" style={{ minWidth: 44 }} />
+                  <Text className="font-sans-medium text-sm text-on-surface">px</Text>
+                </View>
               </View>
 
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => setBrushThickness(Math.min(20, brushThickness + 1))}
+                onPress={() => changeBrushThickness(brushThickness + (brushThickness < 1 ? 0.1 : 1))}
                 className="h-10 w-10 rounded-full items-center justify-center"
                 style={{ backgroundColor: isDark ? '#27272A' : '#E5E7EB' }}
               >
@@ -2588,7 +2715,7 @@ export default function PdfEditorTool() {
             Concluir
           </BottomSheet.Button>
 
-        </BottomSheet.View>
+        </BottomSheetScrollView>
       </BottomSheet>
       <BottomSheet
         sheetRef={exportSheetRef}
@@ -2666,7 +2793,7 @@ export default function PdfEditorTool() {
           page={currentPage}
           onColorPicked={(color) => {
             if (eyedropperTarget === 'brush') {
-              setBrushColor(color);
+              changeBrushColor(color);
             } else {
               setEditColor(color);
               if (selectedId) updateAnnotation(selectedId, { fontColor: color });

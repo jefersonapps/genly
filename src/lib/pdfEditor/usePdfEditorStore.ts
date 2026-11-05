@@ -1,7 +1,9 @@
 import { create } from 'zustand';
+import type { PdfTextFont } from './fonts';
+import { shapeBounds, type ShapeDraft, type ShapeTool } from './drawingTools';
 
 // ─── Types ────────────────────────────────────────────
-export type AnnotationType = 'text' | 'image' | 'drawing';
+export type AnnotationType = 'text' | 'image' | 'drawing' | 'shape';
 
 export interface FormField {
   id: string;
@@ -36,6 +38,8 @@ export interface Annotation {
   content: string;      // text content or image URI
   fontSize: number;
   fontColor: string;
+  fontFamily?: PdfTextFont;
+  lineSpacing?: number; // line height as a multiple of font size
   // Image-specific: original dimensions for aspect-ratio locking
   originalWidth: number;
   originalHeight: number;
@@ -49,6 +53,9 @@ export interface Annotation {
   pathData: string;     // serialized SVG path string from Skia
   strokeColor: string;  // hex color of the brush stroke
   strokeWidth: number;  // brush thickness in display px
+  shapeKind?: ShapeTool;
+  shapeStart?: { x: number; y: number };
+  shapeEnd?: { x: number; y: number };
 }
 
 export interface EditorSnapshot {
@@ -89,6 +96,7 @@ interface PdfEditorState {
   addText: (page: number, x: number, y: number) => string;
   addImage: (page: number, x: number, y: number, width: number, height: number, uri: string, origW: number, origH: number) => string;
   addDrawing: (page: number, pathData: string, strokeColor: string, strokeWidth: number) => string;
+  addShape: (page: number, draft: ShapeDraft, strokeColor: string, strokeWidth: number) => string;
   updateAnnotation: (id: string, updates: Partial<Omit<Annotation, 'id' | 'type' | 'page'>>) => void;
   toggleCropping: (id: string) => void;
   deleteAnnotation: (id: string) => void;
@@ -235,6 +243,20 @@ export const usePdfEditorStore = create<PdfEditorState>((set, get) => ({
       pathData, strokeColor, strokeWidth,
     };
     set((s) => ({ annotations: [...s.annotations, annotation] }));
+    return id;
+  },
+
+  addShape: (page, draft, strokeColor, strokeWidth) => {
+    get().saveHistory();
+    const id = generateId();
+    const geometry = shapeBounds(draft);
+    const annotation: Annotation = {
+      id, page, type: 'shape', ...geometry, rotation: 0,
+      content: '', fontSize: 0, fontColor: '', originalWidth: 0, originalHeight: 0,
+      isCropping: false, cropX: 0, cropY: 0, cropScaleX: 1, cropScaleY: 1,
+      pathData: '', strokeColor, strokeWidth,
+    };
+    set(state => ({ annotations: [...state.annotations, annotation], selectedId: id }));
     return id;
   },
 

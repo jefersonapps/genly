@@ -24,6 +24,8 @@ import {
 import type { Annotation, FormField } from './usePdfEditorStore';
 import { embedAnnotationFont } from './annotationFont';
 import { layoutAnnotationText } from './textLayout';
+import { DEFAULT_TEXT_FONT, type PdfTextFont } from './fonts';
+import { shapeAnnotationPath } from './drawingTools';
 
 // ─── Helpers ──────────────────────────────────────────
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -85,8 +87,12 @@ export async function exportEditedPdf(
     });
     const pdfDoc = await PDFDocument.load(pdfBase64);
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const annotationFont = annotations.some(annotation => annotation.type === 'text')
-      ? await embedAnnotationFont(pdfDoc) : font;
+    const annotationFonts = new Map<PdfTextFont, typeof font>();
+    for (const annotation of annotations) {
+      if (annotation.type !== 'text') continue;
+      const family = annotation.fontFamily || DEFAULT_TEXT_FONT;
+      if (!annotationFonts.has(family)) annotationFonts.set(family, await embedAnnotationFont(pdfDoc, family));
+    }
     const pages = pdfDoc.getPages();
 
     // Apply Form Fields
@@ -244,6 +250,7 @@ export async function exportEditedPdf(
 
       switch (annotation.type) {
         case 'text': {
+          const annotationFont = annotationFonts.get(annotation.fontFamily || DEFAULT_TEXT_FONT)!;
           const color = hexToRgb(annotation.fontColor || '#000000');
           const fontSize = annotation.fontSize * s;
           const layout = layoutAnnotationText(annotation, annotationFont);
@@ -310,8 +317,10 @@ export async function exportEditedPdf(
           break;
         }
 
+        case 'shape':
         case 'drawing': {
-          if (!annotation.pathData) break;
+          const pathData = annotation.type === 'shape' ? shapeAnnotationPath(annotation) : annotation.pathData;
+          if (!pathData) break;
           
           const strokeRgb = hexToRgb(annotation.strokeColor || '#000000');
           // borderWidth is scaled by the `scale` parameter in drawSvgPath,
@@ -326,7 +335,7 @@ export async function exportEditedPdf(
               setLineJoin(LineJoinStyle.Round)
             );
 
-            page.drawSvgPath(annotation.pathData, {
+            page.drawSvgPath(pathData, {
               x: 0,
               y: pdfH, // Start from top-left. drawSvgPath flips the Y axis automatically.
               scale: s,

@@ -1,21 +1,11 @@
 import type { Annotation } from '@/lib/pdfEditor/usePdfEditorStore';
-import {
-  Canvas,
-  Circle,
-  Group,
-  Skia,
-  Path as SkiaPath,
-} from '@shopify/react-native-skia';
+import { shapePath, shapeAnnotationPath, shapeRotationMatrix, snapLineEnd, type ShapeDraft, type EditorTool } from '../../lib/pdfEditor/drawingTools';
+import { Canvas, Circle, Group, Skia, Path as SkiaPath } from '@shopify/react-native-skia';
 import * as Haptics from 'expo-haptics';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  runOnJS,
-  useDerivedValue,
-  useSharedValue,
-  type SharedValue
-} from 'react-native-reanimated';
+import { Gesture, GestureDetector, type GestureType } from 'react-native-gesture-handler';
+import Animated, { runOnJS, useDerivedValue, useSharedValue, type SharedValue } from 'react-native-reanimated';
 
 interface PdfDrawingCanvasProps {
   width: number;
@@ -23,274 +13,164 @@ interface PdfDrawingCanvasProps {
   strokeColor: string;
   strokeWidth: number;
   existingDrawings: Annotation[];
-  onPathComplete: (pathData: string) => void;
+  onPathComplete: (pathData: string, shape?: ShapeDraft) => void;
   interactive?: boolean;
-  activeTool?: 'brush' | 'eraser' | 'text' | 'image' | null;
+  activeTool?: EditorTool;
   onErase?: (id: string) => void;
   canvasScale?: SharedValue<number>;
+  renderExistingDrawings?: boolean;
+  navigationGestures?: GestureType[];
 }
 
-export function PdfDrawingCanvas({
-  width,
-  height,
-  strokeColor,
-  strokeWidth,
-  existingDrawings,
-  onPathComplete,
-  interactive = true,
-  activeTool = 'brush',
-  onErase,
-  canvasScale,
-}: PdfDrawingCanvasProps) {
-  // Local temporary paths to avoid flicker before store updates
-  const [localPaths, setLocalPaths] = useState<{ path: string; color: string; width: number }[]>([]);
-  
+export function PdfDrawingCanvas({ width, height, strokeColor, strokeWidth, existingDrawings,
+  onPathComplete, interactive = true, activeTool = 'brush', onErase, canvasScale,
+  renderExistingDrawings = true, navigationGestures = [] }: PdfDrawingCanvasProps) {
   const activePath = useSharedValue<ReturnType<typeof Skia.Path.Make> | null>(null);
+  const startPoint = useSharedValue<{ x: number; y: number } | null>(null);
   const prevPoint = useSharedValue<{ x: number; y: number } | null>(null);
-  const prevEraserPoint = useSharedValue<{ x: number; y: number } | null>(null);
-  
-  // Eraser visual indicator states
   const eraserX = useSharedValue(-100);
   const eraserY = useSharedValue(-100);
   const showEraser = useSharedValue(0);
-  
-  // Caching erased IDs for the current gesture to avoid bridge flooding
-  const erasedIdsInGesture = useSharedValue<string[]>([]);
+  const erasedIds = useSharedValue<string[]>([]);
+  const cancelled = useSharedValue(false);
+  const drawings = useSharedValue<{ id: string; path: ReturnType<typeof Skia.Path.Make>; color: string; width: number }[]>([]);
 
-  // Clear local paths if external state (like Undo/Redo) changes the drawings array
-  useEffect(() => {
-    setLocalPaths((prev) => prev.length > 0 ? [] : prev);
-  }, [existingDrawings]);
-  
-  // Pre-calculated hit paths for eraser performance (on UI thread)
-  const hitPaths = useSharedValue<{ id: string; hitPath: ReturnType<typeof Skia.Path.Make> }[]>([]);
-
-  useEffect(() => {
-    if (activeTool === 'eraser') {
-      const calculated = existingDrawings.map((ann) => {
-        if (!ann.pathData || typeof ann.pathData !== 'string') return null;
-        try {
-          const path = Skia.Path.MakeFromSVGString(ann.pathData);
-          if (!path) return null;
-          // Ultra-generous world buffer (80 units) for perfect hit detection
-          const stroked = Skia.Path.Stroke(path, { width: (ann.strokeWidth || 3) + 80, cap: 1, join: 1 });
-          return stroked ? { id: ann.id, hitPath: stroked } : null;
-        } catch (e) {
-          return null;
-        }
-      }).filter(Boolean) as { id: string; hitPath: ReturnType<typeof Skia.Path.Make> }[];
-      hitPaths.value = calculated;
-    } else {
-      hitPaths.value = [];
+  const parsedDrawings = useMemo(() => existingDrawings.flatMap(annotation => {
+    let path = Skia.Path.MakeFromSVGString(annotation.type === 'shape' ? shapeAnnotationPath(annotation) : annotation.pathData);
+    if (path && annotation.type === 'shape' && annotation.rotation) {
+      path = Skia.PathBuilder.MakeFromPath(path).transform(shapeRotationMatrix(annotation)).detach();
     }
-  }, [existingDrawings, activeTool]);
-  
-  const parsedExistingDrawings = useMemo(() => {
-    return existingDrawings.map((ann) => {
-      if (!ann.pathData || typeof ann.pathData !== 'string') return null;
-      try {
-        const path = Skia.Path.MakeFromSVGString(ann.pathData);
-        if (!path) return null;
-        return {
-          id: ann.id,
-          path,
-          color: ann.strokeColor || '#000000',
-          width: ann.strokeWidth || 3
-        };
-      } catch (e) { return null; }
-    }).filter(Boolean) as { id: string; path: ReturnType<typeof Skia.Path.Make>; color: string; width: number }[];
-  }, [existingDrawings]);
+    return path ? [{ id: annotation.id, path, color: annotation.strokeColor || '#000000', width: annotation.strokeWidth || 3 }] : [];
+  }), [existingDrawings]);
 
-  const parsedLocalPaths = useMemo(() => {
-    return localPaths.map((p, i) => {
-      try {
-        const path = Skia.Path.MakeFromSVGString(p.path);
-        if (!path) return null;
-        return { path, color: p.color, width: p.width };
-      } catch (e) { return null; }
-    }).filter(Boolean) as { path: ReturnType<typeof Skia.Path.Make>; color: string; width: number }[];
-  }, [localPaths]);
+  useEffect(() => {
+    drawings.set(parsedDrawings);
+    // The committed path is now painted by the annotations layer.
+    activePath.set(null);
+  }, [parsedDrawings, drawings, activePath]);
 
-  const onPathCompleteJS = useCallback((svgStr: string) => {
-    onPathComplete(svgStr);
-    setLocalPaths(prev => [...prev, { path: svgStr, color: strokeColor, width: strokeWidth }]);
-    // Fix: Wait for React to paint the new localPaths state before clearing the active path
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        activePath.value = null;
-      }, 50); // Small buffer to ensure Skia renders the new path
-    });
-  }, [onPathComplete, strokeColor, strokeWidth, activePath]);
+  useEffect(() => { activePath.set(null); }, [activeTool, activePath]);
 
-  const onEraseJS = useCallback((id: string) => {
-    if (onErase) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      onErase(id);
-      // Clear ghost local paths so erased strokes don't persist visually
-      setLocalPaths([]);
-    }
+  const eraserRadius = useDerivedValue(() => 20 / (canvasScale?.value || 1));
+  const hitPaths = useDerivedValue(() => activeTool === 'eraser' ? drawings.value.flatMap(item => {
+    const hitPath = Skia.Path.Stroke(item.path, { width: item.width + eraserRadius.value * 2, cap: 1, join: 1 });
+    return hitPath ? [{ id: item.id, hitPath }] : [];
+  }) : [], [activeTool]);
+
+  const eraseJS = useCallback((id: string) => {
+    onErase?.(id);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [onErase]);
 
-  const drawGesture = Gesture.Pan()
-    .minDistance(1)
-    .maxPointers(1)
-    .onStart((e) => {
+  const eraseAtPoint = (x: number, y: number) => {
+    'worklet';
+    for (const item of hitPaths.value) {
+      if (!erasedIds.value.includes(item.id) && item.hitPath.contains(x, y)) {
+        erasedIds.value = [...erasedIds.value, item.id];
+      }
+    }
+  };
+
+  const cancelDrawing = () => {
+    'worklet';
+    cancelled.value = true;
+    activePath.set(null);
+    startPoint.value = null;
+    prevPoint.value = null;
+    showEraser.value = 0;
+    erasedIds.value = [];
+  };
+
+  const drawGesture = Gesture.Pan().minDistance(0).maxPointers(1)
+    .simultaneousWithExternalGesture(...navigationGestures)
+    .onBegin(() => {
       'worklet';
+      cancelled.value = false;
+    })
+    .onTouchesDown((event, manager) => {
+      'worklet';
+      if (event.numberOfTouches > 1) {
+        cancelDrawing();
+        manager.fail();
+      }
+    })
+    .onStart(e => {
+      'worklet';
+      if (cancelled.value || e.numberOfPointers > 1) { cancelDrawing(); return; }
+      startPoint.value = { x: e.x, y: e.y };
+      prevPoint.value = startPoint.value;
       if (activeTool === 'eraser') {
         eraserX.value = e.x;
         eraserY.value = e.y;
         showEraser.value = 1;
-        prevEraserPoint.value = { x: e.x, y: e.y };
-        erasedIdsInGesture.value = [];
-      } else if (activeTool === 'brush') {
-        const path = Skia.PathBuilder.Make();
-        path.moveTo(e.x, e.y);
-        activePath.value = path.detach();
-        prevPoint.value = { x: e.x, y: e.y };
+        erasedIds.value = [];
+        eraseAtPoint(e.x, e.y);
+      } else {
+        activePath.set(Skia.PathBuilder.Make().moveTo(e.x, e.y).detach());
       }
     })
-    .onUpdate((e) => {
+    .onUpdate(e => {
       'worklet';
+      if (e.numberOfPointers > 1) { cancelDrawing(); return; }
+      if (cancelled.value) return;
+      const previous = prevPoint.value;
+      if (!previous || !startPoint.value) return;
       if (activeTool === 'eraser') {
         eraserX.value = e.x;
         eraserY.value = e.y;
-        
-        if (prevEraserPoint.value) {
-          const dx = e.x - prevEraserPoint.value.x;
-          const dy = e.y - prevEraserPoint.value.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          
-          // Fixed physical sampling (approx 5px on screen)
-          const currentScale = canvasScale ? canvasScale.value : 1;
-          const sampleStep = 5 / currentScale;
-          const steps = Math.max(1, Math.ceil(dist / sampleStep));
-          
-          const alreadyErased = [...erasedIdsInGesture.value];
-          let listUpdated = false;
-          
-          for (let s = 0; s <= steps; s++) {
-            const sx = prevEraserPoint.value.x + (dx * s) / steps;
-            const sy = prevEraserPoint.value.y + (dy * s) / steps;
-            
-            // Fix Bug 2: Read hitPaths.value fresh each iteration
-            // so mid-gesture deletions don't leave stale Skia path refs
-            const freshPaths = hitPaths.value;
-            if (freshPaths.length === 0) break;
-            
-            for (let i = 0; i < freshPaths.length; i++) {
-              const item = freshPaths[i];
-              if (!item || !item.id || !item.hitPath) continue;
-
-              let found = false;
-              for (let j = 0; j < alreadyErased.length; j++) {
-                if (alreadyErased[j] === item.id) {
-                  found = true;
-                  break;
-                }
-              }
-              
-              if (!found && item.hitPath.contains(sx, sy)) {
-                runOnJS(onEraseJS)(item.id);
-                alreadyErased.push(item.id);
-                listUpdated = true;
-              }
-            }
-          }
-          if (listUpdated) {
-            erasedIdsInGesture.value = alreadyErased;
-          }
-        }
-        prevEraserPoint.value = { x: e.x, y: e.y };
-      } else if (activeTool === 'brush' && activePath.value && prevPoint.value) {
-        const path = Skia.PathBuilder.MakeFromPath(activePath.value);
-        const midX = (prevPoint.value.x + e.x) / 2;
-        const midY = (prevPoint.value.y + e.y) / 2;
-        path.quadTo(prevPoint.value.x, prevPoint.value.y, midX, midY);
-        activePath.value = path.detach();
-        prevPoint.value = { x: e.x, y: e.y };
+        const dx = e.x - previous.x;
+        const dy = e.y - previous.y;
+        const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (5 / (canvasScale?.value || 1))));
+        for (let i = 0; i <= steps; i++) eraseAtPoint(previous.x + dx * i / steps, previous.y + dy * i / steps);
+      } else if (activeTool === 'brush' && activePath.value) {
+        activePath.set(Skia.PathBuilder.MakeFromPath(activePath.value)
+          .quadTo(previous.x, previous.y, (previous.x + e.x) / 2, (previous.y + e.y) / 2).detach());
+      } else if (activeTool === 'circle' || activeTool === 'rectangle' || activeTool === 'line') {
+        const end = activeTool === 'line' ? snapLineEnd(startPoint.value, { x: e.x, y: e.y }) : { x: e.x, y: e.y };
+        activePath.set(Skia.Path.MakeFromSVGString(shapePath(activeTool, startPoint.value, end)));
+      }
+      prevPoint.value = { x: e.x, y: e.y };
+    })
+    .onEnd((e, success) => {
+      'worklet';
+      // A cancelled pan can still emit onEnd when the second finger starts zooming.
+      if (success === false || cancelled.value || e.numberOfPointers > 1) { cancelDrawing(); return; }
+      if (activeTool === 'eraser') {
+        eraseAtPoint(e.x, e.y);
+        // Commit only a completed single-finger gesture; zoom must not erase data.
+        for (const id of erasedIds.value) runOnJS(eraseJS)(id);
+      } else if (activeTool === 'brush' && activePath.value) {
+        const path = Skia.PathBuilder.MakeFromPath(activePath.value).lineTo(e.x + 0.001, e.y).detach();
+        activePath.set(path);
+        runOnJS(onPathComplete)(path.toSVGString());
+      } else if (startPoint.value && (activeTool === 'circle' || activeTool === 'rectangle' || activeTool === 'line')) {
+        const end = activeTool === 'line' ? snapLineEnd(startPoint.value, { x: e.x, y: e.y }) : { x: e.x, y: e.y };
+        const distance = Math.hypot(end.x - startPoint.value.x, end.y - startPoint.value.y);
+        const svg = shapePath(activeTool, startPoint.value, end);
+        if (distance > 1 && svg) runOnJS(onPathComplete)(svg, { kind: activeTool, start: startPoint.value, end });
+        else activePath.set(null);
       }
     })
-    .onEnd((e) => {
+    .onFinalize((_event, success) => {
       'worklet';
       showEraser.value = 0;
-      prevEraserPoint.value = null;
-      
-      if (activeTool === 'brush' && activePath.value) {
-        const path = Skia.PathBuilder.MakeFromPath(activePath.value);
-        // Add final segment to exactly match finger lift point
-        path.lineTo(e.x, e.y);
-        const svg = path.detach().toSVGString();
-        if (svg.length > 5) {
-          runOnJS(onPathCompleteJS)(svg);
-        } else {
-          activePath.value = null;
-        }
-      }
+      startPoint.value = null;
       prevPoint.value = null;
-      erasedIdsInGesture.value = [];
-    })
-    .onFinalize(() => {
-      'worklet';
-      showEraser.value = 0;
-      prevEraserPoint.value = null;
-      // Do NOT clear activePath here unconditionally, or it will flicker before onPathCompleteJS runs
-      prevPoint.value = null;
-      erasedIdsInGesture.value = [];
+      erasedIds.value = [];
+      if (!success) activePath.set(null);
     });
 
-  const activePathDerived = useDerivedValue(() => {
-    return activePath.value || Skia.Path.Make();
-  });
-
-  const eraserRadius = useDerivedValue(() => {
-    const scale = canvasScale ? canvasScale.value : 1;
-    return 20 / scale; // Larger visual indicator too
-  });
-
+  const displayedPath = useDerivedValue(() => activePath.value || Skia.Path.Make());
   if (width <= 0 || height <= 0) return null;
-
   return (
     <View style={[StyleSheet.absoluteFill, { zIndex: 25 }]} pointerEvents="box-none">
       <GestureDetector gesture={drawGesture}>
-        <Animated.View style={{ width, height }} pointerEvents={interactive ? "auto" : "none"}>
+        <Animated.View style={{ width, height }} pointerEvents={interactive ? 'auto' : 'none'}>
           <Canvas style={{ width, height }}>
-            {/* Store Drawings */}
-            {parsedExistingDrawings.map((item) => (
-              <SkiaPath
-                key={item.id}
-                path={item.path}
-                color={item.color}
-                style="stroke"
-                strokeWidth={item.width}
-                strokeCap="round"
-                strokeJoin="round"
-              />
+            {renderExistingDrawings && parsedDrawings.map(item => (
+              <SkiaPath key={item.id} path={item.path} color={item.color} style="stroke" strokeWidth={item.width} strokeCap="round" strokeJoin="round" />
             ))}
-
-            {/* Local Unsaved Paths */}
-            {parsedLocalPaths.map((item, i) => (
-              <SkiaPath
-                key={`local-${i}`}
-                path={item.path}
-                color={item.color}
-                style="stroke"
-                strokeWidth={item.width}
-                strokeCap="round"
-                strokeJoin="round"
-              />
-            ))}
-
-            {/* Active Path */}
-            <SkiaPath
-              path={activePathDerived}
-              color={strokeColor}
-              style="stroke"
-              strokeWidth={strokeWidth}
-              strokeCap="round"
-              strokeJoin="round"
-            />
-
-            {/* Visual Cursor */}
+            <SkiaPath path={displayedPath} color={strokeColor} style="stroke" strokeWidth={strokeWidth} strokeCap="round" strokeJoin="round" />
             <Group opacity={showEraser}>
               <Circle cx={eraserX} cy={eraserY} r={eraserRadius} color="#FFFFFF" />
               <Circle cx={eraserX} cy={eraserY} r={eraserRadius} color="#000000" style="stroke" strokeWidth={1} />
