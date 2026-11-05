@@ -39,6 +39,11 @@ export async function embedAnnotationFont(document: PDFDocument, family: PdfText
   return document.embedFont(await loadFontData(family), { subset: true });
 }
 
+/** Register the native typeface without constructing PDF font metrics during editing. */
+export async function loadAnnotationTypeface(family: PdfTextFont = DEFAULT_TEXT_FONT): Promise<void> {
+  await loadFontData(family);
+}
+
 /** Cache the same font metrics used when embedding annotation text in the PDF. */
 export function loadAnnotationPreviewFont(family: PdfTextFont = DEFAULT_TEXT_FONT) {
   const cached = previewFonts.get(family);

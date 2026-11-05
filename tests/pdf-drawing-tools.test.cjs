@@ -35,6 +35,7 @@ async function canvas(tool, annotations, callbacks, scale = 1) {
     'react-native-reanimated': { View: 'AnimatedView', runOnJS: fn => fn,
       useSharedValue: value => runtime.react.useRef({ value, set(next) { this.value = next; } }).current,
       useDerivedValue: fn => ({ get value() { return fn(); } }),
+      useAnimatedReaction: () => {},
     },
     'react-native-gesture-handler': { GestureDetector: 'GestureDetector', Gesture: { Pan: () => {
       const callbacks = {};

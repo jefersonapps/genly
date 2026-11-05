@@ -54,11 +54,12 @@ import {
   View,
   useWindowDimensions
 } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, type GestureType } from 'react-native-gesture-handler';
 import Pdf from '@/components/ui/PdfWrapper';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
+  useAnimatedReaction,
   useSharedValue,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -68,7 +69,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PdfDrawingCanvas } from "@/components/pdf/PdfDrawingCanvas";
 import { PdfAnnotationText } from '@/components/pdf/PdfAnnotationText';
 import { PdfShapeAnnotation } from '@/components/pdf/PdfShapeAnnotation';
-import { TEXT_FONT_FAMILY, TEXT_LINE_HEIGHT, TEXT_PADDING } from '@/lib/pdfEditor/textLayout';
+import { PdfSelectionHandle } from '@/components/pdf/PdfSelectionHandle';
+import { singlePointerPan, type PointerStates } from '@/lib/pdfEditor/singlePointerPan';
+import { TEXT_LINE_HEIGHT } from '@/lib/pdfEditor/textLayout';
+import { matchesNativeTextLayout, type NativeTextLayout, type NativeTextLayouts } from '@/lib/pdfEditor/nativeTextLayout';
 import { DEFAULT_TEXT_FONT, PDF_TEXT_FONTS, type PdfTextFont } from '@/lib/pdfEditor/fonts';
 import { isCanvasTool, snapObjectRotation, type EditorTool, type ShapeDraft } from '@/lib/pdfEditor/drawingTools';
 import { PdfEyedropperOverlay } from "@/components/pdf/PdfEyedropperOverlay";
@@ -100,6 +104,8 @@ interface DraggableAnnotationProps {
   annotation: Annotation;
   isSelected: boolean;
   canvasScale: SharedValue<number>;
+  navigationGestures: GestureType[];
+  navigationActive: SharedValue<boolean>;
   onSelect: (id: string) => void;
   onDragEnd: (id: string, x: number, y: number) => void;
   onResizeEnd: (id: string, w: number, h: number, x?: number, y?: number) => void;
@@ -110,6 +116,7 @@ interface DraggableAnnotationProps {
   isEditingText?: boolean;
   onTextChange?: (id: string, text: string) => void;
   onTextBlur?: (id: string) => void;
+  onNativeTextLayout: (id: string, layout: NativeTextLayout) => void;
   isDark: boolean;
   primaryColor: string;
   onUpdate: (id: string, updates: Partial<Annotation>) => void;
@@ -122,6 +129,8 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
     annotation,
     isSelected,
     canvasScale,
+    navigationGestures,
+    navigationActive,
     onSelect,
     onDragEnd,
     onResizeEnd,
@@ -132,6 +141,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
     isEditingText,
     onTextChange,
     onTextBlur,
+    onNativeTextLayout,
     isDark,
     primaryColor,
     onUpdate,
@@ -147,6 +157,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
   const resizeW = useSharedValue(annotation.width);
   const resizeH = useSharedValue(annotation.height);
   const liveRotation = useSharedValue(annotation.rotation || 0);
+  const pointerStates = useSharedValue<PointerStates>({});
 
   const cropX = useSharedValue(annotation.cropX || 0);
   const cropY = useSharedValue(annotation.cropY || 0);
@@ -172,6 +183,15 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
     width: resizeW.value,
     height: resizeH.value,
     transform: [{ rotate: `${liveRotation.value}deg` }],
+  }));
+
+  const selectionBorderStyle = useAnimatedStyle(() => ({
+    borderWidth: isSelected ? 2 / canvasScale.value : 0,
+    borderRadius: (annotation.type === 'text' ? 4 : 2) / canvasScale.value,
+  }));
+  const rotationControlStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: resizeW.value / 2 - 14 }, { translateY: -45 / canvasScale.value },
+      { scale: 1 / canvasScale.value }],
   }));
 
   const imageStyle = useAnimatedStyle(() => ({
@@ -222,18 +242,39 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
   }, [annotation.cropX, annotation.cropY, annotation.cropScaleX, annotation.cropScaleY]);
 
   // ── Drag ──
-  const dragGesture = Gesture.Pan()
-    .enabled(!isCanvasTool(activeTool))
-    .minDistance(2)
-    .onStart(() => {
+  const cancelObjectEdit = () => {
+    'worklet';
+    offsetX.set(0);
+    offsetY.set(0);
+    resizeW.set(annotation.width);
+    resizeH.set(annotation.height);
+    liveRotation.set(annotation.rotation || 0);
+    cropX.set(annotation.cropX || 0);
+    cropY.set(annotation.cropY || 0);
+    cropScaleX.set(annotation.cropScaleX || 1);
+    cropScaleY.set(annotation.cropScaleY || 1);
+  };
+
+  useAnimatedReaction(() => navigationActive.value, navigating => {
+    if (!navigating) return;
+    const states = pointerStates.value;
+    if (Object.values(states).some(state => state.active)) cancelObjectEdit();
+    const cancelled: PointerStates = {};
+    for (const id of Object.keys(states)) cancelled[id] = { active: false, cancelled: true };
+    pointerStates.set(cancelled);
+  });
+
+  const dragGesture = singlePointerPan({
+    id: 'drag', state: pointerStates, navigationGestures, navigationActive, onCancel: cancelObjectEdit,
+    onStart: () => {
       'worklet';
       runOnJS(onSelect)(annotation.id);
       if (annotation.isCropping) {
         startCX.value = cropX.value;
         startCY.value = cropY.value;
       }
-    })
-    .onUpdate((e) => {
+    },
+    onUpdate: (e) => {
       'worklet';
       const dx = e.translationX / canvasScale.value;
       const dy = e.translationY / canvasScale.value;
@@ -247,8 +288,8 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
         offsetX.value = dx;
         offsetY.value = dy;
       }
-    })
-    .onEnd(() => {
+    },
+    onEnd: () => {
       'worklet';
       if (annotation.isCropping) {
         runOnJS(onUpdate)(annotation.id, {
@@ -261,14 +302,16 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
         runOnJS(onDragEnd)(annotation.id, newX, newY);
       }
       runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
-    });
+    },
+  }).enabled(!isCanvasTool(activeTool));
 
   // ── Tap ──
   const tapGesture = Gesture.Tap()
     .enabled(!isCanvasTool(activeTool))
     .maxDuration(300)
-    .onEnd(() => {
+    .onEnd((event, success) => {
       'worklet';
+      if (!success || event.numberOfPointers > 1) return;
       runOnJS(onSelect)(annotation.id);
       runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
     });
@@ -278,8 +321,9 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
     .enabled(!isCanvasTool(activeTool))
     .numberOfTaps(2)
     .maxDuration(350)
-    .onEnd(() => {
+    .onEnd((event, success) => {
       'worklet';
+      if (!success || event.numberOfPointers > 1) return;
       if (annotation.type === 'image') {
         runOnJS(onToggleCrop)(annotation.id);
       } else {
@@ -302,11 +346,9 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
 
 
   const createResizeGesture = (edgeX: number, edgeY: number) => {
-    return Gesture.Pan()
-      .enabled(!isCanvasTool(activeTool))
-      .minDistance(2)
-      .hitSlop(20)
-      .onStart(() => {
+    return singlePointerPan({
+      id: `resize-${edgeX}-${edgeY}`, state: pointerStates, navigationGestures, navigationActive, onCancel: cancelObjectEdit,
+      onStart: () => {
         'worklet';
         startW.value = resizeW.value;
         startH.value = resizeH.value;
@@ -316,8 +358,8 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
         startScaleY.value = cropScaleY.value;
         startCX.value = cropX.value;
         startCY.value = cropY.value;
-      })
-      .onUpdate((e) => {
+      },
+      onUpdate: (e) => {
         'worklet';
         // "isFree" means we can change width/height independently.
         // We want this when:
@@ -410,8 +452,8 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
         offsetY.value = nextOY;
         resizeW.value = newW;
         resizeH.value = newH;
-      })
-      .onEnd(() => {
+      },
+      onEnd: () => {
         'worklet';
         const finalW = resizeW.value;
         const finalH = resizeH.value;
@@ -429,7 +471,8 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
           cropScaleY: cropScaleY.value,
         });
         runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
-      });
+      },
+    }).enabled(!isCanvasTool(activeTool)).hitSlop(0);
   };
 
   const resizeTL = createResizeGesture(0, 0);
@@ -443,23 +486,22 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
 
   // ── Rotation (top-center handle) ──
   const startRotation = useSharedValue(0);
-  const rotateGesture = Gesture.Pan()
-    .enabled(!isCanvasTool(activeTool))
-    .minDistance(2)
-    .hitSlop(15)
-    .onStart(() => {
+  const rotateGesture = singlePointerPan({
+    id: 'rotation', state: pointerStates, navigationGestures, navigationActive, onCancel: cancelObjectEdit,
+    onStart: () => {
       'worklet';
       startRotation.value = liveRotation.value;
-    })
-    .onUpdate((e) => {
+    },
+    onUpdate: (e) => {
       'worklet';
       liveRotation.value = snapObjectRotation(startRotation.value + e.translationX / 1.2, annotation);
-    })
-    .onEnd(() => {
+    },
+    onEnd: () => {
       'worklet';
       runOnJS(onRotateEnd)(annotation.id, liveRotation.value);
       runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
-    });
+    },
+  }).enabled(!isCanvasTool(activeTool)).hitSlop(15);
 
   const combinedGesture = Gesture.Race(
     doubleTapGesture,
@@ -500,39 +542,16 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
 
         {/* Content */}
         {annotation.type === 'text' && (
-          <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: isEditingText ? TEXT_PADDING : 0 }}>
-            {isEditingText && onTextChange ? (
-              <TextInput
-                ref={inputRef}
-                value={annotation.content}
-                onChangeText={(text) => onTextChange(annotation.id, text)}
-                multiline
-                allowFontScaling={false}
-                scrollEnabled={false}
-                onContentSizeChange={(e) => {
-                  const newHeight = Math.max(40, e.nativeEvent.contentSize.height + 16); // Plus some padding
-                  if (Math.abs(newHeight - resizeH.value) > 2) {
-                    resizeH.value = newHeight;
-                    onUpdate(annotation.id, { height: newHeight });
-                  }
-                }}
-                onBlur={() => onTextBlur?.(annotation.id)}
-                style={{
-                  fontSize: annotation.fontSize,
-                  color: annotation.fontColor || '#000',
-                  fontFamily: annotation.fontFamily || TEXT_FONT_FAMILY,
-                  lineHeight: annotation.fontSize * (annotation.lineSpacing ?? TEXT_LINE_HEIGHT),
-                  includeFontPadding: false,
-                  padding: 0,
-                  margin: 0,
-                  textAlignVertical: 'center',
-                  minHeight: 40,
-                }}
-              />
-            ) : (
-              <PdfAnnotationText annotation={annotation} />
-            )}
-          </View>
+          <PdfAnnotationText annotation={annotation} inputRef={inputRef} isEditing={isEditingText}
+            onChangeText={text => onTextChange?.(annotation.id, text)}
+            onBlur={() => onTextBlur?.(annotation.id)} onNativeLayout={onNativeTextLayout}
+            onContentHeight={height => {
+              const newHeight = Math.max(40, height + 16);
+              if (Math.abs(newHeight - resizeH.value) > 2) {
+                resizeH.set(newHeight);
+                onUpdate(annotation.id, { height: newHeight });
+              }
+            }} />
         )}
 
         {annotation.type === 'shape' && <PdfShapeAnnotation annotation={annotation} />}
@@ -560,100 +579,45 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
           </View>
         )}
 
-        {/* Border Ring (absolute to prevent layout shift) */}
-        <View
-          style={{
-            position: 'absolute',
-            top: 0, left: 0, right: 0, bottom: 0,
-            borderWidth: isSelected ? 2 : 0,
-            borderColor: isSelected
-              ? (annotation.isCropping ? '#3B82F6' : primaryColor)
-              : (isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)'),
-            borderStyle: (isSelected && annotation.isCropping) ? 'dashed' : (isSelected ? 'solid' : 'dashed'),
-            borderRadius: annotation.type === 'text' ? 4 : 2,
-            pointerEvents: 'none',
-          }}
-        />
+        {/* Selection controls keep their screen size while the page is zoomed. */}
+        <Animated.View pointerEvents="none" style={[{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          borderColor: annotation.isCropping ? '#3B82F6' : primaryColor,
+          borderStyle: annotation.isCropping ? 'dashed' : 'solid',
+        }, selectionBorderStyle]} />
 
-        {/* Crop mode: 8-point handles on corners and edge midpoints */}
-        {annotation.isCropping && isSelected && (
+        {isSelected && (
           <>
-            {/* Corner handles */}
-            <GestureDetector gesture={resizeTL}><Animated.View className="absolute bg-white border border-[#3B82F6] rounded-[2] w-3 h-3 z-50" style={[{ top: -5, left: -5 }, shadows.sm]} /></GestureDetector>
-            <GestureDetector gesture={resizeTR}><Animated.View className="absolute bg-white border border-[#3B82F6] rounded-[2] w-3 h-3 z-50" style={[{ top: -5, right: -5 }, shadows.sm]} /></GestureDetector>
-            <GestureDetector gesture={resizeBL}><Animated.View className="absolute bg-white border border-[#3B82F6] rounded-[2] w-3 h-3 z-50" style={[{ bottom: -5, left: -5 }, shadows.sm]} /></GestureDetector>
-            {/* Edge midpoint handles */}
-            <GestureDetector gesture={resizeTC}><Animated.View className="absolute bg-white border border-[#3B82F6] rounded-[2] w-3 h-3 z-50" style={[{ top: -5, left: '50%', marginLeft: -5 }, shadows.sm]} /></GestureDetector>
-            <GestureDetector gesture={resizeBC}><Animated.View className="absolute bg-white border border-[#3B82F6] rounded-[2] w-3 h-3 z-50" style={[{ bottom: -5, left: '50%', marginLeft: -5 }, shadows.sm]} /></GestureDetector>
-            <GestureDetector gesture={resizeML}><Animated.View className="absolute bg-white border border-[#3B82F6] rounded-[2] w-3 h-3 z-50" style={[{ top: '50%', left: -5, marginTop: -5 }, shadows.sm]} /></GestureDetector>
-            <GestureDetector gesture={resizeMR}><Animated.View className="absolute bg-white border border-[#3B82F6] rounded-[2] w-3 h-3 z-50" style={[{ top: '50%', right: -5, marginTop: -5 }, shadows.sm]} /></GestureDetector>
-            {/* Bottom-right is the resize handle for cropping */}
-            <GestureDetector gesture={resizeGesture}>
-              <Animated.View className="absolute bg-white border border-[#3B82F6] rounded-[2] w-3 h-3 z-50" style={[{ bottom: -5, right: -5 }, shadows.sm]} />
-            </GestureDetector>
-          </>
-        )}
-
-        {/* Selected Controls (Scale mode) */}
-        {isSelected && !annotation.isCropping && (
-          <>
-            {/* Rotation stalk and handle */}
-            <View
-              pointerEvents="box-none"
-              style={{
-                position: 'absolute',
-                top: -45,
-                left: 0,
-                right: 0,
-                alignItems: 'center',
-                zIndex: 100,
-              }}
-            >
-              <GestureDetector gesture={rotateGesture}>
-                <Animated.View
-                  className="w-7 h-7 rounded-full items-center justify-center bg-white"
-                  style={[{
-                    borderWidth: 1.5,
-                    borderColor: primaryColor,
-                  }, shadows.sm]}
-                >
-                  <RefreshCw size={14} color={primaryColor} />
-                </Animated.View>
-              </GestureDetector>
-              <View style={{ width: 2, height: 18, backgroundColor: primaryColor }} />
-            </View>
-
-            {/* Corner resize handles (Proportional) */}
-            <GestureDetector gesture={resizeTL}>
-              <Animated.View className="absolute w-4 h-4 rounded-full bg-white z-[60]" style={[{ top: -8, left: -8, borderWidth: 1.5, borderColor: primaryColor }, shadows.sm]} />
-            </GestureDetector>
-            <GestureDetector gesture={resizeTR}>
-              <Animated.View className="absolute w-4 h-4 rounded-full bg-white z-[60]" style={[{ top: -8, right: -8, borderWidth: 1.5, borderColor: primaryColor }, shadows.sm]} />
-            </GestureDetector>
-            <GestureDetector gesture={resizeBL}>
-              <Animated.View className="absolute w-4 h-4 rounded-full bg-white z-[60]" style={[{ bottom: -8, left: -8, borderWidth: 1.5, borderColor: primaryColor }, shadows.sm]} />
-            </GestureDetector>
-            <GestureDetector gesture={resizeGesture}>
-                <Animated.View className="absolute w-4 h-4 rounded-full bg-white z-[60]" style={[{ bottom: -8, right: -8, borderWidth: 1.5, borderColor: primaryColor }, shadows.sm]} />
-            </GestureDetector>
-
-            {/* Intermediate handles (Non-Proportional Stretching) */}
-            {/* Top Center */}
-            <GestureDetector gesture={resizeTC}>
-              <Animated.View className="absolute w-3 h-3 bg-white border border-dashed z-[60]" style={[{ top: -6, left: '50%', marginLeft: -6, borderColor: primaryColor }, shadows.sm]} />
-            </GestureDetector>
-            {/* Bottom Center */}
-            <GestureDetector gesture={resizeBC}>
-              <Animated.View className="absolute w-3 h-3 bg-white border border-dashed z-[60]" style={[{ bottom: -6, left: '50%', marginLeft: -6, borderColor: primaryColor }, shadows.sm]} />
-            </GestureDetector>
-            {/* Mid Left */}
-            <GestureDetector gesture={resizeML}>
-              <Animated.View className="absolute w-3 h-3 bg-white border border-dashed z-[60]" style={[{ top: '50%', left: -6, marginTop: -6, borderColor: primaryColor }, shadows.sm]} />
-            </GestureDetector>
-            {/* Mid Right */}
-            <GestureDetector gesture={resizeMR}>
-              <Animated.View className="absolute w-3 h-3 bg-white border border-dashed z-[60]" style={[{ top: '50%', right: -6, marginTop: -6, borderColor: primaryColor }, shadows.sm]} />
-            </GestureDetector>
+            {!annotation.isCropping && (
+              <Animated.View pointerEvents="box-none" style={[{
+                position: 'absolute', left: 0, top: 0, width: 28,
+                alignItems: 'center', zIndex: 100, transformOrigin: 'center top',
+              }, rotationControlStyle]}>
+                <GestureDetector gesture={rotateGesture}>
+                  <Animated.View className="w-7 h-7 rounded-full items-center justify-center bg-white"
+                    style={[{ borderWidth: 1.5, borderColor: primaryColor }, shadows.sm]}>
+                    <RefreshCw size={14} color={primaryColor} />
+                  </Animated.View>
+                </GestureDetector>
+                <View style={{ width: 2, height: 18, backgroundColor: primaryColor }} />
+              </Animated.View>
+            )}
+            {([
+              { gesture: resizeTL, horizontal: 'left', vertical: 'top', corner: true },
+              { gesture: resizeTR, horizontal: 'right', vertical: 'top', corner: true },
+              { gesture: resizeBL, horizontal: 'left', vertical: 'bottom', corner: true },
+              { gesture: resizeGesture, horizontal: 'right', vertical: 'bottom', corner: true },
+              { gesture: resizeTC, horizontal: 'center', vertical: 'top', corner: false },
+              { gesture: resizeBC, horizontal: 'center', vertical: 'bottom', corner: false },
+              { gesture: resizeML, horizontal: 'left', vertical: 'center', corner: false },
+              { gesture: resizeMR, horizontal: 'right', vertical: 'center', corner: false },
+            ] as const).map(({ gesture, horizontal, vertical, corner }) => (
+              <PdfSelectionHandle key={`${horizontal}-${vertical}`} gesture={gesture} canvasScale={canvasScale}
+                boxWidth={resizeW} boxHeight={resizeH}
+                horizontal={horizontal} vertical={vertical}
+                kind={annotation.isCropping ? 'crop' : corner ? 'corner' : 'edge'}
+                color={annotation.isCropping ? '#3B82F6' : primaryColor} />
+            ))}
           </>
         )}
       </Animated.View>
@@ -1125,6 +1089,16 @@ export default function PdfEditorTool() {
   const [activeTool, setActiveTool] = useState<EditorTool>(null);
   // Canvas transform shared values
   const scale = useSharedValue(1);
+  const navigationActive = useSharedValue(false);
+  const nativeTextLayouts = useRef<NativeTextLayouts>({});
+  useEffect(() => {
+    const ids = new Set(usePdfEditorStore.getState().annotations.map(annotation => annotation.id));
+    for (const id of Object.keys(nativeTextLayouts.current)) if (!ids.has(id)) delete nativeTextLayouts.current[id];
+  }, [pdfUri]);
+  const recordNativeTextLayout = useCallback((id: string, layout: NativeTextLayout) => {
+    const annotation = usePdfEditorStore.getState().annotations.find(item => item.id === id);
+    if (annotation && matchesNativeTextLayout(annotation, layout)) nativeTextLayouts.current[id] = layout;
+  }, []);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const savedScale = useSharedValue(1);
@@ -1692,7 +1666,7 @@ export default function PdfEditorTool() {
     setEditFontFamily(ann.fontFamily || DEFAULT_TEXT_FONT);
     setEditLineSpacing(ann.lineSpacing ?? TEXT_LINE_HEIGHT);
     textOptionsSheetRef.current?.present();
-  }, [annotations, selectAnnotation]);
+  }, [annotations, selectAnnotation, setEditFontSize, setEditColor, setEditFontFamily, setEditLineSpacing]);
 
   const addTextToPdf = useCallback(() => {
     setActiveTool(null);
@@ -1741,7 +1715,7 @@ export default function PdfEditorTool() {
   const changeFontColor = useCallback((val: string) => {
     setEditColor(val);
     if (selectedId) updateAnnotation(selectedId, { fontColor: val });
-  }, [selectedId, updateAnnotation]);
+  }, [selectedId, updateAnnotation, setEditColor]);
 
   // ─── Drag / Resize Handlers ───────────────────────
   const handleDragEnd = useCallback((id: string, x: number, y: number) => {
@@ -1770,7 +1744,7 @@ export default function PdfEditorTool() {
     if (selectedId && annotations.find(annotation => annotation.id === selectedId)?.type === 'shape') {
       updateAnnotation(selectedId, { strokeColor });
     }
-  }, [selectedId, annotations, updateAnnotation]);
+  }, [selectedId, annotations, updateAnnotation, setBrushColor]);
 
   const changeBrushThickness = useCallback((value: number) => {
     const strokeWidth = Math.round(Math.max(0.1, Math.min(20, value)) * 1000) / 1000;
@@ -1779,7 +1753,7 @@ export default function PdfEditorTool() {
     if (selectedId && annotations.find(annotation => annotation.id === selectedId)?.type === 'shape') {
       updateAnnotation(selectedId, { strokeWidth });
     }
-  }, [selectedId, annotations, updateAnnotation]);
+  }, [selectedId, annotations, updateAnnotation, setBrushThickness, setBrushThicknessInput]);
 
   const actionSheetRef = useRef<BottomSheetModal>(null);
   const [actionAnnotationId, setActionAnnotationId] = useState<string | null>(null);
@@ -1802,7 +1776,7 @@ export default function PdfEditorTool() {
     exportSheetRef.current?.dismiss();
     setIsProcessing(true);
     try {
-      const result = await exportEditedPdf(pdfUri, annotations, formFields, { width: pdfDisplayWidth, height: pdfDisplayHeight });
+      const result = await exportEditedPdf(pdfUri, annotations, formFields, { width: pdfDisplayWidth, height: pdfDisplayHeight }, nativeTextLayouts.current);
       if (!result) {
         dialog.show({ title: 'Erro', description: 'Falha ao exportar o PDF.' });
         return;
@@ -1845,17 +1819,23 @@ export default function PdfEditorTool() {
 
   // ─── Canvas Gestures ──────────────────────────
   const pinchGesture = Gesture.Pinch()
+    .onTouchesDown(event => { navigationActive.set(event.numberOfTouches > 1); })
+    .onTouchesUp(event => { if (event.numberOfTouches === 0) navigationActive.set(false); })
     .onStart(() => {
+      navigationActive.set(true);
       savedScale.value = scale.value;
     })
     .onUpdate((e) => {
       scale.value = Math.max(0.5, Math.min(5, savedScale.value * e.scale));
     });
 
-  // Pan: 1 finger when zoomed, 2 fingers always (or when something is selected to avoid drag conflict)
+  // Page navigation always uses two fingers; one finger is reserved for editing.
   const panGesture = Gesture.Pan()
-    .minPointers((isCanvasTool(activeTool) || selectedId !== null || annotations.some(a => a.isCropping)) ? 2 : 1)
+    .minPointers(2)
+    .onTouchesDown(event => { navigationActive.set(event.numberOfTouches > 1); })
+    .onTouchesUp(event => { if (event.numberOfTouches === 0) navigationActive.set(false); })
     .onStart(() => {
+      navigationActive.set(true);
       savedTranslateX.value = translateX.value;
       savedTranslateY.value = translateY.value;
     })
@@ -1867,7 +1847,8 @@ export default function PdfEditorTool() {
   // Single tap deselects
   const backgroundTapGesture = Gesture.Tap()
     .maxDuration(250)
-    .onEnd(() => {
+    .onEnd((_event, success) => {
+      if (!success) return;
       runOnJS(handleSelect)(null);
     });
 
@@ -1875,7 +1856,8 @@ export default function PdfEditorTool() {
   const doubleTapZoomGesture = Gesture.Tap()
     .numberOfTaps(2)
     .maxDuration(300)
-    .onEnd(() => {
+    .onEnd((_event, success) => {
+      if (!success) return;
       scale.value = 1;
       translateX.value = 0;
       translateY.value = 0;
@@ -2031,6 +2013,9 @@ export default function PdfEditorTool() {
         className="flex-1"
         style={{ overflow: 'hidden' }}
         onLayout={(e) => {
+          // The keyboard must not change the document's coordinate system.
+          // Keep the page scale and annotation bounds stable while editing text.
+          if (editingTextId || isKeyboardVisible) return;
           setViewLayout({
             width: e.nativeEvent.layout.width,
             height: e.nativeEvent.layout.height,
@@ -2128,8 +2113,11 @@ export default function PdfEditorTool() {
                         isSelected={selectedId === ann.id}
                         canvasScale={scale}
                         isEditingText={editingTextId === ann.id}
+                        navigationGestures={[pinchGesture, panGesture]}
+                        navigationActive={navigationActive}
                         onTextChange={handleInlineTextChange}
                         onTextBlur={handleInlineTextBlur}
+                        onNativeTextLayout={recordNativeTextLayout}
                         onSelect={handleSelect}
                         onDragEnd={handleDragEnd}
                         onResizeEnd={handleResizeEnd}
@@ -2157,6 +2145,7 @@ export default function PdfEditorTool() {
                     existingDrawings={currentDrawings}
                     renderExistingDrawings={false}
                     navigationGestures={[pinchGesture, panGesture]}
+                    navigationActive={navigationActive}
                     onPathComplete={handlePathComplete}
                     activeTool={activeTool}
                     onErase={handleDeleteAnnotation}

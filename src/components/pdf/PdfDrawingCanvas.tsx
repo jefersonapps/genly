@@ -5,7 +5,7 @@ import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector, type GestureType } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useDerivedValue, useSharedValue, type SharedValue } from 'react-native-reanimated';
+import Animated, { runOnJS, useDerivedValue, useSharedValue, useAnimatedReaction, type SharedValue } from 'react-native-reanimated';
 
 interface PdfDrawingCanvasProps {
   width: number;
@@ -20,11 +20,12 @@ interface PdfDrawingCanvasProps {
   canvasScale?: SharedValue<number>;
   renderExistingDrawings?: boolean;
   navigationGestures?: GestureType[];
+  navigationActive?: SharedValue<boolean>;
 }
 
 export function PdfDrawingCanvas({ width, height, strokeColor, strokeWidth, existingDrawings,
   onPathComplete, interactive = true, activeTool = 'brush', onErase, canvasScale,
-  renderExistingDrawings = true, navigationGestures = [] }: PdfDrawingCanvasProps) {
+  renderExistingDrawings = true, navigationGestures = [], navigationActive }: PdfDrawingCanvasProps) {
   const activePath = useSharedValue<ReturnType<typeof Skia.Path.Make> | null>(null);
   const startPoint = useSharedValue<{ x: number; y: number } | null>(null);
   const prevPoint = useSharedValue<{ x: number; y: number } | null>(null);
@@ -66,26 +67,30 @@ export function PdfDrawingCanvas({ width, height, strokeColor, strokeWidth, exis
     'worklet';
     for (const item of hitPaths.value) {
       if (!erasedIds.value.includes(item.id) && item.hitPath.contains(x, y)) {
-        erasedIds.value = [...erasedIds.value, item.id];
+        erasedIds.set([...erasedIds.value, item.id]);
       }
     }
   };
 
   const cancelDrawing = () => {
     'worklet';
-    cancelled.value = true;
+    cancelled.set(true);
     activePath.set(null);
-    startPoint.value = null;
-    prevPoint.value = null;
-    showEraser.value = 0;
-    erasedIds.value = [];
+    startPoint.set(null);
+    prevPoint.set(null);
+    showEraser.set(0);
+    erasedIds.set([]);
   };
+
+  useAnimatedReaction(() => navigationActive?.value || false, navigating => {
+    if (navigating) cancelDrawing();
+  });
 
   const drawGesture = Gesture.Pan().minDistance(0).maxPointers(1)
     .simultaneousWithExternalGesture(...navigationGestures)
     .onBegin(() => {
       'worklet';
-      cancelled.value = false;
+      cancelled.set(navigationActive?.value || false);
     })
     .onTouchesDown((event, manager) => {
       'worklet';
@@ -96,14 +101,14 @@ export function PdfDrawingCanvas({ width, height, strokeColor, strokeWidth, exis
     })
     .onStart(e => {
       'worklet';
-      if (cancelled.value || e.numberOfPointers > 1) { cancelDrawing(); return; }
-      startPoint.value = { x: e.x, y: e.y };
-      prevPoint.value = startPoint.value;
+      if (navigationActive?.value || cancelled.value || e.numberOfPointers > 1) { cancelDrawing(); return; }
+      startPoint.set({ x: e.x, y: e.y });
+      prevPoint.set(startPoint.value);
       if (activeTool === 'eraser') {
-        eraserX.value = e.x;
-        eraserY.value = e.y;
-        showEraser.value = 1;
-        erasedIds.value = [];
+        eraserX.set(e.x);
+        eraserY.set(e.y);
+        showEraser.set(1);
+        erasedIds.set([]);
         eraseAtPoint(e.x, e.y);
       } else {
         activePath.set(Skia.PathBuilder.Make().moveTo(e.x, e.y).detach());
@@ -111,13 +116,13 @@ export function PdfDrawingCanvas({ width, height, strokeColor, strokeWidth, exis
     })
     .onUpdate(e => {
       'worklet';
-      if (e.numberOfPointers > 1) { cancelDrawing(); return; }
+      if (navigationActive?.value || e.numberOfPointers > 1) { cancelDrawing(); return; }
       if (cancelled.value) return;
       const previous = prevPoint.value;
       if (!previous || !startPoint.value) return;
       if (activeTool === 'eraser') {
-        eraserX.value = e.x;
-        eraserY.value = e.y;
+        eraserX.set(e.x);
+        eraserY.set(e.y);
         const dx = e.x - previous.x;
         const dy = e.y - previous.y;
         const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (5 / (canvasScale?.value || 1))));
@@ -129,12 +134,12 @@ export function PdfDrawingCanvas({ width, height, strokeColor, strokeWidth, exis
         const end = activeTool === 'line' ? snapLineEnd(startPoint.value, { x: e.x, y: e.y }) : { x: e.x, y: e.y };
         activePath.set(Skia.Path.MakeFromSVGString(shapePath(activeTool, startPoint.value, end)));
       }
-      prevPoint.value = { x: e.x, y: e.y };
+      prevPoint.set({ x: e.x, y: e.y });
     })
     .onEnd((e, success) => {
       'worklet';
       // A cancelled pan can still emit onEnd when the second finger starts zooming.
-      if (success === false || cancelled.value || e.numberOfPointers > 1) { cancelDrawing(); return; }
+      if (success === false || navigationActive?.value || cancelled.value || e.numberOfPointers > 1) { cancelDrawing(); return; }
       if (activeTool === 'eraser') {
         eraseAtPoint(e.x, e.y);
         // Commit only a completed single-finger gesture; zoom must not erase data.
@@ -153,10 +158,10 @@ export function PdfDrawingCanvas({ width, height, strokeColor, strokeWidth, exis
     })
     .onFinalize((_event, success) => {
       'worklet';
-      showEraser.value = 0;
-      startPoint.value = null;
-      prevPoint.value = null;
-      erasedIds.value = [];
+      showEraser.set(0);
+      startPoint.set(null);
+      prevPoint.set(null);
+      erasedIds.set([]);
       if (!success) activePath.set(null);
     });
 

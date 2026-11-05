@@ -17,6 +17,7 @@ import {
     rectangle,
     rgb,
     rotateDegrees,
+    scale,
     setLineJoin,
     StandardFonts,
     translate,
@@ -26,6 +27,7 @@ import { embedAnnotationFont } from './annotationFont';
 import { layoutAnnotationText } from './textLayout';
 import { DEFAULT_TEXT_FONT, type PdfTextFont } from './fonts';
 import { shapeAnnotationPath } from './drawingTools';
+import { matchesNativeTextLayout, measuredAnnotationText, type NativeTextLayouts } from './nativeTextLayout';
 
 // ─── Helpers ──────────────────────────────────────────
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -80,6 +82,7 @@ export async function exportEditedPdf(
   annotations: Annotation[],
   formFields: FormField[],
   viewDimensions: { width: number; height: number },
+  nativeTextLayouts: NativeTextLayouts = {},
 ): Promise<string | null> {
   try {
     const pdfBase64 = await FileSystem.readAsStringAsync(pdfUri, {
@@ -253,17 +256,26 @@ export async function exportEditedPdf(
           const annotationFont = annotationFonts.get(annotation.fontFamily || DEFAULT_TEXT_FONT)!;
           const color = hexToRgb(annotation.fontColor || '#000000');
           const fontSize = annotation.fontSize * s;
-          const layout = layoutAnnotationText(annotation, annotationFont);
+          const snapshot = nativeTextLayouts[annotation.id];
+          const layout = matchesNativeTextLayout(annotation, snapshot)
+            ? measuredAnnotationText(annotation, snapshot) : layoutAnnotationText(annotation, annotationFont);
 
           for (const line of layout.lines) {
             if (!line.text) continue;
+            const x = annX + line.x * s;
+            const y = pdfH - (annotation.y + line.baseline) * s;
+            const fontWidth = annotationFont.widthOfTextAtSize(line.text, annotation.fontSize);
+            const widthRatio = fontWidth > 0 && line.width > 0 ? line.width / fontWidth : 1;
+            const adjustWidth = Math.abs(widthRatio - 1) > 0.0001;
+            if (adjustWidth) page.pushOperators(pushGraphicsState(), translate(x, y), scale(widthRatio, 1));
             page.drawText(line.text, {
-              x: annX + line.x * s,
-              y: pdfH - (annotation.y + line.baseline) * s,
+              x: adjustWidth ? 0 : x,
+              y: adjustWidth ? 0 : y,
               size: fontSize,
               font: annotationFont,
               color: rgb(color.r, color.g, color.b),
             });
+            if (adjustWidth) page.pushOperators(popGraphicsState());
           }
           break;
         }

@@ -130,3 +130,30 @@ for (const strokeWidth of [7, 0.1, 0.3]) test(`circle, rectangle and line export
   assert.equal((operators.match(/2 0 0 -2 0 0 cm/g) || []).length, 3);
   assert.equal((operators.match(/^S$/gm) || []).length, 3);
 });
+
+test('export retains native underline wrapping and measured widths instead of recalculating them on blur', async () => {
+  const source = await PDFDocument.create();
+  source.addPage([600, 800]);
+  const input = await source.saveAsBase64();
+  const { nativeTextLayoutKey } = createSourceLoader()('src/lib/pdfEditor/nativeTextLayout.ts');
+  const { exportEditedPdf } = createSourceLoader({
+    'expo-file-system/legacy': { EncodingType: { Base64: 'base64' }, readAsStringAsync: async () => input },
+    './annotationFont': { embedAnnotationFont: embedFont },
+  })('src/lib/pdfEditor/pdfExportUtils.ts');
+  const annotation = { ...box, id: 'native-underlines', content: '_'.repeat(48), type: 'text', page: 0, x: 20, y: 100, height: 80 };
+  const snapshot = { ...nativeTextLayoutKey(annotation), lines: [
+    { text: '_'.repeat(24), x: 0, y: 0, width: 240, height: 15, ascender: 12 },
+    { text: '_'.repeat(24), x: 0, y: 15, width: 230, height: 15, ascender: 12 },
+  ] };
+  const output = await exportEditedPdf('source.pdf', [annotation], [], { width: 300, height: 400 }, { [annotation.id]: snapshot });
+  const page = (await PDFDocument.load(output)).getPages()[0];
+  const streams = page.node.Contents();
+  const operators = Array.from({ length: streams.size() }, (_, i) => Buffer.from(decodePDFRawStream(streams.lookup(i, PDFRawStream)).decode()).toString()).join('\n');
+  assert.equal((operators.match(/ Tj/g) || []).length, 2);
+  assert.ok(operators.includes('1 0 0 1 48 526 cm'));
+  assert.ok(operators.includes('1 0 0 1 48 496 cm'));
+  const font = await metrics;
+  const expectedRatios = [240, 230].map(width => width / font.widthOfTextAtSize('_'.repeat(24), box.fontSize));
+  const ratios = [...operators.matchAll(/([-\d.e]+) 0 0 1 0 0 cm/g)].map(match => Number(match[1]));
+  for (const ratio of expectedRatios) assert.ok(ratios.some(value => Math.abs(value - ratio) < 0.000001));
+});

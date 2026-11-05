@@ -1,43 +1,57 @@
-import { loadAnnotationPreviewFont } from '@/lib/pdfEditor/annotationFont';
-import { layoutAnnotationText, TEXT_FONT_FAMILY, TEXT_PADDING } from '@/lib/pdfEditor/textLayout';
+import { loadAnnotationTypeface } from '@/lib/pdfEditor/annotationFont';
+import { nativeTextLayoutKey, type NativeTextLayout } from '@/lib/pdfEditor/nativeTextLayout';
+import { TEXT_FONT_FAMILY, TEXT_LINE_HEIGHT, TEXT_PADDING } from '@/lib/pdfEditor/textLayout';
 import type { Annotation } from '@/lib/pdfEditor/usePdfEditorStore';
-import type { PDFFont } from 'pdf-lib';
-import React, { useEffect, useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
-import Svg, { Text as SvgText } from 'react-native-svg';
+import React, { useEffect, useState } from 'react';
+import { Text, TextInput, View } from 'react-native';
 
-export function PdfAnnotationText({ annotation }: { annotation: Annotation }) {
-  const [loaded, setLoaded] = useState<{ family: string; font: PDFFont }>();
-  const [bounds, setBounds] = useState({ width: annotation.width, height: annotation.height });
+interface Props {
+  annotation: Annotation;
+  isEditing?: boolean;
+  inputRef?: React.Ref<React.ComponentRef<typeof TextInput>>;
+  onChangeText?: (text: string) => void;
+  onBlur?: () => void;
+  onContentHeight?: (height: number) => void;
+  onNativeLayout: (id: string, layout: NativeTextLayout) => void;
+}
+
+/** Keep the same native text view mounted when entering/leaving edit mode. */
+export function PdfAnnotationText({ annotation, isEditing = false, inputRef, onChangeText, onBlur, onContentHeight, onNativeLayout }: Props) {
+  const [loadedFamily, setLoadedFamily] = useState<string>();
   const family = annotation.fontFamily || TEXT_FONT_FAMILY;
-  const font = loaded?.family === family ? loaded.font : undefined;
   useEffect(() => {
     let active = true;
-    loadAnnotationPreviewFont(family).then(font => { if (active) setLoaded({ family, font }); })
+    loadAnnotationTypeface(family).then(() => { if (active) setLoadedFamily(family); })
       .catch(error => console.error('Unable to load PDF annotation font', error));
     return () => { active = false; };
   }, [family]);
-  const layout = useMemo(() => font && layoutAnnotationText({ ...annotation, ...bounds }, font), [annotation, bounds, font]);
-
+  const typography = {
+    fontFamily: family, fontSize: annotation.fontSize,
+    lineHeight: annotation.fontSize * (annotation.lineSpacing ?? TEXT_LINE_HEIGHT),
+    letterSpacing: 0, includeFontPadding: false, padding: 0, margin: 0,
+    color: annotation.fontColor || '#000000',
+  };
   return (
-    <View style={{ flex: 1 }} onLayout={({ nativeEvent: { layout } }) => {
-      setBounds(previous => previous.width === layout.width && previous.height === layout.height
-        ? previous : { width: layout.width, height: layout.height });
-    }}>
-      {layout ? (
-        <Svg width="100%" height="100%" style={{ overflow: 'visible' }} pointerEvents="none">
-          {layout.lines.map((line, index) => line.text ? (
-            <SvgText key={index} x={line.x} y={line.baseline}
-              fontFamily={family} fontSize={annotation.fontSize}
-              fill={annotation.fontColor || '#000000'}
-              textLength={line.width} lengthAdjust="spacingAndGlyphs">
-              {line.text}
-            </SvgText>
-          ) : null)}
-        </Svg>
-      ) : (
-        <Text allowFontScaling={false} style={{ paddingHorizontal: TEXT_PADDING, fontFamily: family, fontSize: annotation.fontSize, color: annotation.fontColor }}>{annotation.content}</Text>
-      )}
+    <View style={{ flex: 1, paddingHorizontal: TEXT_PADDING }} pointerEvents={isEditing ? 'auto' : 'none'}>
+      {loadedFamily === family && <>
+        <TextInput ref={inputRef} value={annotation.content} editable={isEditing} autoFocus={isEditing}
+          multiline allowFontScaling={false} scrollEnabled={false} textBreakStrategy="simple"
+          underlineColorAndroid="transparent" caretHidden={!isEditing}
+          onChangeText={onChangeText} onBlur={onBlur}
+          style={[typography, { flex: 1, textAlign: 'left', textAlignVertical: 'center' }]} />
+        {/* Measure only the committed width, never the live animated resize width.
+            This avoids a JS layout/render/font-measurement cycle on every frame. */}
+        <Text key={JSON.stringify(nativeTextLayoutKey(annotation))} accessible={false} pointerEvents="none"
+          allowFontScaling={false} textBreakStrategy="simple" android_hyphenationFrequency="none"
+          style={[typography, { position: 'absolute', left: TEXT_PADDING, top: 0,
+            width: Math.max(1, annotation.width - TEXT_PADDING * 2), opacity: 0 }]}
+          onTextLayout={({ nativeEvent: { lines } }) => {
+            onNativeLayout(annotation.id, { ...nativeTextLayoutKey(annotation), lines });
+            if (isEditing && lines.length) onContentHeight?.(Math.max(...lines.map(line => line.y + line.height)));
+          }}>
+          {annotation.content}
+        </Text>
+      </>}
     </View>
   );
 }
