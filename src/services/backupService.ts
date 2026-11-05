@@ -3,7 +3,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { unzip, zip } from "react-native-zip-archive";
 import { db } from "../db/client";
 import { groups, media as mediaTable, settings, tasks, transactions, type Group, type Media, type Setting, type Task, type Transaction } from "../db/schema";
-import { copyFile, ensureDir, ensureDirectories, getCacheDir, getMediaDir, writeBase64ToFile } from "../utils/file";
+import { copyFile, copyToProfileDir, ensureDir, ensureDirectories, getCacheDir, getMediaDir, writeBase64ToFile } from "../utils/file";
 
 // Helper to strip 'file://' prefix for native libraries that expect raw paths
 const stripFilePrefix = (path: string) => path.replace(/^file:\/\//, "");
@@ -77,6 +77,8 @@ export async function exportBackup(): Promise<string> {
 
   // Copy media files (main and thumbnails)
   const mediaToCopy = new Set<string>();
+  const profileImage = allSettings.find((setting) => setting.key === "profile_image")?.value;
+  if (profileImage) mediaToCopy.add(profileImage);
   for (const m of allMedia) {
     if (m.uri) mediaToCopy.add(m.uri);
     if (m.thumbnailUri) mediaToCopy.add(m.thumbnailUri);
@@ -242,6 +244,27 @@ export async function importBackup(fileUri?: string): Promise<void> {
   }
 }
 
+/** Resolve profile photos to persistent files on this installation. */
+async function restoreProfileImage(uri: string, mediaSourceDir?: string): Promise<string> {
+  if (!uri || /^(https?:|data:)/i.test(uri)) return uri;
+
+  const filename = uri.split("/").pop();
+  const candidates = mediaSourceDir && filename ? [`${mediaSourceDir}${filename}`, uri] : [uri];
+  for (const candidate of candidates) {
+    let exists = false;
+    try {
+      const info = await FileSystem.getInfoAsync(candidate);
+      exists = info.exists && !info.isDirectory;
+    } catch {
+      // Old backups may reference files from another device or installation.
+    }
+    if (exists) return copyToProfileDir(candidate);
+  }
+
+  // Backups made before profile photos were included cannot recover missing files.
+  return "";
+}
+
 /** Restore data from version 2 (ZIP) */
 async function restoreData(metadata: BackupMetadata, mediaSourceDir: string) {
   await ensureDirectories();
@@ -268,9 +291,12 @@ async function restoreData(metadata: BackupMetadata, mediaSourceDir: string) {
 
   // Restore settings
   for (const setting of metadata.settings) {
-    await db.insert(settings).values(setting).onConflictDoUpdate({
+    const value = setting.key === "profile_image"
+      ? await restoreProfileImage(setting.value, mediaSourceDir)
+      : setting.value;
+    await db.insert(settings).values({ ...setting, value }).onConflictDoUpdate({
       target: settings.key,
-      set: { value: setting.value }
+      set: { value }
     });
   }
 
@@ -388,9 +414,12 @@ async function restoreLegacyData(backup: LegacyBackupData) {
   await db.delete(settings);
 
   for (const setting of backup.settings) {
-    await db.insert(settings).values(setting).onConflictDoUpdate({
+    const value = setting.key === "profile_image"
+      ? await restoreProfileImage(setting.value)
+      : setting.value;
+    await db.insert(settings).values({ ...setting, value }).onConflictDoUpdate({
       target: settings.key,
-      set: { value: setting.value }
+      set: { value }
     });
   }
 
