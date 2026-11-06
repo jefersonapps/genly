@@ -1,13 +1,24 @@
-<div align="center">
+<p align="center">
   <img src="./assets/adaptive-icon.png" alt="Genly Logo" width="120" />
-  <h1>Genly</h1>
-  <p><strong>Um aplicativo inteligente para organização acadêmica, financeira e pessoal.</strong></p>
+</p>
 
-  [![Android](https://img.shields.io/badge/Plataforma-Android-3DDC84?style=flat&logo=android&logoColor=white)]()
-  [![React Native](https://img.shields.io/badge/Desenvolvido_com-React_Native-61DAFB?style=flat&logo=react&logoColor=white)]()
-  [![Zustand](https://img.shields.io/badge/Gerenciamento_de_Estado-Zustand-orange?style=flat)]()
-  [![SQLite](https://img.shields.io/badge/Banco_de_Dados-SQLite-003B57?style=flat&logo=sqlite&logoColor=white)]()
-</div>
+<h1 align="center">Genly</h1>
+
+<p align="center"><strong>Um aplicativo inteligente para organização acadêmica, financeira e pessoal.</strong></p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/version-1.1.0-6366f1" alt="Versão 1.1.0">
+  <img src="https://img.shields.io/badge/Plataforma-Android-3DDC84?logo=android&amp;logoColor=white" alt="Android">
+  <img src="https://img.shields.io/badge/Desenvolvido_com-React_Native-61DAFB?logo=react&amp;logoColor=white" alt="React Native">
+  <img src="https://img.shields.io/badge/Gerenciamento_de_Estado-Zustand-orange" alt="Zustand">
+  <img src="https://img.shields.io/badge/Banco_de_Dados-SQLite-003B57?logo=sqlite&amp;logoColor=white" alt="SQLite">
+</p>
+
+<p align="center">
+  <a href="https://github.com/jefersonapps/genly/releases/latest"><img src="https://img.shields.io/badge/BAIXAR%20GENLY-1.1.0-6366f1?style=for-the-badge&amp;logo=github&amp;logoColor=white" alt="Baixar Genly na página de releases"></a>
+</p>
+
+<p align="center"><a href="https://github.com/jefersonapps/genly/releases">Ver todas as versões e downloads</a></p>
 
 ---
 
@@ -88,11 +99,11 @@ Para realizar o deploy e acionar a distribuição da versão para todos os clien
 As flags de versão precisam ser modificadas primeiramente no código-fonte para refletir a numeração futura.
 
 No arquivo `app.json`:
-- `"version": "V.X.X"`: Avance um incremento semântico (ex: para `"1.0.1"`). **Este valor exato deve ser o nome da tag (release target) do GitHub**.
-- `"versionCode": XX`: Avance numéricamente (ex: `2`). Este identificador canônico é lido pelo sistema operacional Android e deve sempre crescer em magnitude para requerer prioridade e possibilitar que a nova compilação sobreponha e atualize o aplicativo estático pré-existente no dispositivo.
+- `"version": "1.1.0"`: Versão atual do aplicativo. **Este valor exato deve ser o nome da tag (release target) do GitHub**.
+- `"versionCode": 11`: Código atual do build Android. Incremente a cada nova distribuição para permitir a atualização das instalações existentes.
 
 No arquivo `package.json`:
-- `"version": "V.X.X"`: Sincronize refletindo a nova versão recém definida (ex: `"1.0.1"`).
+- `"version": "1.1.0"`: Mantenha sincronizado com a versão do `app.json`.
 
 ### 2. Efetuar o Build de Distribuição
 Compile o novo *bundle* para ambiente de produção (Release). 

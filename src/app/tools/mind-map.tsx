@@ -58,98 +58,13 @@ import { shadows } from '@/theme/shadows';
 import * as MediaLibrary from 'expo-media-library/legacy';
 import * as Sharing from 'expo-sharing';
 import { GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import { InlineNodeEditor } from '@/lib/mindmap/InlineNodeEditor';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function currentMapDocument() {
   const { nodes, rootId, canvasBgColor, bgPattern } = useMindMapStore.getState();
   return { nodes, rootId, canvasBgColor, bgPattern };
 }
-
-const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
- 
-// ─── Inline Editor Component ──────────────────────────
-const InlineNodeEditor = React.memo(({ 
-  node, text, onTextChange, onSave, transform, isDark 
-}: { 
-  node: MindMapNode; 
-  text: string; 
-  onTextChange: (t: string) => void; 
-  onSave: () => void; 
-  transform: any;
-  isDark: boolean;
-}) => {
-  // Simple version of the logic in MindMapCanvas
-  const getTextColor = () => {
-    if (node.color) return '#FFFFFF'; // Simplified
-    if (node.depth === 0) return '#FFFFFF';
-    return isDark ? '#E5E7EB' : '#1F2937';
-  };
-  const textColor = getTextColor();
-
-  const animatedStyle = useAnimatedStyle(() => {
-    const s = transform.scale.value;
-    return {
-      position: 'absolute',
-      left: 0,
-      top: 0,
-      width: node.width * s,
-      height: node.height * s,
-      transform: [
-        { translateX: transform.translateX.value + node.x * s },
-        { translateY: transform.translateY.value + node.y * s },
-      ],
-      zIndex: 9999,
-      justifyContent: 'center',
-    };
-  }, Platform.OS === 'web' ? [node, transform] : undefined);
-
-  const animatedTextStyle = useAnimatedStyle(() => {
-    const s = transform.scale.value;
-    const lh = 13 * 1.5 * s; // Match LINE_HEIGHT_FACTOR = 1.5
-    
-    let mb = 0;
-    if (node.imageUri && node.imageAspectRatio) {
-      const imgW = (node.width - 32); 
-      const imgH = imgW / node.imageAspectRatio;
-      mb = (imgH + 16) * s; // 16px gap
-    }
-
-    return {
-      fontSize: 13 * s,
-      lineHeight: lh,
-      paddingHorizontal: 16 * s,
-      paddingVertical: 0,
-      marginBottom: mb,
-    };
-  });
-
-  return (
-    <Animated.View style={animatedStyle} pointerEvents="auto">
-      <AnimatedTextInput
-        value={text}
-        onChangeText={onTextChange}
-        autoFocus
-        multiline
-        onBlur={onSave}
-        placeholderTextColor={isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'}
-        style={[
-          {
-            color: textColor,
-            fontFamily: 'Montserrat-SemiBold',
-            textAlign: node.textAlign || 'center',
-            backgroundColor: 'transparent',
-            padding: 0,
-            margin: 0,
-            includeFontPadding: false,
-            height: undefined, // Auto-height based on text + lineHeight
-          },
-          animatedTextStyle
-        ]}
-      />
-    </Animated.View>
-  );
-});
 
 export default function MindMapScreen() {
   const insets = useSafeAreaInsets();
@@ -884,6 +799,7 @@ export default function MindMapScreen() {
               onSave={saveEdit}
               transform={transform}
               isDark={isDark}
+              canvasBgColor={canvasBgColor}
           />
         )}
       </View>

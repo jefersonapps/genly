@@ -1,3 +1,5 @@
+import { getNodeTextColor, hexLuminance } from './nodeColors';
+import { NODE_TEXT_SIZE as FONT_SIZE, measureNodeText, wrapNodeText as wrapText } from './textLayout';
 import { computeEdges, computeHiddenNodes } from '@/lib/mindmap/layoutEngine';
 import type { BackgroundPattern, MindMapNode } from '@/lib/mindmap/useMindMapStore';
 import {
@@ -32,14 +34,6 @@ function darkenHex(hex: string, factor: number): string {
   return '#' + toHex(dr) + toHex(dg) + toHex(db);
 }
 
-function hexLuminance(hex: string): number {
-  const c = hex.replace('#', '');
-  const r = parseInt(c.substring(0, 2), 16) / 255;
-  const g = parseInt(c.substring(2, 4), 16) / 255;
-  const b = parseInt(c.substring(4, 6), 16) / 255;
-  return 0.299 * r + 0.587 * g + 0.114 * b;
-}
-
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const c = hex.replace('#', '');
   return {
@@ -60,49 +54,6 @@ function getNodeBorderColor(depth: number, isDark: boolean, customColor?: string
   if (customColor) return darkenHex(customColor, 0.25);
   if (depth === 0) return isDark ? '#3B82F6' : '#2563EB';
   return isDark ? '#333344' : '#E2E8F0';
-}
-
-function getNodeTextColor(depth: number, isDark: boolean, customColor?: string): string {
-  if (customColor) return hexLuminance(customColor) > 0.5 ? '#1F2937' : '#FFFFFF';
-  if (depth === 0) return '#FFFFFF';
-  return isDark ? '#E5E7EB' : '#1F2937';
-}
-
-
-
-const FONT_SIZE = 13;
-const APPROX_CHAR_W = FONT_SIZE * 0.58;
-function wrapText(title: string, maxW: number, font?: SkFont | null): string[] {
-  if (maxW <= 0) return [title || ''];
-  const measure = (s: string) => font ? font.measureText(s).width : s.length * APPROX_CHAR_W;
-
-  const result: string[] = [];
-  const words = (title || 'Sem título').split(' ');
-
-  for (const word of words) {
-    if (measure(word) > maxW) {
-      let buf = '';
-      for (let i = 0; i < word.length; i++) {
-        const next = buf + word[i];
-        if (measure(next) > maxW && buf.length > 0) {
-          result.push(buf);
-          buf = word[i];
-        } else {
-          buf = next;
-        }
-      }
-      if (buf.length > 0) result.push(buf);
-      continue;
-    }
-    if (result.length === 0) { result.push(word); continue; }
-    const joined = result[result.length - 1] ? `${result[result.length - 1]} ${word}` : word;
-    if (measure(joined) <= maxW) {
-      result[result.length - 1] = joined;
-    } else {
-      result.push(word);
-    }
-  }
-  return result.length ? result : [''];
 }
 
 export async function exportToImage(
@@ -293,7 +244,7 @@ export async function exportToImage(
             let currentY = firstLineTop + lineMargin + (FONT_SIZE * 0.8) - 1;
 
             for (const line of lines) {
-                const lineWidth = customFont.measureText(line).width;
+                const lineWidth = measureNodeText(line, customFont);
                 const align = n.textAlign || 'center';
                 let x = n.x + H_PAD;
                 if (align === 'center') x = n.x + (n.width - lineWidth) / 2;

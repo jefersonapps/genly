@@ -1,3 +1,4 @@
+import { getNodeTextColor, hexLuminance } from './nodeColors';
 import {
   Canvas,
   Group,
@@ -6,7 +7,6 @@ import {
   Picture,
   Rect,
   Skia,
-  Text as SkiaText,
   useFont,
   useImage,
   type SkFont
@@ -15,6 +15,7 @@ import React, { useMemo } from 'react';
 import { Platform, useWindowDimensions } from 'react-native';
 import { useDerivedValue, type SharedValue } from 'react-native-reanimated';
 import { computeEdges } from './layoutEngine';
+import { NODE_TEXT_SIZE as FONT_SIZE, NODE_TEXT_LINE_HEIGHT as LINE_HEIGHT, NODE_TEXT_PADDING as H_PAD, measureNodeText, wrapNodeText as wrapText } from './textLayout';
 import type { DragState, ResizeState } from './useMapGestures';
 import type { BackgroundPattern, MindMapNode } from './useMindMapStore';
 
@@ -132,25 +133,11 @@ const BackgroundLayer = React.memo(function BackgroundLayer({
 // ---------------------------------------------------------------------------
 export const RESIZE_HANDLE_SIZE = 22;
 const HANDLE_VISUAL_R = 5;
-const FONT_SIZE = 13;
-const LINE_HEIGHT_FACTOR = 1.5;
-const LINE_HEIGHT = FONT_SIZE * LINE_HEIGHT_FACTOR;
-const H_PAD = 16;
 const V_PAD = 16;
-const APPROX_CHAR_W = FONT_SIZE * 0.60;
 
 // ---------------------------------------------------------------------------
 // Worklet helpers
 // ---------------------------------------------------------------------------
-function hexLuminance(hex: string): number {
-  'worklet';
-  const c = hex.replace('#', '');
-  const r = parseInt(c.substring(0, 2), 16) / 255;
-  const g = parseInt(c.substring(2, 4), 16) / 255;
-  const b = parseInt(c.substring(4, 6), 16) / 255;
-  return 0.299 * r + 0.587 * g + 0.114 * b;
-}
-
 /** Parse a hex color to RGB components (0-255) */
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
   'worklet';
@@ -211,64 +198,6 @@ function getNodeBorderColor(depth: number, isDark: boolean, customColor?: string
   // Use solid colors for stroke instead of rgba to avoid blending issues in Skia on Android
   return isDark ? '#333344' : '#E2E8F0';
 }
-function getNodeTextColor(depth: number, isDark: boolean, customColor?: string): string {
-  'worklet';
-  if (customColor) return hexLuminance(customColor) > 0.5 ? '#1F2937' : '#FFFFFF';
-  if (depth === 0) return '#FFFFFF';
-  return isDark ? '#E5E7EB' : '#1F2937';
-}
-
-function wrapText(title: string, maxW: number, font: SkFont | null): string[] {
-  'worklet';
-  if (maxW <= 0) return [title || ''];
-  const measure = (s: string) =>
-    font ? font.measureText(s).width : s.length * APPROX_CHAR_W;
-
-  const result: string[] = [];
-  const rawLines = (title || 'Sem título').split('\r').join('').split('\n');
-
-  for (const line of rawLines) {
-    if (line === '') {
-      result.push('');
-      continue;
-    }
-    const words = line.split(' ');
-    let currentLine = '';
-
-    for (const word of words) {
-      if (measure(word) > maxW) {
-        if (currentLine) result.push(currentLine);
-        currentLine = '';
-        
-        let buf = '';
-        for (let i = 0; i < word.length; i++) {
-          const char = word[i];
-          const next = buf + char;
-          if (measure(next) > maxW && buf.length > 0) {
-            result.push(buf);
-            buf = char;
-          } else {
-            buf = next;
-          }
-        }
-        currentLine = buf;
-        continue;
-      }
-
-      const joined = currentLine ? `${currentLine} ${word}` : word;
-      if (measure(joined) <= maxW) {
-        currentLine = joined;
-      } else {
-        result.push(currentLine);
-        currentLine = word;
-      }
-    }
-    result.push(currentLine);
-  }
-  
-  return result.length ? result : [''];
-}
-
 /** Minimum height to fit all wrapped lines without overflow */
 function minHeightForText(title: string, w: number, font: SkFont | null): number {
   'worklet';
@@ -454,64 +383,9 @@ const NodeImage = React.memo(function NodeImage({
   );
 });
 
-const MAX_LINES = 15;
-
-/** Single line of text within a node */
-const SingleLine = React.memo(function SingleLine({
-  index, allLines, font, textColor, textOpacity, node, resizeState
-}: {
-  index: number;
-  allLines: any;
-  font: SkFont;
-  textColor: string;
-  textOpacity: any;
-  node: MindMapNode;
-  resizeState: ResizeState;
-}) {
-  const x = useDerivedValue(() => {
-    'worklet';
-    const lines = allLines.value.lines || [];
-    if (!lines || index >= lines.length) return 0;
-    const lineStr = lines[index]?.text || '';
-    
-    const align = node.textAlign || 'center';
-    if (align === 'left') return H_PAD;
-    
-    const w = resizeState.resizeNodeId.value === node.id
-      ? Math.max(120, resizeState.resizeLiveW.value) : node.width;
-    
-    const lineWidth = font.measureText(lineStr).width;
-    if (align === 'center') return (w - lineWidth) / 2;
-    return w - H_PAD - lineWidth;
-  }, Platform.OS === 'web' ? [node] : undefined);
-
-  const y = useDerivedValue(() => {
-    'worklet';
-    const lines = allLines.value.lines || [];
-    return index < lines.length ? lines[index].y : 0;
-  });
-
-  const t = useDerivedValue(() => {
-    'worklet';
-    const lines = allLines.value.lines || [];
-    return index < lines.length ? lines[index].text : '';
-  });
-
-  const opacity = useDerivedValue(() => {
-    'worklet';
-    const lines = allLines.value.lines || [];
-    const visible = index < lines.length;
-    return (visible ? 1 : 0) * textOpacity.value;
-  });
-
-  return (
-    <SkiaText x={x} y={y} text={t} font={font} color={textColor} opacity={opacity} />
-  );
-});
-
 // ---------------------------------------------------------------------------
-// NodeText — rendered using Skia's JSX Text components (correct font fill)
-// Positions recompute via useDerivedValue when live size changes
+// NodeText — record the complete text in one picture, like the node shell.
+// Avoid independent animated strings/opacities for empty text slots.
 // ---------------------------------------------------------------------------
 const NodeText = React.memo(function NodeText({
   node, isDark, resizeState, font, isEditing,
@@ -524,15 +398,7 @@ const NodeText = React.memo(function NodeText({
 }) {
   const textColor = getNodeTextColor(node.depth, isDark, node.color);
 
-  // If we are editing this node inline, hide the Skia text to avoid overlap with TextInput
-  const textOpacity = useDerivedValue(() => isEditing ? 0 : 1, Platform.OS === 'web' ? [isEditing] : undefined);
-
-  /**
-   * Compute wrapped lines + Y positions as a derived value (worklet).
-   * To avoid reading .value in JSX we use a trick: render a fixed max
-   * number of SkiaText slots (up to MAX_LINES) and use opacity 0 for
-   * unused slots. Each slot reads only its own derived value.
-   */
+  // Keep wrapping reactive to live dimensions while resizing.
   const allLines = useDerivedValue(() => {
     'worklet';
     const w = resizeState.resizeNodeId.value === node.id
@@ -570,6 +436,29 @@ const NodeText = React.memo(function NodeText({
     };
   }, Platform.OS === 'web' ? [node] : undefined);
 
+  const picture = useDerivedValue(() => {
+    'worklet';
+    const w = resizeState.resizeNodeId.value === node.id
+      ? Math.max(120, resizeState.resizeLiveW.value) : node.width;
+    const h = resizeState.resizeNodeId.value === node.id
+      ? Math.max(44, resizeState.resizeLiveH.value) : node.height;
+    const recorder = Skia.PictureRecorder();
+    const canvas = recorder.beginRecording(Skia.XYWHRect(0, 0, w, h));
+    if (!isEditing) {
+      const paint = Skia.Paint();
+      paint.setAntiAlias(true);
+      paint.setColor(Skia.Color(textColor));
+      const align = node.textAlign || 'center';
+      for (const line of allLines.value.lines) {
+        const lineWidth = measureNodeText(line.text, font);
+        const x = align === 'left' ? H_PAD
+          : align === 'right' ? w - H_PAD - lineWidth : (w - lineWidth) / 2;
+        canvas.drawText(line.text, x, line.y, paint, font);
+      }
+    }
+    return recorder.finishRecordingAsPicture();
+  }, Platform.OS === 'web' ? [node, font, isEditing, textColor, allLines, resizeState] : undefined);
+
   const imgX = useDerivedValue(() => H_PAD, Platform.OS === 'web' ? [node] : undefined);
   const imgY = useDerivedValue(() => allLines.value.imageY, Platform.OS === 'web' ? [node] : undefined);
   const imgW = useDerivedValue(() => allLines.value.imageW, Platform.OS === 'web' ? [node] : undefined);
@@ -577,18 +466,7 @@ const NodeText = React.memo(function NodeText({
 
   return (
     <>
-      {Array.from({ length: MAX_LINES }).map((_, i) => (
-        <SingleLine
-          key={i}
-          index={i}
-          allLines={allLines}
-          font={font}
-          textColor={textColor}
-          textOpacity={textOpacity}
-          node={node}
-          resizeState={resizeState}
-        />
-      ))}
+      <Picture picture={picture} />
       {node.imageUri && (
         <NodeImage
           uri={node.imageUri}
