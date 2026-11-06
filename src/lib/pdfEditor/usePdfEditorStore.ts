@@ -97,6 +97,7 @@ interface PdfEditorState {
   addImage: (page: number, x: number, y: number, width: number, height: number, uri: string, origW: number, origH: number) => string;
   addDrawing: (page: number, pathData: string, strokeColor: string, strokeWidth: number) => string;
   addShape: (page: number, draft: ShapeDraft, strokeColor: string, strokeWidth: number) => string;
+  duplicateAnnotation: (id: string, position: { x: number; y: number }) => string | null;
   updateAnnotation: (id: string, updates: Partial<Omit<Annotation, 'id' | 'type' | 'page'>>) => void;
   toggleCropping: (id: string) => void;
   deleteAnnotation: (id: string) => void;
@@ -258,6 +259,18 @@ export const usePdfEditorStore = create<PdfEditorState>((set, get) => ({
     };
     set(state => ({ annotations: [...state.annotations, annotation], selectedId: id }));
     return id;
+  },
+
+  duplicateAnnotation: (id, position) => {
+    const original = get().annotations.find(annotation => annotation.id === id);
+    if (!original || original.type === 'drawing') return null;
+    get().saveHistory();
+    const copyId = generateId();
+    const copy: Annotation = { ...original, ...position, id: copyId, isCropping: false,
+      ...(original.shapeStart ? { shapeStart: { ...original.shapeStart } } : {}),
+      ...(original.shapeEnd ? { shapeEnd: { ...original.shapeEnd } } : {}) };
+    set(state => ({ annotations: [...state.annotations, copy], selectedId: copyId }));
+    return copyId;
   },
 
   updateAnnotation: (id, updates) => {

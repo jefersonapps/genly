@@ -17,6 +17,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import {
   Brush,
+  Copy,
   Circle as CircleIcon,
   RectangleHorizontal,
   Shapes,
@@ -48,6 +49,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Keyboard,
   Platform,
+  PixelRatio,
   ScrollView,
   StyleSheet,
   Text, TextInput, TouchableOpacity,
@@ -71,6 +73,8 @@ import { PdfAnnotationText } from '@/components/pdf/PdfAnnotationText';
 import { PdfShapeAnnotation } from '@/components/pdf/PdfShapeAnnotation';
 import { PdfSelectionHandle } from '@/components/pdf/PdfSelectionHandle';
 import { singlePointerPan, type PointerStates } from '@/lib/pdfEditor/singlePointerPan';
+import { duplicatePosition } from '@/lib/pdfEditor/duplicatePosition';
+import { renderedPageFrame, insertPageGeometry, type PreviewGeometry, type PreviewRect } from '@/lib/pdfEditor/previewGeometry';
 import { TEXT_LINE_HEIGHT } from '@/lib/pdfEditor/textLayout';
 import { matchesNativeTextLayout, type NativeTextLayout, type NativeTextLayouts } from '@/lib/pdfEditor/nativeTextLayout';
 import { DEFAULT_TEXT_FONT, PDF_TEXT_FONTS, type PdfTextFont } from '@/lib/pdfEditor/fonts';
@@ -117,6 +121,7 @@ interface DraggableAnnotationProps {
   onTextChange?: (id: string, text: string) => void;
   onTextBlur?: (id: string) => void;
   onNativeTextLayout: (id: string, layout: NativeTextLayout) => void;
+  onMeasuredBounds: (id: string, bounds: PreviewRect) => void;
   isDark: boolean;
   primaryColor: string;
   onUpdate: (id: string, updates: Partial<Annotation>) => void;
@@ -142,6 +147,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
     onTextChange,
     onTextBlur,
     onNativeTextLayout,
+    onMeasuredBounds,
     isDark,
     primaryColor,
     onUpdate,
@@ -187,7 +193,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
 
   const selectionBorderStyle = useAnimatedStyle(() => ({
     borderWidth: isSelected ? 2 / canvasScale.value : 0,
-    borderRadius: (annotation.type === 'text' ? 4 : 2) / canvasScale.value,
+    borderRadius: 0,
   }));
   const rotationControlStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: resizeW.value / 2 - 14 }, { translateY: -45 / canvasScale.value },
@@ -528,11 +534,11 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
   return (
     <GestureDetector gesture={combinedGesture}>
       <Animated.View
+        onLayout={({ nativeEvent: { layout } }) => onMeasuredBounds(annotation.id, layout)}
         style={[
           {
             position: 'absolute',
             backgroundColor: getBgColor(),
-            borderRadius: annotation.type === 'text' ? 4 : 2,
             overflow: 'visible',
             zIndex: (isSelected ? 1000 : 1) + index, 
           },
@@ -557,7 +563,7 @@ const DraggableAnnotation = React.memo((props: DraggableAnnotationProps) => {
         {annotation.type === 'shape' && <PdfShapeAnnotation annotation={annotation} />}
 
         {annotation.type === 'image' && (
-          <View style={{ flex: 1, overflow: 'hidden', borderRadius: 2 }}>
+          <View style={{ flex: 1, overflow: 'hidden' }}>
             <Animated.Image
               source={{ uri: annotation.content }}
               style={[{ position: 'absolute' }, imageStyle]}
@@ -1079,6 +1085,7 @@ export default function PdfEditorTool() {
   const addImage = usePdfEditorStore((s) => s.addImage);
   const addDrawing = usePdfEditorStore((s) => s.addDrawing);
   const addShape = usePdfEditorStore((s) => s.addShape);
+  const duplicateAnnotation = usePdfEditorStore((s) => s.duplicateAnnotation);
   const updateAnnotation = usePdfEditorStore((s) => s.updateAnnotation);
   const deleteAnnotation = usePdfEditorStore((s) => s.deleteAnnotation);
   const selectAnnotation = usePdfEditorStore((s) => s.selectAnnotation);
@@ -1091,6 +1098,19 @@ export default function PdfEditorTool() {
   const scale = useSharedValue(1);
   const navigationActive = useSharedValue(false);
   const nativeTextLayouts = useRef<NativeTextLayouts>({});
+  const previewGeometry = useRef<PreviewGeometry>({ pixelRatio: PixelRatio.get(), pages: {}, objects: {} });
+  const nativePageSizes = useRef<Record<number, { width: number; height: number }>>({});
+  const pageViewports = useRef<Record<number, { width: number; height: number }>>({});
+  const recordObjectBounds = useCallback((id: string, bounds: PreviewRect) => {
+    previewGeometry.current.objects[id] = bounds;
+  }, []);
+  const recordPageFrame = useCallback((page: number, view: { width: number; height: number }) => {
+    const viewport = pageViewports.current[page] || {
+      width: PixelRatio.roundToNearestPixel(view.width), height: PixelRatio.roundToNearestPixel(view.height),
+    };
+    previewGeometry.current.pages[page] = renderedPageFrame(view, viewport,
+      Platform.OS === 'android' ? nativePageSizes.current[page] : undefined, PixelRatio.get());
+  }, []);
   useEffect(() => {
     const ids = new Set(usePdfEditorStore.getState().annotations.map(annotation => annotation.id));
     for (const id of Object.keys(nativeTextLayouts.current)) if (!ids.has(id)) delete nativeTextLayouts.current[id];
@@ -1459,6 +1479,9 @@ export default function PdfEditorTool() {
       savedTranslateX.value = 0;
       savedTranslateY.value = 0;
 
+      previewGeometry.current = { pixelRatio: PixelRatio.get(), pages: {}, objects: {} };
+      nativePageSizes.current = {};
+      pageViewports.current = {};
       setPdf(uri, customUri ? 'Documento Compartilhado' : 'Novo PDF', exactPageCount, extractedFields);
       if (pages.length > 0) {
         setPagesDimensions(pages.map(p => ({ width: p.getWidth(), height: p.getHeight() })));
@@ -1496,6 +1519,9 @@ export default function PdfEditorTool() {
       
       setPdf(fileUri, 'Novo PDF em Branco', 1, []);
       setPagesDimensions([{ width: 595.28, height: 841.89 }]);
+      previewGeometry.current = { pixelRatio: PixelRatio.get(), pages: {}, objects: {} };
+      nativePageSizes.current = {};
+      pageViewports.current = {};
       
       setIsProcessing(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -1530,6 +1556,9 @@ export default function PdfEditorTool() {
       
       const newDimensions = [...pagesDimensions];
       newDimensions.splice(insertAtIndex, 0, { width: 595.28, height: 841.89 });
+      previewGeometry.current.pages = insertPageGeometry(previewGeometry.current.pages, insertAtIndex);
+      nativePageSizes.current = insertPageGeometry(nativePageSizes.current, insertAtIndex);
+      pageViewports.current = insertPageGeometry(pageViewports.current, insertAtIndex);
 
       // We use setPdf to fully replace the base PDF and trigger the re-render.
       // We must inject back our shifted annotations.
@@ -1764,6 +1793,20 @@ export default function PdfEditorTool() {
     actionSheetRef.current?.present();
   }, [selectAnnotation]);
 
+  const handleDuplicateAnnotation = useCallback(() => {
+    const original = annotations.find(annotation => annotation.id === actionAnnotationId);
+    if (!original) return;
+    const position = duplicatePosition(original, { width: pdfDisplayWidth, height: pdfDisplayHeight }, 16 / scale.value);
+    const id = duplicateAnnotation(original.id, position);
+    if (!id) return;
+    Keyboard.dismiss();
+    setEditingTextId(null);
+    setActiveTool(null);
+    lastSelectTime.current = Date.now();
+    actionSheetRef.current?.dismiss();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [annotations, actionAnnotationId, pdfDisplayWidth, pdfDisplayHeight, scale, duplicateAnnotation]);
+
   const handleToggleCrop = useCallback((id: string) => {
     usePdfEditorStore.getState().toggleCropping(id);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -1776,7 +1819,7 @@ export default function PdfEditorTool() {
     exportSheetRef.current?.dismiss();
     setIsProcessing(true);
     try {
-      const result = await exportEditedPdf(pdfUri, annotations, formFields, { width: pdfDisplayWidth, height: pdfDisplayHeight }, nativeTextLayouts.current);
+      const result = await exportEditedPdf(pdfUri, annotations, formFields, { width: pdfDisplayWidth, height: pdfDisplayHeight }, nativeTextLayouts.current, previewGeometry.current);
       if (!result) {
         dialog.show({ title: 'Erro', description: 'Falha ao exportar o PDF.' });
         return;
@@ -2026,23 +2069,34 @@ export default function PdfEditorTool() {
           {/* Stationary invisible wrapper to catch full-screen gestures without moving */}
           <View style={{ flex: 1, backgroundColor: 'transparent' }}>
             <Animated.View style={[{ flex: 1, width: viewLayout.width, height: viewLayout.height, alignItems: 'center', justifyContent: 'flex-start' }, canvasAnimatedStyle]}>
-              <View style={{ width: pdfDisplayWidth, height: pdfDisplayHeight, overflow: 'visible' }}>
+              <View style={{ width: pdfDisplayWidth, height: pdfDisplayHeight, overflow: 'visible' }}
+                onLayout={({ nativeEvent: { layout } }) => {
+                  if (layout.width <= 0 || layout.height <= 0) return;
+                  pageViewports.current[currentPage] = { width: layout.width, height: layout.height };
+                  recordPageFrame(currentPage, { width: pdfDisplayWidth, height: pdfDisplayHeight });
+                }}>
                 {/* PDF Background */}
                 <Pdf
-                  key={`pdf-${pdfUri}-${pdfDisplayWidth.toFixed(0)}-${pdfDisplayHeight.toFixed(0)}`}
+                  key={`pdf-${pdfUri}-${currentPage}-${pdfDisplayWidth.toFixed(0)}-${pdfDisplayHeight.toFixed(0)}`}
                   ref={pdfRef}
                   source={{ uri: pdfUri }}
                   // @ts-ignore - Internal prop required for singlePage mode
                   currentPage={currentPage}
                   page={currentPage + 1}
                   style={{ flex: 1 }}
-                  enablePaging={true}
+                  enablePaging={false}
+                  enableDoubleTapZoom={false}
+                  scrollEnabled={false}
                   horizontal={true}
                   fitPolicy={2}
                   singlePage={true}
                   spacing={0}
                   enableAntialiasing
                   onLoadComplete={(numberOfPages, path, dims) => {
+                    if (dims?.width > 0 && dims?.height > 0) {
+                      nativePageSizes.current[currentPage] = { width: dims.width, height: dims.height };
+                      recordPageFrame(currentPage, { width: pdfDisplayWidth, height: pdfDisplayHeight });
+                    }
                     // Only set if not already present from pdf-lib
                     const existing = usePdfEditorStore.getState().pagesDimensions;
                     if (existing.length === 0 && dims && dims.width && dims.height) {
@@ -2118,6 +2172,7 @@ export default function PdfEditorTool() {
                         onTextChange={handleInlineTextChange}
                         onTextBlur={handleInlineTextBlur}
                         onNativeTextLayout={recordNativeTextLayout}
+                        onMeasuredBounds={recordObjectBounds}
                         onSelect={handleSelect}
                         onDragEnd={handleDragEnd}
                         onResizeEnd={handleResizeEnd}
@@ -2741,15 +2796,20 @@ export default function PdfEditorTool() {
         </BottomSheet.View>
       </BottomSheet>
 
-      {/* Action Sheet (Delete) */}
+      {/* Item actions */}
       <BottomSheet
         sheetRef={actionSheetRef}
-        snapPoints={['20%']}
+        snapPoints={['35%']}
       >
         <BottomSheet.View>
           <BottomSheet.Header title="Opções do Item" />
 
           <BottomSheet.ItemGroup>
+            <BottomSheet.Item
+              icon={<Copy size={20} color={iconColor} />}
+              title="Duplicar Item"
+              onPress={handleDuplicateAnnotation}
+            />
             <BottomSheet.Item
               icon={<Trash2 size={20} color="#EF4444" />}
               iconBackgroundColor="rgba(239, 68, 68, 0.2)"

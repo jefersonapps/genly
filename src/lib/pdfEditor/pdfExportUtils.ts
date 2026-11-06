@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import {
     clip, endPath,
+    concatTransformationMatrix,
     LineCapStyle,
     LineJoinStyle,
     PDFBool,
@@ -28,6 +29,7 @@ import { layoutAnnotationText } from './textLayout';
 import { DEFAULT_TEXT_FONT, type PdfTextFont } from './fonts';
 import { shapeAnnotationPath } from './drawingTools';
 import { matchesNativeTextLayout, measuredAnnotationText, type NativeTextLayouts } from './nativeTextLayout';
+import { previewPageCorrection, renderedObjectBounds, type PreviewGeometry } from './previewGeometry';
 
 // ─── Helpers ──────────────────────────────────────────
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -72,8 +74,8 @@ export async function addBlankPageToPdf(pdfUri: string, insertAtIndex: number): 
  * Export an edited PDF by drawing annotations on top of the original.
  *
  * Coordinate mapping:
- * - `react-native-pdf` with fitPolicy=0 scales the PDF to fit the view WIDTH.
- * - Uniform scale factor: `uniformScale = pdfPageWidth / viewWidth`.
+ * - Native page bounds account for fitting, centering and physical pixel rounding.
+ * - Each page retains its own preview coordinate frame.
  * - PDF Y-axis is inverted (origin at bottom-left), so we flip Y.
  * - Images use "cover" mode with clipping to match the preview's resizeMode="cover".
  */
@@ -83,6 +85,7 @@ export async function exportEditedPdf(
   formFields: FormField[],
   viewDimensions: { width: number; height: number },
   nativeTextLayouts: NativeTextLayouts = {},
+  previewGeometry?: PreviewGeometry,
 ): Promise<string | null> {
   try {
     const pdfBase64 = await FileSystem.readAsStringAsync(pdfUri, {
@@ -219,15 +222,21 @@ export async function exportEditedPdf(
        }
     }
 
-    for (const annotation of annotations) {
+    for (const sourceAnnotation of annotations) {
+      const annotation = renderedObjectBounds(sourceAnnotation, previewGeometry?.objects[sourceAnnotation.id], previewGeometry?.pixelRatio || 1);
       const page = pages[annotation.page];
       if (!page) continue;
 
       const pdfW = page.getWidth();
       const pdfH = page.getHeight();
 
-      // Uniform scale: react-native-pdf fitPolicy=0 scales by width
-      const s = pdfW / viewDimensions.width;
+      const frame = previewGeometry?.pages[annotation.page];
+      const s = pdfW / (frame?.viewWidth || viewDimensions.width);
+      if (frame) {
+        const correction = previewPageCorrection({ width: pdfW, height: pdfH }, frame);
+        page.pushOperators(pushGraphicsState(), concatTransformationMatrix(correction.scaleX, 0, 0,
+          correction.scaleY, correction.x, correction.y));
+      }
 
       // Annotation bounds in PDF coordinates
       const annW = annotation.width * s;
@@ -257,7 +266,7 @@ export async function exportEditedPdf(
           const color = hexToRgb(annotation.fontColor || '#000000');
           const fontSize = annotation.fontSize * s;
           const snapshot = nativeTextLayouts[annotation.id];
-          const layout = matchesNativeTextLayout(annotation, snapshot)
+          const layout = matchesNativeTextLayout(sourceAnnotation, snapshot)
             ? measuredAnnotationText(annotation, snapshot) : layoutAnnotationText(annotation, annotationFont);
 
           for (const line of layout.lines) {
@@ -367,6 +376,7 @@ export async function exportEditedPdf(
       if (hasRot) {
         page.pushOperators(popGraphicsState());
       }
+      if (frame) page.pushOperators(popGraphicsState());
     }
 
     const resultBase64 = await pdfDoc.saveAsBase64({ dataUri: false });

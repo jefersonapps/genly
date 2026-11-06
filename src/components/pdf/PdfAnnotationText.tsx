@@ -38,7 +38,7 @@ export function PdfAnnotationText({ annotation, isEditing = false, inputRef, onC
           multiline allowFontScaling={false} scrollEnabled={false} textBreakStrategy="simple"
           underlineColorAndroid="transparent" caretHidden={!isEditing}
           onChangeText={onChangeText} onBlur={onBlur}
-          style={[typography, { flex: 1, textAlign: 'left', textAlignVertical: 'center' }]} />
+          style={[typography, { flex: 1, width: '100%', minWidth: 0, textAlign: 'left', textAlignVertical: 'center' }]} />
         {/* Measure only the committed width, never the live animated resize width.
             This avoids a JS layout/render/font-measurement cycle on every frame. */}
         <Text key={JSON.stringify(nativeTextLayoutKey(annotation))} accessible={false} pointerEvents="none"
