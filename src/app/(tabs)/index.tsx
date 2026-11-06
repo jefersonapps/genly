@@ -745,25 +745,34 @@ export default function HomeScreen() {
           <View className="flex-row items-center gap-4 mb-2">
             <View className="relative h-12 w-10 items-center justify-center">
               {/* Glassmorphic mini preview */}
-              <BlurView 
-                intensity={BLUR_CONFIG.miniatures.intensity}
-                tint={isDark ? 'dark' : 'light'}
-                // Removed blurTarget to avoid recursion crash on Android
-                blurMethod={BLUR_CONFIG.miniatures.blurMethod}
-                blurReductionFactor={BLUR_CONFIG.miniatures.blurReductionFactor}
-                className="absolute h-10 w-8 rounded-lg rotate-[-10deg] translate-x-[-4px] opacity-40 overflow-hidden"
-                style={{ backgroundColor: selectedLongPressGroup?.color ? `${selectedLongPressGroup.color}44` : '#6366f144' }}
-              />
-              <BlurView 
-                intensity={BLUR_CONFIG.miniatures.intensity}
-                tint={isDark ? 'dark' : 'light'}
-                blurMethod={BLUR_CONFIG.miniatures.blurMethod}
-                blurReductionFactor={BLUR_CONFIG.miniatures.blurReductionFactor}
-                className="h-10 w-8 rounded-lg items-center justify-center z-10 border border-white/20 overflow-hidden"
-                style={{ backgroundColor: selectedLongPressGroup?.color ? `${selectedLongPressGroup.color}cc` : '#6366f1cc' }}
-              >
-                <GroupIcon value={selectedLongPressGroup?.emoji} size={24} color={isDark ? "#fafafa" : "#18181b"} />
-              </BlurView>
+              <View style={{
+                position: 'absolute', width: 32, height: 40, borderRadius: 8, overflow: 'hidden',
+                transform: [{ translateX: -4 }, { rotate: '-10deg' }], opacity: 0.4,
+                backgroundColor: selectedLongPressGroup?.color ? `${selectedLongPressGroup.color}44` : '#6366f144',
+              }}>
+                <BlurView
+                  intensity={BLUR_CONFIG.miniatures.intensity}
+                  tint={isDark ? 'dark' : 'light'}
+                  blurMethod={BLUR_CONFIG.miniatures.blurMethod}
+                  blurReductionFactor={BLUR_CONFIG.miniatures.blurReductionFactor}
+                  style={{ flex: 1 }}
+                />
+              </View>
+              <View style={{
+                width: 32, height: 40, borderRadius: 8, overflow: 'hidden', zIndex: 10,
+                borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)',
+                backgroundColor: selectedLongPressGroup?.color ? `${selectedLongPressGroup.color}cc` : '#6366f1cc',
+              }}>
+                <BlurView
+                  intensity={BLUR_CONFIG.miniatures.intensity}
+                  tint={isDark ? 'dark' : 'light'}
+                  blurMethod={BLUR_CONFIG.miniatures.blurMethod}
+                  blurReductionFactor={BLUR_CONFIG.miniatures.blurReductionFactor}
+                  style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <GroupIcon value={selectedLongPressGroup?.emoji} size={24} color={isDark ? "#fafafa" : "#18181b"} />
+                </BlurView>
+              </View>
             </View>
             <Text className="font-sans-bold text-xl text-on-surface flex-1" numberOfLines={1}>
               {selectedLongPressGroup?.name}
