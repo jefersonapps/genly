@@ -75,6 +75,7 @@ import { PdfSelectionHandle } from '@/components/pdf/PdfSelectionHandle';
 import { singlePointerPan, type PointerStates } from '@/lib/pdfEditor/singlePointerPan';
 import { duplicatePosition } from '@/lib/pdfEditor/duplicatePosition';
 import { renderedPageFrame, insertPageGeometry, type PreviewGeometry, type PreviewRect } from '@/lib/pdfEditor/previewGeometry';
+import { createPageNavigation, INITIAL_PAGE_NAVIGATION, type PageNavigationState } from '@/lib/pdfEditor/pageNavigation';
 import { TEXT_LINE_HEIGHT } from '@/lib/pdfEditor/textLayout';
 import { matchesNativeTextLayout, type NativeTextLayout, type NativeTextLayouts } from '@/lib/pdfEditor/nativeTextLayout';
 import { DEFAULT_TEXT_FONT, PDF_TEXT_FONTS, type PdfTextFont } from '@/lib/pdfEditor/fonts';
@@ -1121,9 +1122,7 @@ export default function PdfEditorTool() {
   }, []);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
-  const savedScale = useSharedValue(1);
-  const savedTranslateX = useSharedValue(0);
-  const savedTranslateY = useSharedValue(0);
+  const navigationGestureState = useSharedValue<PageNavigationState>({ ...INITIAL_PAGE_NAVIGATION });
 
   // PDF view dimensions (the rendered area)
   const [viewLayout, setViewLayout] = useState({ width: SCREEN_W, height: SCREEN_H - 200 });
@@ -1475,9 +1474,7 @@ export default function PdfEditorTool() {
       scale.value = 1;
       translateX.value = 0;
       translateY.value = 0;
-      savedScale.value = 1;
-      savedTranslateX.value = 0;
-      savedTranslateY.value = 0;
+      navigationGestureState.set({ ...INITIAL_PAGE_NAVIGATION });
 
       previewGeometry.current = { pixelRatio: PixelRatio.get(), pages: {}, objects: {} };
       nativePageSizes.current = {};
@@ -1493,7 +1490,7 @@ export default function PdfEditorTool() {
       console.error('Import PDF error:', e);
       dialog.show({ title: 'Erro', description: 'Não foi possível importar o PDF.' });
     }
-  }, [setPdf, setPagesDimensions, setIsProcessing, scale, translateX, translateY, savedScale, savedTranslateX, savedTranslateY, dialog]);
+  }, [setPdf, setPagesDimensions, setIsProcessing, scale, translateX, translateY, navigationGestureState, dialog]);
 
   useEffect(() => {
     if (sharedUri) {
@@ -1513,9 +1510,7 @@ export default function PdfEditorTool() {
       scale.value = 1;
       translateX.value = 0;
       translateY.value = 0;
-      savedScale.value = 1;
-      savedTranslateX.value = 0;
-      savedTranslateY.value = 0;
+      navigationGestureState.set({ ...INITIAL_PAGE_NAVIGATION });
       
       setPdf(fileUri, 'Novo PDF em Branco', 1, []);
       setPagesDimensions([{ width: 595.28, height: 841.89 }]);
@@ -1530,7 +1525,7 @@ export default function PdfEditorTool() {
       console.error('Create blank PDF error:', e);
       dialog.show({ title: 'Erro', description: 'Não foi possível criar o PDF.' });
     }
-  }, [setIsProcessing, scale, translateX, translateY, savedScale, savedTranslateX, savedTranslateY, setPdf, setPagesDimensions, dialog]);
+  }, [setIsProcessing, scale, translateX, translateY, navigationGestureState, setPdf, setPagesDimensions, dialog]);
 
   const handleAddBlankPage = useCallback(async (position: 'before' | 'after') => {
     if (!pdfUri) return;
@@ -1581,9 +1576,7 @@ export default function PdfEditorTool() {
       scale.value = 1;
       translateX.value = 0;
       translateY.value = 0;
-      savedScale.value = 1;
-      savedTranslateX.value = 0;
-      savedTranslateY.value = 0;
+      navigationGestureState.set({ ...INITIAL_PAGE_NAVIGATION });
       
       setIsProcessing(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -1592,7 +1585,7 @@ export default function PdfEditorTool() {
       console.error('Add blank page error:', e);
       dialog.show({ title: 'Erro', description: 'Não foi possível adicionar a nova página.' });
     }
-  }, [pdfUri, currentPage, annotations, formFields, pagesDimensions, setIsProcessing, scale, translateX, translateY, savedScale, savedTranslateX, savedTranslateY, dialog]);
+  }, [pdfUri, currentPage, annotations, formFields, pagesDimensions, setIsProcessing, scale, translateX, translateY, navigationGestureState, dialog]);
 
   // ─── Add Annotation ───────────────────────────────
   const handleAddText = useCallback(() => {
@@ -1860,32 +1853,10 @@ export default function PdfEditorTool() {
     }
   }, [pdfUri, annotations, formFields, pdfDisplayWidth, pdfDisplayHeight, dialog]);
 
-  // ─── Canvas Gestures ──────────────────────────
-  const pinchGesture = Gesture.Pinch()
-    .onTouchesDown(event => { navigationActive.set(event.numberOfTouches > 1); })
-    .onTouchesUp(event => { if (event.numberOfTouches === 0) navigationActive.set(false); })
-    .onStart(() => {
-      navigationActive.set(true);
-      savedScale.value = scale.value;
-    })
-    .onUpdate((e) => {
-      scale.value = Math.max(0.5, Math.min(5, savedScale.value * e.scale));
-    });
-
-  // Page navigation always uses two fingers; one finger is reserved for editing.
-  const panGesture = Gesture.Pan()
-    .minPointers(2)
-    .onTouchesDown(event => { navigationActive.set(event.numberOfTouches > 1); })
-    .onTouchesUp(event => { if (event.numberOfTouches === 0) navigationActive.set(false); })
-    .onStart(() => {
-      navigationActive.set(true);
-      savedTranslateX.value = translateX.value;
-      savedTranslateY.value = translateY.value;
-    })
-    .onUpdate((e) => {
-      translateX.value = savedTranslateX.value + e.translationX;
-      translateY.value = savedTranslateY.value + e.translationY;
-    });
+  // The pinch midpoint and page pan share one coordinated transform.
+  const { pinchGesture, panGesture } = createPageNavigation({
+    scale, translateX, translateY, navigationActive, state: navigationGestureState,
+  });
 
   // Single tap deselects
   const backgroundTapGesture = Gesture.Tap()
@@ -1904,9 +1875,7 @@ export default function PdfEditorTool() {
       scale.value = 1;
       translateX.value = 0;
       translateY.value = 0;
-      savedScale.value = 1;
-      savedTranslateX.value = 0;
-      savedTranslateY.value = 0;
+      navigationGestureState.set({ ...INITIAL_PAGE_NAVIGATION });
     });
 
   const canvasGesture = Gesture.Race(
@@ -2068,7 +2037,7 @@ export default function PdfEditorTool() {
         <GestureDetector gesture={canvasGesture}>
           {/* Stationary invisible wrapper to catch full-screen gestures without moving */}
           <View style={{ flex: 1, backgroundColor: 'transparent' }}>
-            <Animated.View style={[{ flex: 1, width: viewLayout.width, height: viewLayout.height, alignItems: 'center', justifyContent: 'flex-start' }, canvasAnimatedStyle]}>
+            <Animated.View style={[{ flex: 1, width: viewLayout.width, height: viewLayout.height, alignItems: 'center', justifyContent: 'flex-start', transformOrigin: 'left top' }, canvasAnimatedStyle]}>
               <View style={{ width: pdfDisplayWidth, height: pdfDisplayHeight, overflow: 'visible' }}
                 onLayout={({ nativeEvent: { layout } }) => {
                   if (layout.width <= 0 || layout.height <= 0) return;
